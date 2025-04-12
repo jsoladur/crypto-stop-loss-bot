@@ -25,7 +25,7 @@ class TrailingStopLostTaskService(AbstractTaskService):
     @override
     async def run(self) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:
-            opened_sell_orders = await self._bit2me_remote_service.get_orders(
+            opened_sell_orders = await self._bit2me_remote_service.get_pending_orders(
                 side="sell", client=client
             )
             for open_sell_order in opened_sell_orders:
