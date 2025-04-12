@@ -42,6 +42,7 @@ class TrailingStopLostTaskService(AbstractTaskService):
             )
             global_tickers_by_symbol: dict[str, Bit2MeTickersDto] = {}
             for open_sell_order in opened_sell_orders:
+                logger.info(f"Supervising order {repr(open_sell_order)}")
                 if open_sell_order.symbol not in global_tickers_by_symbol:
                     global_tickers_by_symbol[
                         open_sell_order.symbol
@@ -53,6 +54,9 @@ class TrailingStopLostTaskService(AbstractTaskService):
                     1 - self._trailing_stop_loss_percent
                 )
                 if open_sell_order.stop_price < new_stop_price:
+                    logger.info(
+                        f"Updating order {repr(open_sell_order)} to new stop price {new_stop_price}"
+                    )
                     await self._bit2me_remote_service.cancel_order_by_id(
                         open_sell_order.id, client=client
                     )
