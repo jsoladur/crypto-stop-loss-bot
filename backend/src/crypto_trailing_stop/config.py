@@ -2,6 +2,7 @@ from __future__ import annotations
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pydantic import AnyUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from crypto_trailing_stop.commons.constants import TRAILING_STOP_LOSS_DEFAULT_PERCENT
 
 _configuration_properties: ConfigurationProperties | None = None
 _scheduler: AsyncIOScheduler | None = None
@@ -20,6 +21,8 @@ class ConfigurationProperties(BaseSettings):
     bit2me_api_base_url: AnyUrl
     bit2me_api_key: str
     bit2me_api_secret: str
+    # Trailing stop loss configuration
+    trailing_stop_loss_percent: float | int = TRAILING_STOP_LOSS_DEFAULT_PERCENT
     # Jobs configuration
     job_interval_seconds: int = 5
 

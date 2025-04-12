@@ -28,7 +28,7 @@ class AbstractHttpRemoteAsyncService(ABC):
         Returns:
             Response: httpx.Response instance
         """
-        params, headers = await self._apply_interceptor(
+        params, headers = await self._apply_request_interceptor(
             method=method, url=url, params=params, headers=headers, body=body
         )
         if client:  # pragma: no cover
@@ -50,9 +50,17 @@ class AbstractHttpRemoteAsyncService(ABC):
                     json=body,
                     **kwargs,
                 )
+        response = await self._apply_response_interceptor(
+            method=method,
+            url=url,
+            params=params,
+            headers=headers,
+            body=body,
+            response=response,
+        )
         return response
 
-    async def _apply_interceptor(
+    async def _apply_request_interceptor(
         self,
         *,
         method: str = "GET",
@@ -68,13 +76,37 @@ class AbstractHttpRemoteAsyncService(ABC):
             url (URL | str, optional): URL to call. Defaults to "/".
             params (dict[str, Any] | None, optional): Params to pass. Defaults to {}.
             headers (dict[str, Any] | None, optional): Headers to pass. Defaults to {}.
-            json (Any | None, optional): JSON to pass. Defaults to None.
+            json (Any | None, optional): Json paylaod as a Http Request body. Defaults to None.
 
         Returns:
             tuple[str, URL | str, dict[str, Any] | None, dict[str, Any] | None]:
                 tuple of params and headers
         """
         return params, headers
+
+    async def _apply_response_interceptor(
+        self,
+        *,
+        method: str = "GET",
+        url: URL | str = "/",
+        params: dict[str, Any] | None = {},
+        headers: dict[str, Any] | None = {},
+        body: Any | None = None,
+        response: Response,
+    ) -> Response:
+        """
+        Method to apply an interceptor to the given response
+        Args:
+            method (str, optional): HTTP method. Defaults to "GET".
+            url (URL | str, optional): URL to call. Defaults to "/".
+            params (dict[str, Any] | None, optional): Params to pass. Defaults to {}.
+            headers (dict[str, Any] | None, optional): Headers to pass. Defaults to {}.
+            json (Any | None, optional): Json paylaod as a Http Request body. Defaults to None.
+            response (Response): HTTP response. Defaults to "GET".
+        Returns:
+            Response: HTTP response
+        """
+        return response
 
     @abstractmethod
     async def get_http_client(self) -> AsyncClient:
