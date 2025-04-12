@@ -37,12 +37,18 @@ This project provides a backend service that implements trailing stop loss funct
     # CORS enabled
     CORS_ENABLED=false
     # Bit2Me API configuration
-    bit2me_api_base_url=
-    bit2me_api_key=
-    bit2me_api_secret=
+    BIT2ME_API_BASE_URL=
+    BIT2ME_API_KEY=
+    BIT2ME_API_SECRET=
    ```
 
 6. Run the service:
    ```
    task start
    ```  
+
+## Project Structure
+
+The backend follows Clean Architecture principles, organizing code into layers:
+
+...

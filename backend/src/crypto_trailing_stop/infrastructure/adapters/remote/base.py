@@ -1,10 +1,10 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from typing import Any
 
 from httpx import URL, AsyncClient, Response
 
 
-class AbstractHttpRemoteAsyncService(metaclass=ABCMeta):
+class AbstractHttpRemoteAsyncService(ABC):
     async def _perform_http_request(
         self,
         *,
@@ -26,7 +26,7 @@ class AbstractHttpRemoteAsyncService(metaclass=ABCMeta):
         Returns:
             Response: httpx.Response instance
         """
-        method, url, params, headers = await self._apply_interceptor(
+        params, headers = await self._apply_interceptor(
             method=method, url=url, params=params, headers=headers
         )
         if client:  # pragma: no cover
@@ -54,10 +54,13 @@ class AbstractHttpRemoteAsyncService(metaclass=ABCMeta):
             method (str, optional): HTTP method. Defaults to "GET".
             url (URL | str, optional): URL to call. Defaults to "/".
             params (dict[str, Any] | None, optional): Params to pass. Defaults to {}.
+            headers (dict[str, Any] | None, optional): Headers to pass. Defaults to {}.
 
-        return method, url, params, headers
+        Returns:
+            tuple[str, URL | str, dict[str, Any] | None, dict[str, Any] | None]:
+                tuple of params and headers
         """
-        return method, url, params, headers
+        return params, headers
 
     @abstractmethod
     async def get_http_client(self) -> AsyncClient:

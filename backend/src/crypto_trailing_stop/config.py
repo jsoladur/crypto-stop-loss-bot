@@ -19,6 +19,7 @@ class ConfigurationProperties(BaseSettings):
     # Bit2Me API configuration
     bit2me_api_base_url: AnyUrl
     bit2me_api_key: str
+    bit2me_api_secret: str
     # Jobs configuration
     job_interval_seconds: int = 5
 
