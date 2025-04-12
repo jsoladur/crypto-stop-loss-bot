@@ -12,6 +12,7 @@ class AbstractHttpRemoteAsyncService(ABC):
         url: URL | str = "/",
         params: dict[str, Any] | None = {},
         headers: dict[str, Any] | None = {},
+        body: Any | None = None,
         client: AsyncClient = None,
         **kwargs,
     ) -> Response:
@@ -22,21 +23,32 @@ class AbstractHttpRemoteAsyncService(ABC):
             url (URL | str, optional): URL to call. Defaults to "/".
             params (dict[str, Any] | None, optional): Params to pass. Defaults to {}.
             headers (dict[str, Any] | None, optional): Headers to pass. Defaults to {}.
+            body (Any | None, optional): JSON to pass. Defaults to None.
             client (AsyncClient, optional): AsyncClient instance. Defaults to None.
         Returns:
             Response: httpx.Response instance
         """
         params, headers = await self._apply_interceptor(
-            method=method, url=url, params=params, headers=headers
+            method=method, url=url, params=params, headers=headers, body=body
         )
         if client:  # pragma: no cover
             response = await client.request(
-                method=method, url=url, params=params, headers=headers, **kwargs
+                method=method,
+                url=url,
+                params=params,
+                headers=headers,
+                json=body,
+                **kwargs,
             )
         else:
             async with await self.get_http_client() as client:
                 response = await client.request(
-                    method=method, url=url, params=params, headers=headers, **kwargs
+                    method=method,
+                    url=url,
+                    params=params,
+                    headers=headers,
+                    json=body,
+                    **kwargs,
                 )
         return response
 
@@ -47,6 +59,7 @@ class AbstractHttpRemoteAsyncService(ABC):
         url: URL | str = "/",
         params: dict[str, Any] | None = {},
         headers: dict[str, Any] | None = {},
+        body: Any | None = None,
     ) -> tuple[str, URL | str, dict[str, Any] | None, dict[str, Any] | None]:
         """
         Method to apply an interceptor to the given request
@@ -55,6 +68,7 @@ class AbstractHttpRemoteAsyncService(ABC):
             url (URL | str, optional): URL to call. Defaults to "/".
             params (dict[str, Any] | None, optional): Params to pass. Defaults to {}.
             headers (dict[str, Any] | None, optional): Headers to pass. Defaults to {}.
+            json (Any | None, optional): JSON to pass. Defaults to None.
 
         Returns:
             tuple[str, URL | str, dict[str, Any] | None, dict[str, Any] | None]:

@@ -15,9 +15,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     async def get_sell_orders(
         self, *, client: AsyncClient | None = None
     ) -> dict[str, Any]:
-        response = await self._perform_http_request(
-            url="/api/v1/orders",
-        )
+        response = await self._perform_http_request(url="/api/v1/orders", client=client)
         response.raise_for_status()
         json_response = response.json()
         return json_response

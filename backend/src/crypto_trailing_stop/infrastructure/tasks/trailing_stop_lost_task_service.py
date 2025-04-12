@@ -19,13 +19,14 @@ class TrailingStopLostTaskService(AbstractTaskService):
             func=self.run,
             trigger="interval",
             seconds=self._configuration_properties.job_interval_seconds,
+            coalesce=True,
         )
 
     @override
     async def run(self) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:
-            opened_sell_orders = await self._bit2me_remote_service.get_sell_orders(
-                client=client
+            opened_sell_orders = await self._bit2me_remote_service.get_orders(
+                side="sell", client=client
             )
             for open_sell_order in opened_sell_orders:
                 logger.info(f"open_sell_order: {open_sell_order}")
