@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -9,6 +10,8 @@ from crypto_trailing_stop.infrastructure.tasks import TaskManager
 from crypto_trailing_stop.interfaces.controllers.health_controller import (
     router as health_router,
 )
+
+logging.basicConfig(level=logging.INFO)
 
 
 @asynccontextmanager

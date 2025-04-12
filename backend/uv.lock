@@ -108,6 +108,7 @@ dependencies = [
     { name = "httpx" },
     { name = "pydantic-settings" },
     { name = "pydash" },
+    { name = "uvicorn" },
 ]
 
 [package.dev-dependencies]
@@ -129,6 +130,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },
     { name = "pydash", specifier = ">=8.0.5" },
+    { name = "uvicorn", specifier = ">=0.34.0" },
 ]
 
 [package.metadata.requires-dev]
