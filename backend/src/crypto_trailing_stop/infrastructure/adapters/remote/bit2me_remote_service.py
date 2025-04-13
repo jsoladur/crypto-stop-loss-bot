@@ -1,6 +1,6 @@
 import time
 from crypto_trailing_stop.config import get_configuration_properties
-from httpx import AsyncClient, Response
+from httpx import AsyncClient, Response, Timeout
 from typing import Any
 from crypto_trailing_stop.infrastructure.adapters.remote.base import (
     AbstractHttpRemoteAsyncService,
@@ -156,7 +156,9 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
 
     async def get_http_client(self) -> AsyncClient:
         return AsyncClient(
-            base_url=self._base_url, headers={"X-API-KEY": self._api_key}
+            base_url=self._base_url,
+            headers={"X-API-KEY": self._api_key},
+            timeout=Timeout(10, connect=5, read=60),
         )
 
     async def _generate_api_signature(

@@ -13,6 +13,8 @@ from crypto_trailing_stop.interfaces.controllers.health_controller import (
 
 logging.basicConfig(level=logging.INFO)
 
+app: FastAPI | None = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -20,15 +22,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
 
-app = FastAPI(lifespan=lifespan)
-configuration_properties = get_configuration_properties()
-if configuration_properties.cors_enabled:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-        expose_headers=["*"],
-    )
-app.include_router(health_router)
+def main() -> FastAPI:
+    global app
+    if app is None:
+        # Create FastAPI app with lifespan context manager
+        # to initialize TaskManager
+        # and clean up resources on shutdown
+        # (if needed)
+        app = FastAPI(lifespan=lifespan)
+        configuration_properties = get_configuration_properties()
+        if configuration_properties.cors_enabled:
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origins=["*"],
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+                expose_headers=["*"],
+            )
+        app.include_router(health_router)
+    return app
+
+
+app = main()

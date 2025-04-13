@@ -18,13 +18,15 @@ dependencies = [
 ]
 
 [tool.taskipy.tasks]
-start = "fastapi dev src/crypto_trailing_stop/main.py"
+start = "fastapi dev src/crypto_trailing_stop/main.py --app app"
 test = "pytest -x --log-cli-level=INFO"
 lint = "pre-commit install && pre-commit run --all"
 
 
 [dependency-groups]
 dev = [
+    "asgi-lifespan>=2.1.0",
+    "faker>=37.1.0",
     "pre-commit>=4.2.0",
     "pytest>=8.3.5",
     "pytest-asyncio>=0.26.0",
@@ -40,4 +42,9 @@ crypto-trailing-stop = "crypto_trailing_stop:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+log_cli_level = "INFO"
+asyncio_mode = "auto"
+python_functions = "should_* test_*"
 
