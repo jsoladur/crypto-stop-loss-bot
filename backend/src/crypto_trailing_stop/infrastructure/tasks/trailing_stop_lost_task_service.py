@@ -72,3 +72,7 @@ class TrailingStopLostTaskService(AbstractTaskService):
                         client=client,
                     )
                     logger.info(f"New Order has been created with id = {new_order.id}")
+                else:
+                    logger.info(
+                        f"Order {repr(open_sell_order)} is still valid, no update needed."
+                    )

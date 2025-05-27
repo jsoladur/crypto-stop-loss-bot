@@ -24,7 +24,7 @@ class ConfigurationProperties(BaseSettings):
     # Trailing stop loss configuration
     trailing_stop_loss_percent: float | int = TRAILING_STOP_LOSS_DEFAULT_PERCENT
     # Jobs configuration
-    job_interval_seconds: int = 5
+    job_interval_seconds: int = 10
 
 
 def get_configuration_properties() -> ConfigurationProperties:
