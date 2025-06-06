@@ -49,7 +49,10 @@ class TrailingStopLostTaskService(AbstractTaskService):
             )
             global_tickers_by_symbol: dict[str, Bit2MeTickersDto] = {}
             for open_sell_order in opened_sell_orders:
-                logger.info(f"Supervising order {repr(open_sell_order)}")
+                number_of_digits_in_price = NUMBER_OF_DIGITS_IN_PRICE_BY_SYMBOL.get(
+                    open_sell_order.symbol,
+                    2,
+                )
                 if open_sell_order.symbol not in global_tickers_by_symbol:
                     global_tickers_by_symbol[
                         open_sell_order.symbol
@@ -57,16 +60,16 @@ class TrailingStopLostTaskService(AbstractTaskService):
                         open_sell_order.symbol, client=client
                     )
                 tickers_by_symbol = global_tickers_by_symbol[open_sell_order.symbol]
-                new_stop_price = tickers_by_symbol.close * (
-                    1 - self._trailing_stop_loss_percent
+                new_stop_price = round(
+                    tickers_by_symbol.close * (1 - self._trailing_stop_loss_percent),
+                    ndigits=number_of_digits_in_price,
+                )
+                logger.info(
+                    f"Supervising order {repr(open_sell_order)}: Looking for new stop price {new_stop_price}"
                 )
                 if open_sell_order.stop_price < new_stop_price:
                     logger.info(
-                        f"Updating order {repr(open_sell_order)} to new stop price {new_stop_price}"
-                    )
-                    number_of_digits_in_price = NUMBER_OF_DIGITS_IN_PRICE_BY_SYMBOL.get(
-                        open_sell_order.symbol,
-                        2,
+                        f"Updating order {repr(open_sell_order)} to new stop price {new_stop_price} {open_sell_order.symbol}."
                     )
                     await self._bit2me_remote_service.cancel_order_by_id(
                         open_sell_order.id, client=client
@@ -84,9 +87,7 @@ class TrailingStopLostTaskService(AbstractTaskService):
                                 )
                             ),
                             amount=str(open_sell_order.order_amount),
-                            stop_price=str(
-                                round(new_stop_price, ndigits=number_of_digits_in_price)
-                            ),
+                            stop_price=str(new_stop_price),
                         ),
                         client=client,
                     )
