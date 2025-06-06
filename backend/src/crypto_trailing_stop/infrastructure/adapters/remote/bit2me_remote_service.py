@@ -5,6 +5,7 @@ from typing import Any
 from crypto_trailing_stop.infrastructure.adapters.remote.base import (
     AbstractHttpRemoteAsyncService,
 )
+from enum import Enum
 from urllib.parse import urlencode
 from pydantic import RootModel
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
@@ -69,7 +70,11 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         status = (
             status if isinstance(status, (list, set, tuple, frozenset)) else [status]
         )
-        params = {}
+        params = {"direction": "desc"}
+        if status:
+            params["status_in"] = ",".join(
+                [s.value if isinstance(s, Enum) else str(s) for s in status]
+            )
         if side:
             params["side"] = side
         if order_type:
@@ -82,8 +87,6 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         orders: list[Bit2MeOrderDto] = (
             RootModel[list[Bit2MeOrderDto]].model_validate_json(response.content).root
         )
-        if status:
-            orders = [order for order in orders if order.status in status]
         return orders
 
     async def create_order(
