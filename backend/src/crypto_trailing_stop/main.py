@@ -1,24 +1,43 @@
 import logging
+import sys
+from os import path, listdir
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.config import get_configuration_properties, get_dispacher
 from crypto_trailing_stop.infrastructure.tasks import TaskManager
 from crypto_trailing_stop.interfaces.controllers.health_controller import (
     router as health_router,
 )
 
-logging.basicConfig(level=logging.INFO)
+from aiogram import Bot
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
+import importlib
+
+logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+
 
 app: FastAPI | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    # Background task manager initialization
     TaskManager()
+    # Telegram bot initialization
+    # Initialize Bot instance with default bot properties which will be passed to all API calls
+    configuration_properties = get_configuration_properties()
+    bot = Bot(
+        token=configuration_properties.telegram_bot_token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
+    # And the run events dispatching
+    dp = get_dispacher()
+    await dp.start_polling(bot)
     yield
 
 
@@ -41,7 +60,27 @@ def main() -> FastAPI:
                 expose_headers=["*"],
             )
         app.include_router(health_router)
+        # Include other routers here
+        # e.g., app.include_router(other_router)
+
+        # Load Telegram commands dynamically
+        _load_telegram_commands()
     return app
+
+
+def _load_telegram_commands():
+    telegram_modules = path.join(path.dirname(__file__), "interfaces", "telegram")
+    for filename in listdir(telegram_modules):
+        if filename.endswith(".py") and filename != "__init__.py":
+            module_name = f"crypto_trailing_stop.interfaces.telegram.{filename[:-3]}"
+            try:
+                importlib.import_module(
+                    module_name, package=f"{__package__}.interfaces.telegram"
+                )
+            except ModuleNotFoundError:
+                logging.warning(
+                    f"Module {module_name} not found. Skipping dynamic import."
+                )
 
 
 app = main()
