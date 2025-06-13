@@ -68,19 +68,25 @@ def main() -> FastAPI:
     return app
 
 
-def _load_telegram_commands():
-    telegram_modules = path.join(path.dirname(__file__), "interfaces", "telegram")
-    for filename in listdir(telegram_modules):
-        if filename.endswith(".py") and filename != "__init__.py":
-            module_name = f"crypto_trailing_stop.interfaces.telegram.{filename[:-3]}"
-            try:
-                importlib.import_module(
-                    module_name, package=f"{__package__}.interfaces.telegram"
+def _load_telegram_commands() -> None:
+    for layer_name in ["commands", "callbacks"]:
+        _load_telegram_layer(layer_name)
+
+
+def _load_telegram_layer(layer_name: str) -> None:
+    folder = path.join(path.dirname(__file__), "interfaces", "telegram", layer_name)
+    if path.exists(folder) and path.isdir(folder):
+        for filename in listdir(folder):
+            if filename.endswith(".py") and filename != "__init__.py":
+                module_name = (
+                    f"{__package__}.interfaces.telegram.{layer_name}.{filename[:-3]}"
                 )
-            except ModuleNotFoundError:
-                logging.warning(
-                    f"Module {module_name} not found. Skipping dynamic import."
-                )
+                try:
+                    importlib.import_module(module_name)
+                except ModuleNotFoundError:
+                    logging.warning(
+                        f"Module {module_name} not found. Skipping dynamic import."
+                    )
 
 
 app = main()
