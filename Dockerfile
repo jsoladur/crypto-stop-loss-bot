@@ -1,4 +1,4 @@
-FROM python:3.13.3-slim-bullseye as base
+FROM python:3.13.5-slim-bullseye as base
 WORKDIR /app
 ENV \
     PYTHONDONTWRITEBYTECODE=1 \
