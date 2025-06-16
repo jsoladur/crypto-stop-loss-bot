@@ -4,6 +4,8 @@ import asyncio
 from os import path, listdir
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from starlette.middleware.sessions import SessionMiddleware
+
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -83,10 +85,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 def _boostrap_app() -> None:
     global app
     # Create FastAPI app with lifespan context manager
+    configuration_properties = get_configuration_properties()
     # to initialize TaskManager
     # and clean up resources on shutdown
     # (if needed)
     app = FastAPI(lifespan=lifespan)
+    app.add_middleware(
+        SessionMiddleware, secret_key=configuration_properties.session_secret_key
+    )
     configuration_properties = get_configuration_properties()
     if configuration_properties.cors_enabled:
         app.add_middleware(
