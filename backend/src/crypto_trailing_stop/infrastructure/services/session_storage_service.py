@@ -1,5 +1,5 @@
 from aiogram.fsm.context import FSMContext
-from backend.src.crypto_trailing_stop.infrastructure.services.enums import (
+from crypto_trailing_stop.infrastructure.services.enums import (
     SessionKeysEnum,
 )
 

@@ -18,6 +18,9 @@ class ConfigurationProperties(BaseSettings):
         validate_default=False,
         extra="allow",
     )
+    # Application configuration
+    background_tasks_enabled: bool = True
+    public_domain: str = "http://localhost:8000"
     # CORS enabled
     cors_enabled: bool = False
     # Telegram bot token
@@ -26,6 +29,9 @@ class ConfigurationProperties(BaseSettings):
     bit2me_api_base_url: AnyUrl
     bit2me_api_key: str
     bit2me_api_secret: str
+    # Google OAuth configuration
+    google_oauth_client_id: str
+    google_oauth_client_secret: str
     # Trailing stop loss configuration
     trailing_stop_loss_percent: float | int = TRAILING_STOP_LOSS_DEFAULT_PERCENT
     # Jobs configuration

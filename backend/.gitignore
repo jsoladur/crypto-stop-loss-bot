@@ -3,6 +3,7 @@
 
 ### dotenv ###
 .env
+.env.docker-compose
 
 ### macOS ###
 # General
