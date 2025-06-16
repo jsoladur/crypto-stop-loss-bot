@@ -1,5 +1,6 @@
 import logging
 import sys
+import asyncio
 from os import path, listdir
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -7,7 +8,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from crypto_trailing_stop.config import get_configuration_properties, get_dispacher
+from crypto_trailing_stop.config import (
+    get_configuration_properties,
+    get_dispacher,
+    get_scheduler,
+)
 from crypto_trailing_stop.infrastructure.tasks import TaskManager
 from crypto_trailing_stop.interfaces.controllers.health_controller import (
     router as health_router,
@@ -61,36 +66,51 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     # And the run events dispatching
     dp = get_dispacher()
-    await dp.start_polling(bot)
+    scheduler = get_scheduler()
+    start_polling_task = asyncio.create_task(dp.start_polling(bot))
+    if configuration_properties.background_tasks_enabled:
+        scheduler.start()
+
     yield
+
+    # Cleanup on shutdown
+    await dp.stop_polling()
+    await start_polling_task
+    if configuration_properties.background_tasks_enabled:
+        scheduler.shutdown()
+
+
+def _boostrap_app() -> None:
+    global app
+    # Create FastAPI app with lifespan context manager
+    # to initialize TaskManager
+    # and clean up resources on shutdown
+    # (if needed)
+    app = FastAPI(lifespan=lifespan)
+    configuration_properties = get_configuration_properties()
+    if configuration_properties.cors_enabled:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+            expose_headers=["*"],
+        )
+    app.include_router(health_router)
+    app.include_router(login_router)
+    # Include other routers here
+    # e.g., app.include_router(other_router)
+
+    # Load Telegram commands dynamically
+    _load_telegram_commands()
 
 
 def main() -> FastAPI:
-    global app
     if app is None:
-        # Create FastAPI app with lifespan context manager
-        # to initialize TaskManager
-        # and clean up resources on shutdown
-        # (if needed)
-        app = FastAPI(lifespan=lifespan)
-        configuration_properties = get_configuration_properties()
-        if configuration_properties.cors_enabled:
-            app.add_middleware(
-                CORSMiddleware,
-                allow_origins=["*"],
-                allow_credentials=True,
-                allow_methods=["*"],
-                allow_headers=["*"],
-                expose_headers=["*"],
-            )
-        app.include_router(health_router)
-        app.include_router(login_router)
-        # Include other routers here
-        # e.g., app.include_router(other_router)
-
-        # Load Telegram commands dynamically
-        _load_telegram_commands()
+        _boostrap_app()
     return app
 
 
+# Initialize the FastAPI app
 app = main()

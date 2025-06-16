@@ -8,3 +8,8 @@ class SessionStorageService:
     async def is_user_logged(self, state: FSMContext) -> bool:
         data = await state.get_data()
         return SessionKeysEnum.USER_CONTEXT.value in data
+
+    async def perform_logout(self, state: FSMContext) -> bool:
+        data = await state.get_data()
+        if SessionKeysEnum.USER_CONTEXT.value in data:
+            await state.clear()
