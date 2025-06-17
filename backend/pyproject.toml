@@ -1,6 +1,6 @@
 [project]
 name = "crypto-trailing-stop"
-version = "0.1.0b2"
+version = "0.1.0b3"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -35,6 +35,7 @@ dev = [
     "pre-commit>=4.2.0",
     "pytest>=8.3.5",
     "pytest-asyncio>=0.26.0",
+    "pytest-cov>=6.2.1",
     "pytest-httpserver>=1.1.3",
     "python-dotenv>=1.1.0",
     "taskipy>=1.14.1",
