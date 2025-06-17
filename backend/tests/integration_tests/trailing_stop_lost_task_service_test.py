@@ -70,6 +70,8 @@ def _prepare_httpserver_mock(
             "/bit2me-api/v1/trading/order",
             method="GET",
             query_string={
+                "direction": "desc",
+                "status_in": "open,inactive",
                 "orderType": "stop-limit",
                 "side": "sell",
             },
