@@ -1,6 +1,7 @@
 import pytest
 from asyncio import sleep
 from pytest_httpserver import HTTPServer
+from urllib.parse import urlencode
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
@@ -65,14 +66,14 @@ def _prepare_httpserver_mock(
     )
 
     # Mock call to /v1/trading/order
-    query_string = "&".join(
-        f"{key}={value}"
-        for key, value in {
+    query_string = urlencode(
+        {
             "direction": "desc",
             "status_in": "open,inactive",
             "side": "sell",
             "orderType": "stop-limit",
-        }.items()
+        },
+        doseq=False,
     )
     httpserver.expect(
         Bit2MeAPIRequestMacher(
