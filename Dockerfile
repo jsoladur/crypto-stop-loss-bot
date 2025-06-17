@@ -42,13 +42,13 @@ ENV PATH="$UV_INSTALL_DIR:$PATH"
 COPY ./backend/uv.lock ./backend/pyproject.toml ./
 
 # Install only the production dependencies
-RUN uv sync --frozen --no-install-project
+RUN uv sync --frozen --no-dev --no-install-project
 
 COPY  ./backend/src/ ./src/
 COPY  ./*.md ./
 
 # Install project
-RUN uv sync --frozen
+RUN uv sync --frozen --no-dev
 # ==================================================================
 FROM base as production
 
