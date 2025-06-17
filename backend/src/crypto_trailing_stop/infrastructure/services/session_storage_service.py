@@ -11,10 +11,16 @@ class SessionStorageService:
     def __init__(self):
         self._dispacher = get_dispacher()
 
-    async def find_fsm_context(self, key: StorageKey) -> FSMContext:
+    async def get_or_create_fsm_context(
+        self, *, bot_id: int, chat_id: int, user_id: int
+    ) -> FSMContext:
         return FSMContext(
             storage=self._dispacher.storage,
-            key=key,
+            key=StorageKey(
+                bot_id=int(bot_id),
+                chat_id=int(chat_id),
+                user_id=int(user_id),
+            ),
         )
 
     async def is_user_logged(self, state: FSMContext) -> bool:

@@ -1,6 +1,6 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.fsm.context import FSMContext
 from aiogram.types import (
-    Message,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
@@ -33,7 +33,7 @@ class KeyboardsBuilder:
         )
         return builder.as_markup()
 
-    def get_login_keyboard(self, message: Message) -> InlineKeyboardMarkup:
+    def get_login_keyboard(self, state: FSMContext) -> InlineKeyboardMarkup:
         """Builds the login keyboard with a button to log in."""
         # Base components
         parsed_public_domain = urlparse(self._configuration_properties.public_domain)
@@ -46,9 +46,9 @@ class KeyboardsBuilder:
                 "",
                 urlencode(
                     {
-                        "tgUserId": message.from_user.id,
-                        "tgChatId": message.chat.id,
-                        "tgUsername": message.from_user.username,
+                        "tgUserId": state.key.user_id,
+                        "tgChatId": state.key.chat_id,
+                        "tgBotId": state.key.bot_id,
                     }
                 ),
                 "",

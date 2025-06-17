@@ -3,7 +3,6 @@ from crypto_trailing_stop.infrastructure.services import SessionStorageService
 from crypto_trailing_stop.interfaces.dtos.login_dto import LoginDto
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from aiogram.types import ReplyMarkupUnion
-from aiogram.fsm.storage.base import StorageKey
 from typing import Any
 
 
@@ -17,12 +16,11 @@ class TelegramService:
         self, login: LoginDto, userinfo: dict[str, Any]
     ) -> None:
         """Sets the user as logged in by storing their information in the session."""
-        key = StorageKey(
-            bot_id=self._telegram_bot.id,
-            chat_id=int(login.tg_chat_id),
-            user_id=int(login.tg_user_id),
+        state = await self._session_storage_service.get_or_create_fsm_context(
+            bot_id=login.tg_bot_id,
+            chat_id=login.tg_chat_id,
+            user_id=login.tg_user_id,
         )
-        state = await self._session_storage_service.find_fsm_context(key)
         if not state:
             raise ValueError(
                 f"State not found for chat_id={login.tg_chat_id} and user_id={login.tg_user_id}"
