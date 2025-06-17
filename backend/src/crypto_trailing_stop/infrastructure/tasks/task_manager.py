@@ -4,7 +4,6 @@ from pathlib import Path
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
 from types import ModuleType
 
-from crypto_trailing_stop.config import get_scheduler
 from os import path, listdir
 from importlib import import_module
 
@@ -14,8 +13,6 @@ logger = logging.getLogger(__name__)
 
 class TaskManager:
     def __init__(self):
-        self._scheduler = get_scheduler()
-        self._scheduler.start()
         self._load_tasks()
 
     def _load_tasks(self, *, deeply: bool = True) -> None:

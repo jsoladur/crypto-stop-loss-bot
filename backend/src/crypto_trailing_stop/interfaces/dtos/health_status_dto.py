@@ -1,5 +1,5 @@
 from pydantic import BaseModel
 
 
-class HealthStatus(BaseModel):
+class HealthStatusDto(BaseModel):
     status: bool = True
