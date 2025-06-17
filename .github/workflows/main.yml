@@ -3,9 +3,6 @@ on:
   push:
     branches:
       - main
-      - 'release/**'  # Matches any branch under releases/
-      - 'feature/**'  # Matches any branch under feature/
-      - 'hotfix/**'  # Matches any branch under hotfix/
   workflow_dispatch: # Allows manual trigger from GitHub UI
 jobs:
   tests:
@@ -51,4 +48,5 @@ jobs:
           context: .
           push: true
           tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/crypto-stop-loss-bot:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/crypto-stop-loss-bot:${{ env.TAG }}
