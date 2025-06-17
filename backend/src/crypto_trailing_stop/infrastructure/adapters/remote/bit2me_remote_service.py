@@ -5,8 +5,15 @@ from typing import Any
 from crypto_trailing_stop.infrastructure.adapters.remote.base import (
     AbstractHttpRemoteAsyncService,
 )
+from enum import Enum
 from urllib.parse import urlencode
 from pydantic import RootModel
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import (
+    Bit2MeAccountInfoDto,
+)
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_dto import (
+    Bit2MePortfolioBalanceDto,
+)
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     Bit2MeOrderDto,
     CreateNewBit2MeOrderDto,
@@ -29,6 +36,48 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         self._base_url = str(self._configuration_properties.bit2me_api_base_url)
         self._api_key = self._configuration_properties.bit2me_api_key
         self._api_secret = self._configuration_properties.bit2me_api_secret
+
+    async def get_account_info(
+        self, *, client: AsyncClient | None = None
+    ) -> Bit2MeAccountInfoDto:
+        response = await self._perform_http_request(
+            url="/v1/account",
+            client=client,
+        )
+        response.raise_for_status()
+        ret = Bit2MeAccountInfoDto.model_validate_json(response.content)
+        return ret
+
+    async def retrieve_porfolio_balance(
+        self, user_currency: str, *, client: AsyncClient | None = None
+    ) -> list[Bit2MePortfolioBalanceDto]:
+        response = await self._perform_http_request(
+            url="/v1/portfolio/balance",
+            params={"userCurrency": user_currency.strip().upper()},
+            client=client,
+        )
+        response.raise_for_status()  # Ensure we raise an error for bad responses
+        ret = (
+            RootModel[list[Bit2MePortfolioBalanceDto]]
+            .model_validate_json(response.content)
+            .root
+        )
+        return ret
+
+    async def get_accounting_summary_by_year(
+        self, year: str, *, client: AsyncClient | None = None
+    ) -> bytes:
+        response = await self._perform_http_request(
+            url=f"/v1/accounting/summary/{year}",
+            params={
+                "timeZone": "Europe/Madrid",
+                "langCode": "en",
+                "documentType": "xlsx",
+            },
+            client=client,
+        )
+        response.raise_for_status()  # Ensure we raise an error for bad responses
+        return response.content
 
     async def get_tickers_by_symbol(
         self, symbol: str, *, client: AsyncClient | None = None
@@ -69,7 +118,11 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         status = (
             status if isinstance(status, (list, set, tuple, frozenset)) else [status]
         )
-        params = {}
+        params = {"direction": "desc"}
+        if status:
+            params["status_in"] = ",".join(
+                [s.value if isinstance(s, Enum) else str(s) for s in status]
+            )
         if side:
             params["side"] = side
         if order_type:
@@ -82,8 +135,6 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         orders: list[Bit2MeOrderDto] = (
             RootModel[list[Bit2MeOrderDto]].model_validate_json(response.content).root
         )
-        if status:
-            orders = [order for order in orders if order.status in status]
         return orders
 
     async def create_order(

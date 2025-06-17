@@ -1,6 +1,6 @@
-# Crypto Trailing Stop Loss Project - Backend
+# Crypto Stop Loss Bot
 
-A Python-based backend service for managing cryptocurrency trailing stop loss orders.
+A Python-based backend service for managing cryptocurrency stuff, especially trailing stop loss orders in Bit2Me.
 
 ## Description
 

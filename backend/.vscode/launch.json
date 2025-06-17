@@ -9,8 +9,16 @@
       "type": "debugpy",
       "request": "launch",
       "module": "fastapi",
-      "args": ["dev", "src/crypto_trailing_stop/main.py"],
-      "justMyCode": true,
+      "args": [
+        "dev",
+        "src/crypto_trailing_stop/main.py",
+        "--app",
+        "app",
+        "--reload",
+        "--host",
+        "0.0.0.0"
+      ],
+      "justMyCode": false
     },
     {
       "name": "Pytest",
@@ -19,7 +27,7 @@
       "module": "pytest",
       "args": ["--log-cli-level=INFO"],
       "envFile": "${workspaceFolder}/.env.pytest",
-      "justMyCode": false,
+      "justMyCode": false
     }
   ]
 }
