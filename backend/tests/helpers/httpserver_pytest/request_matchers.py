@@ -48,7 +48,9 @@ class Bit2MeAPIRequestMacher(RequestMatcher):
 
     def _generate_api_signature(self, request: Request) -> str:
         x_nonce = request.headers["x-nonce"]
-        full_path = request.full_path if request.query_string else request.path
+        full_path = (
+            request.full_path if request.query_string else request.path
+        ).removeprefix("/bit2me-api")
         message_to_sign = f"{x_nonce}:{full_path}"
         raw_body = request.get_data()
         if raw_body:
