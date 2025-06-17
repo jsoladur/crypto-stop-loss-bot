@@ -23,6 +23,6 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
     if is_user_logged:
         keyboard = keyboards_builder.get_home_keyboard()
     else:
-        reply_message += " Please log in to continue."
+        reply_message += "⚠️ Please log in to continue."
         keyboard = keyboards_builder.get_login_keyboard(state)
     await message.answer(reply_message, reply_markup=keyboard)

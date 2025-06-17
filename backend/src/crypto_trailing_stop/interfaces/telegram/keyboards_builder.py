@@ -16,18 +16,18 @@ class KeyboardsBuilder:
         builder = InlineKeyboardBuilder()
         builder.row(
             InlineKeyboardButton(
-                text="Get Global Summary", callback_data="get_global_summary"
+                text="📈 Get Global Summary", callback_data="get_global_summary"
             )
         )
         builder.row(
             InlineKeyboardButton(
-                text="Set Stop Loss Percentage (%)",
+                text="🚏 Set Stop Loss Percentage (%)",
                 callback_data="set_stop_loss_percentage",
             )
         )
         builder.row(
             InlineKeyboardButton(
-                text="Logout",
+                text="⏻ Logout",
                 callback_data="logout",
             )
         )
@@ -57,7 +57,7 @@ class KeyboardsBuilder:
         builder = InlineKeyboardBuilder()
         builder.row(
             InlineKeyboardButton(
-                text="Login",
+                text="⎆ Login",
                 url=auth_url,
             )
         )

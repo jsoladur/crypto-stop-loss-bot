@@ -20,6 +20,6 @@ async def logout_callback_handler(
 ) -> None:
     await session_storage_service.perform_logout(state)
     await callback_query.message.answer(
-        f"Goodbye, {html.bold(callback_query.message.from_user.full_name)}! You have been logged out.",
+        f"Goodbye, {html.bold(callback_query.from_user.full_name)}! You have been logged out.",
         reply_markup=keyboards_builder.get_login_keyboard(state),
     )
