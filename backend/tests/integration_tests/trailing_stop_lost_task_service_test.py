@@ -72,8 +72,8 @@ def _prepare_httpserver_mock(
             query_string={
                 "direction": "desc",
                 "status_in": "open,inactive",
-                "orderType": "stop-limit",
                 "side": "sell",
+                "orderType": "stop-limit",
             },
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.PERMANENT,
