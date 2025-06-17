@@ -8,8 +8,8 @@ on:
       - 'hotfix/**'  # Matches any branch under hotfix/
   workflow_dispatch: # Allows manual trigger from GitHub UI
 jobs:
-  test:
-    name: Run tests with uv in Bullseye
+  tests:
+    name: Run tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -33,7 +33,7 @@ jobs:
   deploy:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    needs: test  # Waits for test job to complete successfully
+    needs: tests  # Waits for test job to complete successfully
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
