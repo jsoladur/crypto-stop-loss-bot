@@ -4,7 +4,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-
+  workflow_dispatch: # Allows manual trigger from GitHub UI
 jobs:
   test:
     name: Run tests with uv in Bullseye
@@ -38,11 +38,13 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Set timestamp tag
+        id: vars
+        run: echo "TAG=$(date -u +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/crypto-stop-loss-bot:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/crypto-stop-loss-bot:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/crypto-stop-loss-bot:${{ env.TAG }}
