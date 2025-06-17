@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from crypto_trailing_stop.config import (
     get_configuration_properties,
     get_dispacher,
+    get_telegram_bot,
     get_scheduler,
 )
 from crypto_trailing_stop.infrastructure.tasks import TaskManager
@@ -22,14 +23,15 @@ from crypto_trailing_stop.interfaces.controllers.health_controller import (
 from crypto_trailing_stop.interfaces.controllers.login_controller import (
     router as login_router,
 )
-
-from aiogram import Bot
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
 import importlib
 
-logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stdout,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 
+logger = logging.getLogger(__name__)
 
 app: FastAPI | None = None
 
@@ -62,24 +64,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Telegram bot initialization
     # Initialize Bot instance with default bot properties which will be passed to all API calls
     configuration_properties = get_configuration_properties()
-    bot = Bot(
-        token=configuration_properties.telegram_bot_token,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    )
+
     # And the run events dispatching
     dp = get_dispacher()
     scheduler = get_scheduler()
-    start_polling_task = asyncio.create_task(dp.start_polling(bot))
+    asyncio.create_task(dp.start_polling(get_telegram_bot()))
     if configuration_properties.background_tasks_enabled:
         scheduler.start()
 
+    logger.info("Application startup complete.")
+    # Yield control back to the FastAPI apps
     yield
 
     # Cleanup on shutdown
-    await dp.stop_polling()
-    await start_polling_task
+    asyncio.create_task(dp.stop_polling())
     if configuration_properties.background_tasks_enabled:
         scheduler.shutdown()
+
+    logger.info("Application shutdown complete.")
 
 
 def _boostrap_app() -> None:

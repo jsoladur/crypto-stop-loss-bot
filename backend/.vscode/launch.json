@@ -18,7 +18,7 @@
         "--host",
         "0.0.0.0"
       ],
-      "justMyCode": true
+      "justMyCode": false
     },
     {
       "name": "Pytest",

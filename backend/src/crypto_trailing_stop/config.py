@@ -4,7 +4,9 @@ from pydantic import AnyUrl
 from uuid import uuid4
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from crypto_trailing_stop.commons.constants import TRAILING_STOP_LOSS_DEFAULT_PERCENT
-from aiogram import Dispatcher
+from aiogram import Dispatcher, Bot
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from authlib.integrations.starlette_client import OAuth
 from pydantic import Field
@@ -12,6 +14,7 @@ from pydantic import Field
 
 _configuration_properties: ConfigurationProperties | None = None
 _scheduler: AsyncIOScheduler | None = None
+_telegram_bot: Bot | None = None
 _dispacher: Dispatcher | None = None
 
 
@@ -55,6 +58,17 @@ def get_scheduler() -> AsyncIOScheduler:
     if _scheduler is None:
         _scheduler = AsyncIOScheduler()
     return _scheduler
+
+
+def get_telegram_bot() -> Bot:
+    global _telegram_bot
+    if _telegram_bot is None:
+        configuration_properties = get_configuration_properties()
+        bot = Bot(
+            token=configuration_properties.telegram_bot_token,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
+    return bot
 
 
 def get_dispacher() -> Dispatcher:
