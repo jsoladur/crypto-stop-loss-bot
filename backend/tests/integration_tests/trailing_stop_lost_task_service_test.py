@@ -1,6 +1,7 @@
 import pytest
 from asyncio import sleep
 from pytest_httpserver import HTTPServer
+from urllib.parse import urlencode
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
@@ -65,16 +66,20 @@ def _prepare_httpserver_mock(
     )
 
     # Mock call to /v1/trading/order
+    query_string = urlencode(
+        {
+            "direction": "desc",
+            "status_in": "open,inactive",
+            "side": "sell",
+            "orderType": "stop-limit",
+        },
+        doseq=False,
+    )
     httpserver.expect(
         Bit2MeAPIRequestMacher(
-            "/v1/trading/order",
-            method="GET",
-            query_string={
-                "orderType": "stop-limit",
-                "side": "sell",
-            },
+            "/bit2me-api/v1/trading/order", method="GET", query_string=query_string
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.PERMANENT,
+        handler_type=HandlerType.ONESHOT,
     ).respond_with_json(
         RootModel[list[Bit2MeOrderDto]]([bit2me_order]).model_dump(
             mode="json", by_alias=True
@@ -84,7 +89,7 @@ def _prepare_httpserver_mock(
     # Mock call to /v2/trading/tickers
     httpserver.expect(
         Bit2MeAPIRequestMacher(
-            "/v2/trading/tickers",
+            "/bit2me-api/v2/trading/tickers",
             method="GET",
             query_string={"symbol": bit2me_order.symbol},
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
@@ -98,7 +103,7 @@ def _prepare_httpserver_mock(
     # Mock call to DELETE /v1/trading/order/{id}
     httpserver.expect(
         Bit2MeAPIRequestMacher(
-            f"/v1/trading/order/{str(bit2me_order.id)}",
+            f"/bit2me-api/v1/trading/order/{str(bit2me_order.id)}",
             method="DELETE",
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.PERMANENT,
@@ -107,7 +112,7 @@ def _prepare_httpserver_mock(
     # Mock call to POST /v1/trading/order
     httpserver.expect(
         Bit2MeAPIRequestMacher(
-            "/v1/trading/order",
+            "/bit2me-api/v1/trading/order",
             method="POST",
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.PERMANENT,

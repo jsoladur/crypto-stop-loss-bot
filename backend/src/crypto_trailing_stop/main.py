@@ -67,8 +67,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # And the run events dispatching
     dp = get_dispacher()
+    if configuration_properties.telegram_bot_enabled:
+        asyncio.create_task(dp.start_polling(get_telegram_bot()))
+
     scheduler = get_scheduler()
-    asyncio.create_task(dp.start_polling(get_telegram_bot()))
     if configuration_properties.background_tasks_enabled:
         scheduler.start()
 
@@ -77,7 +79,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     # Cleanup on shutdown
-    asyncio.create_task(dp.stop_polling())
+    if configuration_properties.telegram_bot_enabled:
+        asyncio.create_task(dp.stop_polling())
     if configuration_properties.background_tasks_enabled:
         scheduler.shutdown()
 
