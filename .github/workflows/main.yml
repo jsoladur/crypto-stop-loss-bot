@@ -1,9 +1,11 @@
 name: crypto-stop-loss-ci
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches:
+      - main
+      - 'release/**'  # Matches any branch under releases/
+      - 'feature/**'  # Matches any branch under feature/
+      - 'hotfix/**'  # Matches any branch under hotfix/
   workflow_dispatch: # Allows manual trigger from GitHub UI
 jobs:
   test:
