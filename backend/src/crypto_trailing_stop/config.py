@@ -27,6 +27,7 @@ class ConfigurationProperties(BaseSettings):
     )
     # Application configuration
     background_tasks_enabled: bool = True
+    telegram_bot_enabled: bool = True
     public_domain: str = "http://localhost:8000"
     session_secret_key: str = Field(default_factory=uuid4)
     # CORS enabled

@@ -19,6 +19,7 @@ def httpserver_test_env(faker: Faker) -> Generator[tuple[HTTPServer, str], None,
         bit2me_api_key = environ["BIT2ME_API_KEY"] = str(uuid4())
         bit2me_api_secret = environ["BIT2ME_API_SECRET"] = str(uuid4())
         # Telegram bot token is not used in the tests, but it is required for the application to run
+        environ["TELEGRAM_BOT_ENABLED"] = "false"
         environ["TELEGRAM_BOT_TOKEN"] = (
             f"{faker.pyint()}:{str(uuid4()).replace('-', '_')}"
         )

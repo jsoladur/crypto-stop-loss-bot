@@ -6,6 +6,7 @@ from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
     Bit2MeTickersDtoObjectMother,
 )
+from urllib.parse import urlencode
 from asgi_lifespan import LifespanManager
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import (
     Bit2MeTickersDto,
@@ -65,16 +66,18 @@ def _prepare_httpserver_mock(
     )
 
     # Mock call to /v1/trading/order
+    query_string = urlencode(
+        {
+            "direction": "desc",
+            "status_in": "open,inactive",
+            "side": "sell",
+            "orderType": "stop-limit",
+        },
+        doseq=False,
+    )
     httpserver.expect(
         Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/trading/order",
-            method="GET",
-            query_string={
-                "direction": "desc",
-                "status_in": "open,inactive",
-                "side": "sell",
-                "orderType": "stop-limit",
-            },
+            "/bit2me-api/v1/trading/order", method="GET", query_string=query_string
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.PERMANENT,
     ).respond_with_json(
