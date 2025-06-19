@@ -94,7 +94,12 @@ def _boostrap_app() -> None:
     # to initialize TaskManager
     # and clean up resources on shutdown
     # (if needed)
-    app = FastAPI(lifespan=lifespan)
+    app = FastAPI(
+        title="Crypto Trailing Stop API",
+        description="API for Crypto Trailing Stop Bot",
+        version="0.1.0b5",
+        lifespan=lifespan,
+    )
     app.add_middleware(
         SessionMiddleware, secret_key=configuration_properties.session_secret_key
     )
