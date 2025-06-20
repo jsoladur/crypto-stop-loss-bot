@@ -75,6 +75,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         scheduler.start()
 
     logger.info("Application startup complete.")
+
     # Yield control back to the FastAPI apps
     yield
 
@@ -97,7 +98,7 @@ def _boostrap_app() -> None:
     app = FastAPI(
         title="Crypto Trailing Stop API",
         description="API for Crypto Trailing Stop Bot",
-        version="0.1.1",
+        version="0.2.0",
         contact={
             "name": "jmsoladev",
             "url": "https://www.jmsoladev.com",

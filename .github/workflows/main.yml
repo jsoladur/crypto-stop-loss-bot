@@ -1,4 +1,4 @@
-name: crypto-stop-loss-ci
+name: crypto-stop-loss-ci (main)
 on:
   push:
     branches:
@@ -7,27 +7,7 @@ on:
   workflow_dispatch: # Allows manual trigger from GitHub UI
 jobs:
   tests:
-    name: Run tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.13
-      - name: Install uv
-        run: |
-          apt update && apt install -y curl
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-      - name: Install dependencies
-        working-directory: backend
-        run: uv sync --frozen
-      - name: Run tests
-        working-directory: backend
-        run: |
-          uv run task test
+    uses: ./.github/workflows/common.yml  # Reuses the common CI workflow for running tests
   deploy:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest

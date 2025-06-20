@@ -1,0 +1,11 @@
+name: crypto-stop-loss-ci (non-main)
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches-ignore:
+      - main
+jobs:
+  tests:
+    uses: ./.github/workflows/common.yml  # Reuses the common CI workflow for running tests

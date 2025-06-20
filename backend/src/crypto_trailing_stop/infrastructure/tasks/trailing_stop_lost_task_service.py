@@ -1,5 +1,8 @@
 import logging
+import math
+import pydash
 from typing import override
+from httpx import AsyncClient
 from crypto_trailing_stop.config import get_scheduler, get_configuration_properties
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
@@ -12,6 +15,9 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
 from crypto_trailing_stop.commons.constants import (
     TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD,
     NUMBER_OF_DIGITS_IN_PRICE_BY_SYMBOL,
+)
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
+    Bit2MeOrderDto,
 )
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import (
     Bit2MeTickersDto,
@@ -41,27 +47,33 @@ class TrailingStopLostTaskService(AbstractTaskService):
 
     @override
     async def run(self) -> None:
+        global_tickers_by_symbol: dict[str, Bit2MeTickersDto] = {}
         async with await self._bit2me_remote_service.get_http_client() as client:
             opened_sell_orders = (
                 await self._bit2me_remote_service.get_pending_stop_limit_orders(
                     side="sell", client=client
                 )
             )
-            global_tickers_by_symbol: dict[str, Bit2MeTickersDto] = {}
+            min_buy_order_amount_by_symbol = (
+                await self._calculate_min_buy_order_amount_by_symbol(
+                    opened_sell_orders, client=client
+                )
+            )
             for open_sell_order in opened_sell_orders:
                 number_of_digits_in_price = NUMBER_OF_DIGITS_IN_PRICE_BY_SYMBOL.get(
                     open_sell_order.symbol,
                     2,
                 )
-                if open_sell_order.symbol not in global_tickers_by_symbol:
-                    global_tickers_by_symbol[
-                        open_sell_order.symbol
-                    ] = await self._bit2me_remote_service.get_tickers_by_symbol(
-                        open_sell_order.symbol, client=client
-                    )
-                tickers_by_symbol = global_tickers_by_symbol[open_sell_order.symbol]
+                tickers_by_symbol = await self._get_or_fetch_get_tickers_by_symbol(
+                    open_sell_order.symbol, global_tickers_by_symbol, client=client
+                )
+                # Stop price should be the minimum of the current price and the minimum buy order amount for that symbol
+                stop_price_base = min(
+                    tickers_by_symbol.close,
+                    min_buy_order_amount_by_symbol[open_sell_order.symbol],
+                )
                 new_stop_price = round(
-                    tickers_by_symbol.close * (1 - self._trailing_stop_loss_percent),
+                    stop_price_base * (1 - self._trailing_stop_loss_percent),
                     ndigits=number_of_digits_in_price,
                 )
                 logger.info(
@@ -96,3 +108,45 @@ class TrailingStopLostTaskService(AbstractTaskService):
                     logger.info(
                         f"Order {repr(open_sell_order)} is still valid, no update needed."
                     )
+
+    async def _calculate_min_buy_order_amount_by_symbol(
+        self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
+    ) -> dict[str, float]:
+        open_sell_order_symbols = set(
+            [open_sell_order.symbol for open_sell_order in opened_sell_orders]
+        )
+        opened_buy_orders = await self._bit2me_remote_service.get_pending_buy_orders(
+            client=client
+        )
+        opened_buy_orders_by_symbol = pydash.group_by(
+            opened_buy_orders, lambda order: order.symbol
+        )
+        min_buy_order_amount_by_symbol = {}
+        for open_sell_order_symbol in open_sell_order_symbols:
+            min_buy_order_amount = math.inf
+            if open_sell_order_symbol in opened_buy_orders_by_symbol:
+                min_buy_order_amount = pydash.min_by(
+                    opened_buy_orders_by_symbol[open_sell_order_symbol],
+                    lambda order: order.stop_price or order.price,
+                )
+            min_buy_order_amount_by_symbol[open_sell_order_symbol] = (
+                min_buy_order_amount.stop_price or min_buy_order_amount.price
+            )
+        return min_buy_order_amount_by_symbol
+
+    async def _get_or_fetch_get_tickers_by_symbol(
+        self,
+        symbol: str,
+        global_tickers_by_symbol: dict[str, Bit2MeTickersDto] = {},
+        *,
+        client: AsyncClient,
+    ) -> Bit2MeTickersDto:
+        if symbol not in global_tickers_by_symbol:
+            ret = global_tickers_by_symbol[
+                symbol
+            ] = await self._bit2me_remote_service.get_tickers_by_symbol(
+                symbol, client=client
+            )
+        else:
+            ret = global_tickers_by_symbol[symbol]
+        return ret
