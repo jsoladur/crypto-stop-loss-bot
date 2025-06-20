@@ -124,13 +124,21 @@ class TrailingStopLostTaskService(AbstractTaskService):
         min_buy_order_amount_by_symbol = {}
         for open_sell_order_symbol in open_sell_order_symbols:
             min_buy_order_amount = math.inf
-            if open_sell_order_symbol in opened_buy_orders_by_symbol:
-                min_buy_order_amount = pydash.min_by(
+            if (
+                open_sell_order_symbol in opened_buy_orders_by_symbol
+                and opened_buy_orders_by_symbol[open_sell_order_symbol]
+            ):
+                min_buy_order = pydash.min_by(
                     opened_buy_orders_by_symbol[open_sell_order_symbol],
                     lambda order: order.stop_price or order.price,
                 )
+                min_buy_order_amount = (
+                    min_buy_order.stop_price
+                    if min_buy_order.stop_price is not None
+                    else min_buy_order.price
+                )
             min_buy_order_amount_by_symbol[open_sell_order_symbol] = (
-                min_buy_order_amount.stop_price or min_buy_order_amount.price
+                min_buy_order_amount
             )
         return min_buy_order_amount_by_symbol
 

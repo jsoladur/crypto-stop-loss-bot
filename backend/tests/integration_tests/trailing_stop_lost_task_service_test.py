@@ -33,7 +33,7 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
     Test that all expected calls to Bit2Me are made when a trailing stop is lost.
     """
     # Mock the Bit2Me API
-    httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+    app, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
 
     _prepare_httpserver_mock(
         faker,
@@ -42,8 +42,6 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
         bit2me_api_key,
         bit2me_api_secret,
     )
-
-    from crypto_trailing_stop.main import app
 
     async with LifespanManager(app) as manager:
         async with AsyncClient(
@@ -70,44 +68,45 @@ def _prepare_httpserver_mock(
         order_type="stop-limit",
         status=faker.random_element(["open", "inactive"]),
     )
-    if simulate_pending_buy_orders_to_filled:
-        # Mock call to /v1/trading/order to get opened buy orders
-        httpserver.expect(
-            Bit2MeAPIRequestMacher(
-                "/bit2me-api/v1/trading/order",
-                method="GET",
-                query_string=urlencode(
-                    {
-                        "direction": "desc",
-                        "status_in": "open,inactive",
-                        "side": "buy",
-                    },
-                    doseq=False,
+    # Mock call to /v1/trading/order to get opened buy orders
+    httpserver.expect(
+        Bit2MeAPIRequestMacher(
+            "/bit2me-api/v1/trading/order",
+            method="GET",
+            query_string=urlencode(
+                {
+                    "direction": "desc",
+                    "status_in": "open,inactive",
+                    "side": "buy",
+                },
+                doseq=False,
+            ),
+        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        handler_type=HandlerType.ONESHOT,
+    ).respond_with_json(
+        RootModel[list[Bit2MeOrderDto]](
+            [
+                Bit2MeOrderDtoObjectMother.create(
+                    side="buy",
+                    symbol=opened_sell_bit2me_order.symbol,
+                    order_type="limit",
+                    status=faker.random_element(["open", "inactive"]),
+                    price=opened_sell_bit2me_order.price
+                    * faker.pyfloat(min_value=0.20, max_value=0.40),
                 ),
-            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-            handler_type=HandlerType.ONESHOT,
-        ).respond_with_json(
-            RootModel[list[Bit2MeOrderDto]](
-                [
-                    Bit2MeOrderDtoObjectMother.create(
-                        side="buy",
-                        symbol=opened_sell_bit2me_order.symbol,
-                        order_type="limit",
-                        status=faker.random_element(["open", "inactive"]),
-                        price=opened_sell_bit2me_order.price
-                        * faker.pyfloat(min_value=0.20, max_value=0.40),
-                    ),
-                    Bit2MeOrderDtoObjectMother.create(
-                        side="buy",
-                        symbol=opened_sell_bit2me_order.symbol,
-                        order_type="limit",
-                        status=faker.random_element(["open", "inactive"]),
-                        price=opened_sell_bit2me_order.price
-                        * faker.pyfloat(min_value=0.50, max_value=0.60),
-                    ),
-                ]
-            ).model_dump(mode="json", by_alias=True),
-        )
+                Bit2MeOrderDtoObjectMother.create(
+                    side="buy",
+                    symbol=opened_sell_bit2me_order.symbol,
+                    order_type="limit",
+                    status=faker.random_element(["open", "inactive"]),
+                    price=opened_sell_bit2me_order.price
+                    * faker.pyfloat(min_value=0.50, max_value=0.60),
+                ),
+            ]
+            if simulate_pending_buy_orders_to_filled
+            else []
+        ).model_dump(mode="json", by_alias=True),
+    )
 
     # Mock call to /v1/trading/order to get opened sell orders
     httpserver.expect(
