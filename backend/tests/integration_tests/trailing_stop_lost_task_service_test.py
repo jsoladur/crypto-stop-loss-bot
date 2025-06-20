@@ -22,20 +22,26 @@ from faker import Faker
 from tests.helpers.constants import MAX_SECONDS
 
 
+@pytest.mark.parametrize("simulate_pending_buy_orders_to_filled", [True, False])
 @pytest.mark.asyncio
-async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_lost(
+async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
     faker: Faker,
+    simulate_pending_buy_orders_to_filled: bool,
     integration_test_env: tuple[HTTPServer, str],
 ) -> None:
     """
     Test that all expected calls to Bit2Me are made when a trailing stop is lost.
     """
     # Mock the Bit2Me API
-    httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+    app, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
 
-    _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
-
-    from crypto_trailing_stop.main import app
+    _prepare_httpserver_mock(
+        faker,
+        simulate_pending_buy_orders_to_filled,
+        httpserver,
+        bit2me_api_key,
+        bit2me_api_secret,
+    )
 
     async with LifespanManager(app) as manager:
         async with AsyncClient(
@@ -51,37 +57,75 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_lost(
 
 
 def _prepare_httpserver_mock(
-    faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str
+    faker: Faker,
+    simulate_pending_buy_orders_to_filled: bool,
+    httpserver: HTTPServer,
+    bit2me_api_key: str,
+    bik2me_api_secret: str,
 ) -> None:
-    bit2me_order = Bit2MeOrderDtoObjectMother.create(
+    opened_sell_bit2me_order = Bit2MeOrderDtoObjectMother.create(
         side="sell",
         order_type="stop-limit",
         status=faker.random_element(["open", "inactive"]),
     )
-    bit2me_tickers = Bit2MeTickersDtoObjectMother.create(
-        symbol=bit2me_order.symbol,
-        close=(
-            bit2me_order.stop_price + faker.pyfloat(min_value=10.000, max_value=100.000)
-        ),
-    )
-
-    # Mock call to /v1/trading/order
-    query_string = urlencode(
-        {
-            "direction": "desc",
-            "status_in": "open,inactive",
-            "side": "sell",
-            "orderType": "stop-limit",
-        },
-        doseq=False,
-    )
+    # Mock call to /v1/trading/order to get opened buy orders
     httpserver.expect(
         Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/trading/order", method="GET", query_string=query_string
+            "/bit2me-api/v1/trading/order",
+            method="GET",
+            query_string=urlencode(
+                {
+                    "direction": "desc",
+                    "status_in": "open,inactive",
+                    "side": "buy",
+                },
+                doseq=False,
+            ),
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(
-        RootModel[list[Bit2MeOrderDto]]([bit2me_order]).model_dump(
+        RootModel[list[Bit2MeOrderDto]](
+            [
+                Bit2MeOrderDtoObjectMother.create(
+                    side="buy",
+                    symbol=opened_sell_bit2me_order.symbol,
+                    order_type="limit",
+                    status=faker.random_element(["open", "inactive"]),
+                    price=opened_sell_bit2me_order.price
+                    * faker.pyfloat(min_value=0.20, max_value=0.40),
+                ),
+                Bit2MeOrderDtoObjectMother.create(
+                    side="buy",
+                    symbol=opened_sell_bit2me_order.symbol,
+                    order_type="limit",
+                    status=faker.random_element(["open", "inactive"]),
+                    price=opened_sell_bit2me_order.price
+                    * faker.pyfloat(min_value=0.50, max_value=0.60),
+                ),
+            ]
+            if simulate_pending_buy_orders_to_filled
+            else []
+        ).model_dump(mode="json", by_alias=True),
+    )
+
+    # Mock call to /v1/trading/order to get opened sell orders
+    httpserver.expect(
+        Bit2MeAPIRequestMacher(
+            "/bit2me-api/v1/trading/order",
+            method="GET",
+            query_string=urlencode(
+                {
+                    "direction": "desc",
+                    "status_in": "open,inactive",
+                    "side": "sell",
+                    "orderType": "stop-limit",
+                },
+                doseq=False,
+            ),
+        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        handler_type=HandlerType.ONESHOT,
+    ).respond_with_json(
+        RootModel[list[Bit2MeOrderDto]]([opened_sell_bit2me_order]).model_dump(
             mode="json", by_alias=True
         ),
     )
@@ -91,35 +135,44 @@ def _prepare_httpserver_mock(
         Bit2MeAPIRequestMacher(
             "/bit2me-api/v2/trading/tickers",
             method="GET",
-            query_string={"symbol": bit2me_order.symbol},
+            query_string={"symbol": opened_sell_bit2me_order.symbol},
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.PERMANENT,
     ).respond_with_json(
-        RootModel[list[Bit2MeTickersDto]]([bit2me_tickers]).model_dump(
-            mode="json", by_alias=True
-        ),
+        RootModel[list[Bit2MeTickersDto]](
+            [
+                Bit2MeTickersDtoObjectMother.create(
+                    symbol=opened_sell_bit2me_order.symbol,
+                    close=(
+                        opened_sell_bit2me_order.stop_price
+                        + faker.pyfloat(min_value=10.000, max_value=100.000)
+                    ),
+                )
+            ]
+        ).model_dump(mode="json", by_alias=True),
     )
 
-    # Mock call to DELETE /v1/trading/order/{id}
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            f"/bit2me-api/v1/trading/order/{str(bit2me_order.id)}",
-            method="DELETE",
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.PERMANENT,
-    ).respond_with_response(Response(status=204))
+    if not simulate_pending_buy_orders_to_filled:
+        # Mock call to DELETE /v1/trading/order/{id}
+        httpserver.expect(
+            Bit2MeAPIRequestMacher(
+                f"/bit2me-api/v1/trading/order/{str(opened_sell_bit2me_order.id)}",
+                method="DELETE",
+            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+            handler_type=HandlerType.PERMANENT,
+        ).respond_with_response(Response(status=204))
 
-    # Mock call to POST /v1/trading/order
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/trading/order",
-            method="POST",
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.PERMANENT,
-    ).respond_with_json(
-        Bit2MeOrderDtoObjectMother.create(
-            side="sell",
-            order_type="stop-limit",
-            status=faker.random_element(["open", "inactive"]),
-        ).model_dump(by_alias=True, mode="json")
-    )
+        # Mock call to POST /v1/trading/order
+        httpserver.expect(
+            Bit2MeAPIRequestMacher(
+                "/bit2me-api/v1/trading/order",
+                method="POST",
+            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+            handler_type=HandlerType.PERMANENT,
+        ).respond_with_json(
+            Bit2MeOrderDtoObjectMother.create(
+                side="sell",
+                order_type="stop-limit",
+                status=faker.random_element(["open", "inactive"]),
+            ).model_dump(by_alias=True, mode="json")
+        )

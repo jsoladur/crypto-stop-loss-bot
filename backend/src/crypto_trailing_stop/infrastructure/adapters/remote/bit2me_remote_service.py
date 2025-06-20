@@ -106,6 +106,19 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             client=client,
         )
 
+    async def get_pending_buy_orders(
+        self,
+        *,
+        order_type: Bit2MeOrderType | None = None,
+        client: AsyncClient | None = None,
+    ) -> list[Bit2MeOrderDto]:
+        return await self.get_orders(
+            side="buy",
+            order_type=order_type,
+            status=["open", "inactive"],
+            client=client,
+        )
+
     async def get_orders(
         self,
         *,
