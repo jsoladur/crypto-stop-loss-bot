@@ -1,10 +1,14 @@
 from collections.abc import Generator
 from os import environ
 from uuid import uuid4
-
+from types import ModuleType
+from importlib import import_module, reload
 import pytest
 from pytest_httpserver import HTTPServer
 from faker import Faker
+from crypto_trailing_stop import config
+
+main_module: ModuleType | None = None
 
 
 @pytest.fixture(scope="session")
@@ -37,7 +41,16 @@ def httpserver_test_env(faker: Faker) -> Generator[tuple[HTTPServer, str], None,
 def integration_test_env(
     httpserver_test_env: tuple[HTTPServer, str],
 ) -> Generator[tuple[HTTPServer, str], None, None]:
+    global main_module
     httpserver, bit2me_api_key, bit2me_api_secret, *_ = httpserver_test_env
-    yield (httpserver, bit2me_api_key, bit2me_api_secret)
+
+    if main_module:
+        main_module = reload(main_module)
+    else:
+        main_module = import_module("crypto_trailing_stop.main")
+
+    yield (main_module.app, httpserver, bit2me_api_key, bit2me_api_secret)
+
     # Cleanup
     httpserver.clear()
+    reload(config)
