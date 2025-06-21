@@ -16,6 +16,7 @@ from crypto_trailing_stop.config import (
     get_telegram_bot,
     get_scheduler,
 )
+from crypto_trailing_stop.infrastructure.database import init_database
 from crypto_trailing_stop.infrastructure.tasks import TaskManager
 from crypto_trailing_stop.interfaces.controllers.health_controller import (
     router as health_router,
@@ -59,6 +60,8 @@ def _load_telegram_layer(layer_name: str) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    # Initialize database
+    await init_database()
     # Background task manager initialization
     TaskManager()
     # Telegram bot initialization
