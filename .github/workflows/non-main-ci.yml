@@ -7,5 +7,7 @@ on:
     branches-ignore:
       - main
 jobs:
-  tests:
-    uses: ./.github/workflows/common.yml  # Reuses the common CI workflow for running tests
+  run-tests-and-build-no-push:
+    uses: ./.github/workflows/common.yml
+    with:
+      should_push: false
