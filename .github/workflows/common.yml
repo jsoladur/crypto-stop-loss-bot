@@ -6,6 +6,11 @@ on:
         required: false
         type: boolean
         default: true  # Default to true if not provided
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: true
+      DOCKERHUB_TOKEN:
+        required: true
 jobs:
   tests:
     name: Run tests

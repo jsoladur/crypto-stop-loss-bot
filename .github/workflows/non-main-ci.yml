@@ -11,3 +11,6 @@ jobs:
     uses: ./.github/workflows/common.yml
     with:
       should_push: false
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
