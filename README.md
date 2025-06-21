@@ -35,11 +35,20 @@ This project provides a backend service that implements trailing stop loss funct
 4. Create a `.env` file in the root directory and add your configuration:
    ```
     # CORS enabled
-    CORS_ENABLED=false
-    # Bit2Me API configuration
-    BIT2ME_API_BASE_URL=
-    BIT2ME_API_KEY=
-    BIT2ME_API_SECRET=
+   CORS_ENABLED=false
+   # App configuration
+   TELEGRAM_BOT_ENABLED=true
+   BACKGROUND_TASKS_ENABLED=true
+   PUBLIC_DOMAIN=
+   # Google OAuth configuration
+   GOOGLE_OAUTH_CLIENT_ID=
+   GOOGLE_OAUTH_CLIENT_SECRET=
+   # Telegram bot configuration
+   TELEGRAM_BOT_TOKEN=
+   # Bit2Me API configuration
+   BIT2ME_API_BASE_URL=
+   BIT2ME_API_KEY=
+   BIT2ME_API_SECRET=
    ```
 
 6. Run the service:

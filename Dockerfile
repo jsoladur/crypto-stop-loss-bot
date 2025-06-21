@@ -39,12 +39,12 @@ RUN sh /uv-installer.sh && rm /uv-installer.sh
 
 ENV PATH="$UV_INSTALL_DIR:$PATH"
 
-COPY ./backend/uv.lock ./backend/pyproject.toml ./
+COPY /uv.lock /pyproject.toml ./
 
 # Install only the production dependencies
 RUN uv sync --frozen --no-dev --no-install-project
 
-COPY  ./backend/src/ ./src/
+COPY  /src/ ./src/
 COPY  ./*.md ./
 
 # Install project
