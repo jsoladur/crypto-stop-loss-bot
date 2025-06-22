@@ -25,6 +25,7 @@ dependencies = [
 [tool.taskipy.tasks]
 start = "fastapi dev src/crypto_trailing_stop/main.py --app app --reload --host 0.0.0.0"
 test = "pytest -x --log-cli-level=INFO"
+"test:coverage" = "pytest --cov=./src --log-cli-level=INFO"
 lint = "pre-commit install && pre-commit run --all"
 
 
