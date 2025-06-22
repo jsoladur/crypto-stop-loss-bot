@@ -14,6 +14,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
 )
 from crypto_trailing_stop.commons.constants import (
     TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD,
+    TRAILING_STOP_LOSS_DEFAULT_PERCENT,
     NUMBER_OF_DIGITS_IN_PRICE_BY_SYMBOL,
 )
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
@@ -64,13 +65,15 @@ class TrailingStopLostTaskService(AbstractTaskService):
                     open_sell_order.symbol,
                     2,
                 )
-                tickers_by_symbol = await self._get_or_fetch_get_tickers_by_symbol(
+                tickers = await self._get_or_fetch_tickers_by_symbol(
                     open_sell_order.symbol, global_tickers_by_symbol, client=client
                 )
                 # Stop price should be the minimum of the current price and the minimum buy order amount for that symbol
-                stop_price_base = min(
-                    tickers_by_symbol.close,
-                    min_buy_order_amount_by_symbol[open_sell_order.symbol],
+                stop_price_base = self._calculate_stop_price_base(
+                    current_symbol_price=tickers.close,
+                    min_buy_order_amount=min_buy_order_amount_by_symbol[
+                        open_sell_order.symbol
+                    ],
                 )
                 new_stop_price = round(
                     stop_price_base * (1 - self._trailing_stop_loss_percent),
@@ -109,6 +112,25 @@ class TrailingStopLostTaskService(AbstractTaskService):
                         f"Order {repr(open_sell_order)} is still valid, no update needed."
                     )
 
+    def _calculate_stop_price_base(
+        self, *, current_symbol_price: float | int, min_buy_order_amount: float | int
+    ):
+        # XXX: [JMSOLA] Even though there could be a lower buy order, if the difference between
+        #      the current price and the min_buy_order is greater than the TRAILING_STOP_LOSS_DEFAULT_PERCENT,
+        #      then we will calculate new stop loss price based on the current price in order to maximise gains
+        if min_buy_order_amount == math.inf or (
+            current_symbol_price > min_buy_order_amount
+            and ((1 - (min_buy_order_amount / current_symbol_price)) * 100)
+            > TRAILING_STOP_LOSS_DEFAULT_PERCENT
+        ):
+            stop_price_base = current_symbol_price
+        else:
+            stop_price_base = min(
+                current_symbol_price,
+                min_buy_order_amount,
+            )
+        return stop_price_base
+
     async def _calculate_min_buy_order_amount_by_symbol(
         self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
     ) -> dict[str, float]:
@@ -142,7 +164,7 @@ class TrailingStopLostTaskService(AbstractTaskService):
             )
         return min_buy_order_amount_by_symbol
 
-    async def _get_or_fetch_get_tickers_by_symbol(
+    async def _get_or_fetch_tickers_by_symbol(
         self,
         symbol: str,
         global_tickers_by_symbol: dict[str, Bit2MeTickersDto] = {},
