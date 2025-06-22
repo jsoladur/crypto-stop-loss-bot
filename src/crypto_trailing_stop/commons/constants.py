@@ -9,3 +9,4 @@ AUTHORIZED_GOOGLE_USER_EMAILS = [
     "josemaria.sola.duran@gmail.com",
     "jmsola3092@gmail.com",
 ]
+DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS = 86_400  # 1 day

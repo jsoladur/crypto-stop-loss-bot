@@ -18,7 +18,7 @@ global_summary_service = GlobalSummaryService()
 
 
 @dp.callback_query(lambda c: c.data == "get_global_summary")
-async def set_stop_loss_percentage_callback_handler(
+async def set_stop_loss_percent_callback_handler(
     callback_query: CallbackQuery, state: FSMContext
 ) -> None:
     is_user_logged = await session_storage_service.is_user_logged(state)

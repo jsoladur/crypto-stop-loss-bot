@@ -34,6 +34,9 @@ class ConfigurationProperties(BaseSettings):
     cors_enabled: bool = False
     # Telegram bot token
     telegram_bot_token: str
+    # Database configuration
+    database_in_memory: bool = False
+    database_path: str = "./crypto_stop_loss.sqlite"
     # Bit2Me API configuration
     bit2me_api_base_url: AnyUrl
     bit2me_api_key: str

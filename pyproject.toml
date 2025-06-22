@@ -1,6 +1,6 @@
 [project]
 name = "crypto-trailing-stop"
-version = "0.2.6"
+version = "0.3.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -11,12 +11,14 @@ dependencies = [
     "aiogram>=3.20.0.post0",
     "apscheduler>=3.11.0",
     "authlib>=1.6.0",
+    "cachebox>=5.0.1",
     "fastapi>=0.115.12",
     "fastapi-cli>=0.0.7",
     "httpx>=0.28.1",
     "itsdangerous>=2.2.0",
     "openpyxl>=3.1.5",
     "pandas>=2.3.0",
+    "piccolo[sqlite]>=1.27.1",
     "pydantic-settings>=2.8.1",
     "pydash>=8.0.5",
     "uvicorn>=0.34.0",
