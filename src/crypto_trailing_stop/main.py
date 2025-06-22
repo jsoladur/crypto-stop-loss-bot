@@ -98,7 +98,7 @@ def _boostrap_app() -> None:
     app = FastAPI(
         title="Crypto Trailing Stop API",
         description="API for Crypto Trailing Stop Bot",
-        version="0.2.3",
+        version="0.2.4",
         contact={
             "name": "jmsoladev",
             "url": "https://www.jmsoladev.com",

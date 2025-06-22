@@ -1,6 +1,6 @@
 [project]
 name = "crypto-trailing-stop"
-version = "0.2.3"
+version = "0.2.4"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -25,6 +25,7 @@ dependencies = [
 [tool.taskipy.tasks]
 start = "fastapi dev src/crypto_trailing_stop/main.py --app app --reload --host 0.0.0.0"
 test = "pytest -x --log-cli-level=INFO"
+"test:coverage" = "pytest --cov=./src --log-cli-level=INFO"
 lint = "pre-commit install && pre-commit run --all"
 
 
@@ -54,3 +55,10 @@ log_cli_level = "INFO"
 asyncio_mode = "auto"
 python_functions = "should_* test_*"
 
+[tool.coverage.run]
+source = ["src"]
+branch = false
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
