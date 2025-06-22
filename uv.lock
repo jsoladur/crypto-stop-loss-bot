@@ -182,6 +182,27 @@ wheels = [
 ]
 
 [[package]]
+name = "cachebox"
+version = "5.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/97/345f643ada89d66aa383aa222ea79ba65d694caaaf5e3a7c1aeb87452b4d/cachebox-5.0.1.tar.gz", hash = "sha256:990d719958037907671a97998739db60494fc4ffd5e506c48e7ea164015af3fb", size = 63456, upload-time = "2025-04-25T08:29:55.853Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/56/ca/ae9911b2afec54124d08c22fe7c6a1ac46d26e339022c81e58bac3fef5cf/cachebox-5.0.1-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:2f3e25e4bfeca20885cec0f2e6eb3676f8808ebc6d3bdb2425e2727aab166933", size = 330548, upload-time = "2025-04-25T08:28:19.81Z" },
+    { url = "https://files.pythonhosted.org/packages/5d/15/78d10c1de622357e9e546ca88bd4459c76f169a97dffb9911c36875dea05/cachebox-5.0.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:b7c0513fd4d96e60daf673d740346b825071eb415ca5354c9a33dbd5df003417", size = 303467, upload-time = "2025-04-25T08:28:21.38Z" },
+    { url = "https://files.pythonhosted.org/packages/29/de/b44262b498ccdea7a2a73b04ef262f48620f0a1f97709b65e5973ec9f4e1/cachebox-5.0.1-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f00ce2f130190e5d5d9e81ecb12988f7cded81fc5e1fe9b9c46b8cf20fc799eb", size = 328482, upload-time = "2025-04-25T08:28:23.35Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/23/d8f36c00d1afa4957fc99b3a3206e8c3125283762be575e4284a08dc27ae/cachebox-5.0.1-cp313-cp313-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:c07b9bee0a22af3adfb698dac08e07a7a1d553f9f5b05bf42e89dce165f42dc8", size = 348956, upload-time = "2025-04-25T08:28:25.359Z" },
+    { url = "https://files.pythonhosted.org/packages/28/02/f7dbad33073f1d7a8a5acde673259e413feefa597cef41559a5f7e14d258/cachebox-5.0.1-cp313-cp313-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:6ade27f1dae58897a2609db7b9ad3627cea6410bdfc709b4b2931f989c6cc023", size = 375388, upload-time = "2025-04-25T08:28:27.372Z" },
+    { url = "https://files.pythonhosted.org/packages/83/0c/b7c0ccf87e1b33981eadc3ca3f92e5a0234dcf88d27d64282e9f92ee708b/cachebox-5.0.1-cp313-cp313-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:caaf5e612ac8397dfdd4fdf037e8fc8879a92f93cff7da0b43309d3625fc3c5f", size = 552425, upload-time = "2025-04-25T08:28:28.848Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/a6/cf405917ce7e91481709c6290ce3c98cb1d425e11457d0d374f096595521/cachebox-5.0.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:88b463ec81c9dfa7d8cc44adc51814eb55bc38668d64a581426712a519a7a25d", size = 351220, upload-time = "2025-04-25T08:28:30.34Z" },
+    { url = "https://files.pythonhosted.org/packages/aa/c1/cedfe70e7de316d9ae558b8f72dcc17d1aa5ba2ea05c6a145ffb83be1e5e/cachebox-5.0.1-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:9a50d5a593da6787642ed99c03c5017bf45a6df4855476a0c4eadc52c56952ab", size = 369722, upload-time = "2025-04-25T08:28:31.768Z" },
+    { url = "https://files.pythonhosted.org/packages/9b/0a/4dc9c2067e85251f1de9173f01c04e8a2751b7b4ca243ad8f5539f6f31ef/cachebox-5.0.1-cp313-cp313-musllinux_1_1_aarch64.whl", hash = "sha256:20c5d8edbfc83eea658b52865f4a91a3679c3c74ab9fbb0d2be52cb6e077e55c", size = 508274, upload-time = "2025-04-25T08:28:33.299Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/b7/6b99f9e78d6ce076a062ac0f1aaa66fea4cc2ee7b69f3e66fe2cd36b7219/cachebox-5.0.1-cp313-cp313-musllinux_1_1_armv7l.whl", hash = "sha256:f4f1b823af816bfbc1ccd41f4ae70fb725ea65810b5350a90b958e57fd1e520a", size = 612422, upload-time = "2025-04-25T08:28:34.849Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/ab/be9cce7517a3184f959257e786d3fa73b431c7799b90c9b7d91fe83589f9/cachebox-5.0.1-cp313-cp313-musllinux_1_1_x86_64.whl", hash = "sha256:34ca124ee831a6e7e6c07d3b39ad4265fe1676364167a10075d2887bdb902ebf", size = 523092, upload-time = "2025-04-25T08:28:36.537Z" },
+    { url = "https://files.pythonhosted.org/packages/30/3e/8d38c47b1676e5e8fc02d8ee7384fc0dd16560bd8352f10dccecd444178f/cachebox-5.0.1-cp313-cp313-win32.whl", hash = "sha256:b4f0b6ad99d4d9a75da1bdcb5b95650a707843a433c21437371e9a7abc7dd0e1", size = 234222, upload-time = "2025-04-25T08:28:38.547Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/71/68da392e2cebc7776773bb6e927c445ef80ddfcfad37cbe3caa290692d58/cachebox-5.0.1-cp313-cp313-win_amd64.whl", hash = "sha256:7824e2b16f94b0170fa6f0c704b281c82e2777e216b5ab8eb91297ecd9774643", size = 238807, upload-time = "2025-04-25T08:28:40.336Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2025.1.31"
 source = { registry = "https://pypi.org/simple" }
@@ -303,6 +324,7 @@ dependencies = [
     { name = "aiogram" },
     { name = "apscheduler" },
     { name = "authlib" },
+    { name = "cachebox" },
     { name = "fastapi" },
     { name = "fastapi-cli" },
     { name = "httpx" },
@@ -334,6 +356,7 @@ requires-dist = [
     { name = "aiogram", specifier = ">=3.20.0.post0" },
     { name = "apscheduler", specifier = ">=3.11.0" },
     { name = "authlib", specifier = ">=1.6.0" },
+    { name = "cachebox", specifier = ">=5.0.1" },
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "fastapi-cli", specifier = ">=0.0.7" },
     { name = "httpx", specifier = ">=0.28.1" },

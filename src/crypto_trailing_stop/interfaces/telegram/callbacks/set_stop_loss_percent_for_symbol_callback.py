@@ -1,30 +1,40 @@
 import logging
 from aiogram.types import CallbackQuery
+from aiogram import F, html
 
 from crypto_trailing_stop.config import get_dispacher
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
-from crypto_trailing_stop.infrastructure.services import SessionStorageService
+from crypto_trailing_stop.infrastructure.services import (
+    SessionStorageService,
+    StopLossPercentService,
+)
 from aiogram.fsm.context import FSMContext
+import re
 
 logger = logging.getLogger(__name__)
 
 dp = get_dispacher()
 session_storage_service = SessionStorageService()
+stop_loss_percent_service = StopLossPercentService()
 keyboards_builder = KeyboardsBuilder()
 
 
-@dp.callback_query(lambda c: c.data == "set_stop_loss_percentage")
-async def set_stop_loss_percentage_callback_handler(
+@dp.callback_query(F.data.regexp(r"^set_stop_loss_percent\$\$(.+)$"))
+async def set_stop_loss_percent_for_symbol_callback_handler(
     callback_query: CallbackQuery, state: FSMContext
 ) -> None:
     is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
-        # FIXME: To be implemented!
+        match = re.match(r"^set_stop_loss_percent\$\$(.+)$", callback_query.data)
+        symbol = match.group(1)
         await callback_query.message.answer(
-            "🚧🚧 The functionality to set stop loss percentage is not implemented yet 🚧🚧"
+            f"ℹ Select the new Stop Loss Percent for {html.bold(symbol.upper())}",
+            reply_markup=keyboards_builder.get_stop_loss_percent_values_by_symbol_keyboard(
+                symbol
+            ),
         )
     else:
         await callback_query.message.answer(
-            "⚠️ Please log in to set the stop loss percentage.",
+            "⚠️ Please log in to set the stop loss percent (%).",
             reply_markup=keyboards_builder.get_login_keyboard(state),
         )

@@ -4,5 +4,8 @@ from crypto_trailing_stop.infrastructure.services.session_storage_service import
 from crypto_trailing_stop.infrastructure.services.global_summary_service import (
     GlobalSummaryService,
 )
+from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import (
+    StopLossPercentService,
+)
 
-__all__ = ["SessionStorageService", "GlobalSummaryService"]
+__all__ = ["SessionStorageService", "GlobalSummaryService", "StopLossPercentService"]

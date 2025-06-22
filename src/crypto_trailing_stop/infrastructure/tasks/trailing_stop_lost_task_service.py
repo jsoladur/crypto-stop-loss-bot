@@ -17,6 +17,9 @@ from crypto_trailing_stop.commons.constants import (
     TRAILING_STOP_LOSS_DEFAULT_PERCENT,
     NUMBER_OF_DIGITS_IN_PRICE_BY_SYMBOL,
 )
+from crypto_trailing_stop.infrastructure.services import (
+    StopLossPercentService,
+)
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     Bit2MeOrderDto,
 )
@@ -31,9 +34,7 @@ logger = logging.getLogger(__name__)
 class TrailingStopLostTaskService(AbstractTaskService):
     def __init__(self):
         self._configuration_properties = get_configuration_properties()
-        self._trailing_stop_loss_percent = (
-            self._configuration_properties.trailing_stop_loss_percent / 100
-        )
+        self._stop_loss_percent_service = StopLossPercentService()
         self._trailing_stop_loss_price_decrease_threshold = (
             1 - TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD
         )
@@ -68,6 +69,16 @@ class TrailingStopLostTaskService(AbstractTaskService):
                 tickers = await self._get_or_fetch_tickers_by_symbol(
                     open_sell_order.symbol, global_tickers_by_symbol, client=client
                 )
+                crypto_currency_symbol = (
+                    open_sell_order.symbol.split("/")[0].strip().upper()
+                )
+                stop_loss_percent_item = await self._stop_loss_percent_service.find_stop_loss_percent_by_symbol(
+                    symbol=crypto_currency_symbol
+                )
+                stop_loss_percent_item_value = stop_loss_percent_item.value / 100
+                logger.info(
+                    f"Stop Loss Percent for Symbol {crypto_currency_symbol} is setup to '{stop_loss_percent_item.value} %' ({stop_loss_percent_item_value})..."
+                )
                 # Stop price should be the minimum of the current price and the minimum buy order amount for that symbol
                 stop_price_base = self._calculate_stop_price_base(
                     current_symbol_price=tickers.close,
@@ -76,7 +87,7 @@ class TrailingStopLostTaskService(AbstractTaskService):
                     ],
                 )
                 new_stop_price = round(
-                    stop_price_base * (1 - self._trailing_stop_loss_percent),
+                    stop_price_base * (1 - stop_loss_percent_item_value),
                     ndigits=number_of_digits_in_price,
                 )
                 logger.info(
