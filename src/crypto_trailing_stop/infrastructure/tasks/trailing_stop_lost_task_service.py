@@ -8,13 +8,15 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
     Bit2MeRemoteService,
 )
+from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import (
+    StopLossPercentItem,
+)
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     CreateNewBit2MeOrderDto,
 )
 from crypto_trailing_stop.commons.constants import (
     TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD,
-    TRAILING_STOP_LOSS_DEFAULT_PERCENT,
     NUMBER_OF_DIGITS_IN_PRICE_BY_SYMBOL,
 )
 from crypto_trailing_stop.infrastructure.services import (
@@ -56,8 +58,8 @@ class TrailingStopLostTaskService(AbstractTaskService):
                     side="sell", client=client
                 )
             )
-            min_buy_order_amount_by_symbol = (
-                await self._calculate_min_buy_order_amount_by_symbol(
+            max_and_min_buy_order_amount_by_symbol = (
+                await self._calculate_max_and_min_buy_order_amount_by_symbol(
                     opened_sell_orders, client=client
                 )
             )
@@ -75,19 +77,23 @@ class TrailingStopLostTaskService(AbstractTaskService):
                 stop_loss_percent_item = await self._stop_loss_percent_service.find_stop_loss_percent_by_symbol(
                     symbol=crypto_currency_symbol
                 )
-                stop_loss_percent_item_value = stop_loss_percent_item.value / 100
+                stop_loss_percent_decimal_value = stop_loss_percent_item.value / 100
                 logger.info(
-                    f"Stop Loss Percent for Symbol {crypto_currency_symbol} is setup to '{stop_loss_percent_item.value} %' ({stop_loss_percent_item_value})..."
+                    f"Stop Loss Percent for Symbol {crypto_currency_symbol} "
+                    + f"is setup to '{stop_loss_percent_item.value} %' (Decimal: {stop_loss_percent_decimal_value})..."
                 )
                 # Stop price should be the minimum of the current price and the minimum buy order amount for that symbol
+                max_buy_order_amount, min_buy_order_amount = (
+                    max_and_min_buy_order_amount_by_symbol[open_sell_order.symbol]
+                )
                 stop_price_base = self._calculate_stop_price_base(
                     current_symbol_price=tickers.close,
-                    min_buy_order_amount=min_buy_order_amount_by_symbol[
-                        open_sell_order.symbol
-                    ],
+                    max_buy_order_amount=max_buy_order_amount,
+                    min_buy_order_amount=min_buy_order_amount,
+                    stop_loss_percent_item=stop_loss_percent_item,
                 )
                 new_stop_price = round(
-                    stop_price_base * (1 - stop_loss_percent_item_value),
+                    stop_price_base * (1 - stop_loss_percent_decimal_value),
                     ndigits=number_of_digits_in_price,
                 )
                 logger.info(
@@ -124,15 +130,20 @@ class TrailingStopLostTaskService(AbstractTaskService):
                     )
 
     def _calculate_stop_price_base(
-        self, *, current_symbol_price: float | int, min_buy_order_amount: float | int
+        self,
+        *,
+        current_symbol_price: float | int,
+        max_buy_order_amount: float | int,
+        min_buy_order_amount: float | int,
+        stop_loss_percent_item: StopLossPercentItem,
     ):
-        # XXX: [JMSOLA] Even though there could be a lower buy order, if the difference between
-        #      the current price and the min_buy_order is greater than the TRAILING_STOP_LOSS_DEFAULT_PERCENT,
+        # XXX: [JMSOLA] Even though there could be a buy order, if the difference between
+        #      the current price and the max_buy_order_amount is greater than the corresponding Stop Loss Percent value,
         #      then we will calculate new stop loss price based on the current price in order to maximise gains
-        if min_buy_order_amount == math.inf or (
-            current_symbol_price > min_buy_order_amount
-            and ((1 - (min_buy_order_amount / current_symbol_price)) * 100)
-            > TRAILING_STOP_LOSS_DEFAULT_PERCENT
+        if max_buy_order_amount == math.inf or (
+            current_symbol_price > max_buy_order_amount
+            and ((1 - (max_buy_order_amount / current_symbol_price)) * 100)
+            > stop_loss_percent_item.value
         ):
             stop_price_base = current_symbol_price
         else:
@@ -142,9 +153,9 @@ class TrailingStopLostTaskService(AbstractTaskService):
             )
         return stop_price_base
 
-    async def _calculate_min_buy_order_amount_by_symbol(
+    async def _calculate_max_and_min_buy_order_amount_by_symbol(
         self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
-    ) -> dict[str, float]:
+    ) -> dict[str, tuple[float, float]]:
         open_sell_order_symbols = set(
             [open_sell_order.symbol for open_sell_order in opened_sell_orders]
         )
@@ -154,26 +165,36 @@ class TrailingStopLostTaskService(AbstractTaskService):
         opened_buy_orders_by_symbol = pydash.group_by(
             opened_buy_orders, lambda order: order.symbol
         )
-        min_buy_order_amount_by_symbol = {}
+        max_and_min_buy_order_amount_by_symbol = {}
         for open_sell_order_symbol in open_sell_order_symbols:
-            min_buy_order_amount = math.inf
+            max_buy_order_amount, min_buy_order_amount = math.inf, math.inf
             if (
                 open_sell_order_symbol in opened_buy_orders_by_symbol
                 and opened_buy_orders_by_symbol[open_sell_order_symbol]
             ):
+                max_buy_order = pydash.max_by(
+                    opened_buy_orders_by_symbol[open_sell_order_symbol],
+                    lambda order: order.stop_price or order.price,
+                )
                 min_buy_order = pydash.min_by(
                     opened_buy_orders_by_symbol[open_sell_order_symbol],
                     lambda order: order.stop_price or order.price,
+                )
+                max_buy_order_amount = (
+                    max_buy_order.stop_price
+                    if max_buy_order.stop_price is not None
+                    else max_buy_order.price
                 )
                 min_buy_order_amount = (
                     min_buy_order.stop_price
                     if min_buy_order.stop_price is not None
                     else min_buy_order.price
                 )
-            min_buy_order_amount_by_symbol[open_sell_order_symbol] = (
-                min_buy_order_amount
+            max_and_min_buy_order_amount_by_symbol[open_sell_order_symbol] = (
+                max_buy_order_amount,
+                min_buy_order_amount,
             )
-        return min_buy_order_amount_by_symbol
+        return max_and_min_buy_order_amount_by_symbol
 
     async def _get_or_fetch_tickers_by_symbol(
         self,
