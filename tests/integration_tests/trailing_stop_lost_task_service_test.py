@@ -1,11 +1,16 @@
 import pytest
+import math
 from asyncio import sleep
+import pydash
 from pytest_httpserver import HTTPServer
 from urllib.parse import urlencode
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
     Bit2MeTickersDtoObjectMother,
+)
+from crypto_trailing_stop.commons.constants import (
+    TRAILING_STOP_LOSS_DEFAULT_PERCENT,
 )
 from asgi_lifespan import LifespanManager
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import (
@@ -68,6 +73,35 @@ def _prepare_httpserver_mock(
         order_type="stop-limit",
         status=faker.random_element(["open", "inactive"]),
     )
+    opened_buy_orders = (
+        [
+            Bit2MeOrderDtoObjectMother.create(
+                side="buy",
+                symbol=opened_sell_bit2me_order.symbol,
+                order_type="limit",
+                status=faker.random_element(["open", "inactive"]),
+                price=opened_sell_bit2me_order.price
+                * faker.pyfloat(min_value=0.20, max_value=0.40),
+            ),
+            Bit2MeOrderDtoObjectMother.create(
+                side="buy",
+                symbol=opened_sell_bit2me_order.symbol,
+                order_type="limit",
+                status=faker.random_element(["open", "inactive"]),
+                price=opened_sell_bit2me_order.price
+                * faker.pyfloat(min_value=0.50, max_value=0.60),
+            ),
+        ]
+        if simulate_pending_buy_orders_to_filled
+        else []
+    )
+    tickers = Bit2MeTickersDtoObjectMother.create(
+        symbol=opened_sell_bit2me_order.symbol,
+        close=(
+            opened_sell_bit2me_order.stop_price
+            + faker.pyfloat(min_value=10.000, max_value=100.000)
+        ),
+    )
     # Mock call to /v1/trading/order to get opened buy orders
     httpserver.expect(
         Bit2MeAPIRequestMacher(
@@ -84,28 +118,9 @@ def _prepare_httpserver_mock(
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(
-        RootModel[list[Bit2MeOrderDto]](
-            [
-                Bit2MeOrderDtoObjectMother.create(
-                    side="buy",
-                    symbol=opened_sell_bit2me_order.symbol,
-                    order_type="limit",
-                    status=faker.random_element(["open", "inactive"]),
-                    price=opened_sell_bit2me_order.price
-                    * faker.pyfloat(min_value=0.20, max_value=0.40),
-                ),
-                Bit2MeOrderDtoObjectMother.create(
-                    side="buy",
-                    symbol=opened_sell_bit2me_order.symbol,
-                    order_type="limit",
-                    status=faker.random_element(["open", "inactive"]),
-                    price=opened_sell_bit2me_order.price
-                    * faker.pyfloat(min_value=0.50, max_value=0.60),
-                ),
-            ]
-            if simulate_pending_buy_orders_to_filled
-            else []
-        ).model_dump(mode="json", by_alias=True),
+        RootModel[list[Bit2MeOrderDto]](opened_buy_orders).model_dump(
+            mode="json", by_alias=True
+        ),
     )
 
     # Mock call to /v1/trading/order to get opened sell orders
@@ -139,20 +154,25 @@ def _prepare_httpserver_mock(
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.PERMANENT,
     ).respond_with_json(
-        RootModel[list[Bit2MeTickersDto]](
-            [
-                Bit2MeTickersDtoObjectMother.create(
-                    symbol=opened_sell_bit2me_order.symbol,
-                    close=(
-                        opened_sell_bit2me_order.stop_price
-                        + faker.pyfloat(min_value=10.000, max_value=100.000)
-                    ),
-                )
-            ]
-        ).model_dump(mode="json", by_alias=True),
+        RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(
+            mode="json", by_alias=True
+        ),
     )
 
-    if not simulate_pending_buy_orders_to_filled:
+    lowest_buy_price = math.inf
+    if opened_buy_orders:
+        lowest_opened_buy_order = pydash.min_by(
+            opened_buy_orders, lambda order: order.stop_price or order.price
+        )
+        lowest_buy_price = (
+            lowest_opened_buy_order.stop_price or lowest_opened_buy_order.price
+        )
+
+    if not simulate_pending_buy_orders_to_filled or (
+        tickers.close > lowest_buy_price
+        and ((1 - (lowest_buy_price / tickers.close)) * 100)
+        > TRAILING_STOP_LOSS_DEFAULT_PERCENT
+    ):
         # Mock call to DELETE /v1/trading/order/{id}
         httpserver.expect(
             Bit2MeAPIRequestMacher(
