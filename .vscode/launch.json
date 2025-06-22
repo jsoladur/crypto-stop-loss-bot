@@ -34,7 +34,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["-x", "--log-cli-level=INFO", "-k", "should_calculate_global_summary_properly"],
+      "args": ["-x", "--log-cli-level=INFO", "-k", "should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss[False]"],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false
     }

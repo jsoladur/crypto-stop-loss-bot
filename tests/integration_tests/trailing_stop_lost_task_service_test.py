@@ -75,21 +75,31 @@ def _prepare_httpserver_mock(
     )
     opened_buy_orders = (
         [
+            # Min buy order
             Bit2MeOrderDtoObjectMother.create(
                 side="buy",
                 symbol=opened_sell_bit2me_order.symbol,
                 order_type="limit",
                 status=faker.random_element(["open", "inactive"]),
                 price=opened_sell_bit2me_order.price
-                * faker.pyfloat(min_value=0.20, max_value=0.40),
+                * round(faker.pyfloat(min_value=0.20, max_value=0.40), ndigits=2),
             ),
+            # Middle-ground buy order
             Bit2MeOrderDtoObjectMother.create(
                 side="buy",
                 symbol=opened_sell_bit2me_order.symbol,
                 order_type="limit",
                 status=faker.random_element(["open", "inactive"]),
                 price=opened_sell_bit2me_order.price
-                * faker.pyfloat(min_value=0.50, max_value=0.60),
+                * round(faker.pyfloat(min_value=0.75, max_value=0.80), ndigits=2),
+            ),
+            # Max buy order
+            Bit2MeOrderDtoObjectMother.create(
+                side="buy",
+                symbol=opened_sell_bit2me_order.symbol,
+                order_type="limit",
+                status=faker.random_element(["open", "inactive"]),
+                price=opened_sell_bit2me_order.price * 0.995,
             ),
         ]
         if simulate_pending_buy_orders_to_filled
@@ -99,7 +109,11 @@ def _prepare_httpserver_mock(
         symbol=opened_sell_bit2me_order.symbol,
         close=(
             opened_sell_bit2me_order.stop_price
-            + faker.pyfloat(min_value=10.000, max_value=100.000)
+            + (
+                0.5
+                if simulate_pending_buy_orders_to_filled
+                else faker.pyfloat(min_value=10.000, max_value=100.000)
+            )
         ),
     )
     # Mock call to /v1/trading/order to get opened buy orders
@@ -161,15 +175,15 @@ def _prepare_httpserver_mock(
 
     lowest_buy_price = math.inf
     if opened_buy_orders:
-        lowest_opened_buy_order = pydash.min_by(
+        highest_opened_buy_order = pydash.max_by(
             opened_buy_orders, lambda order: order.stop_price or order.price
         )
-        lowest_buy_price = (
-            lowest_opened_buy_order.stop_price or lowest_opened_buy_order.price
+        highest_buy_price = (
+            highest_opened_buy_order.stop_price or highest_opened_buy_order.price
         )
 
     if not simulate_pending_buy_orders_to_filled or (
-        tickers.close > lowest_buy_price
+        tickers.close > highest_buy_price
         and ((1 - (lowest_buy_price / tickers.close)) * 100)
         > TRAILING_STOP_LOSS_DEFAULT_PERCENT
     ):
