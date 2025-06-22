@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
     Bit2MeRemoteService,
@@ -8,6 +9,8 @@ from crypto_trailing_stop.infrastructure.services.vo.global_summary import Globa
 from datetime import datetime, UTC
 from httpx import Client
 import pydash
+
+logger = logging.getLogger(__name__)
 
 
 class GlobalSummaryService:
@@ -26,6 +29,7 @@ class GlobalSummaryService:
             account_info = await self._bit2me_remote_service.get_account_info(
                 client=client
             )
+            operation_types = set()
             for current_year in range(
                 account_info.registration_date.year, datetime.now(UTC).year + 1
             ):
@@ -38,6 +42,9 @@ class GlobalSummaryService:
                     BytesIO(current_excel_file_content), header=1, sheet_name=None
                 )
                 for _, sheet_data in df.items():
+                    operation_types.update(
+                        sheet_data["Operation type"].unique().tolist()
+                    )
                     filtered_df = sheet_data[sheet_data["Operation type"] == "Deposit"]
                     total_deposits += filtered_df["From amount"].sum()
 
@@ -45,6 +52,11 @@ class GlobalSummaryService:
                         sheet_data["Operation type"] == "Withdrawal"
                     ]
                     withdrawls += filtered_df["From amount"].sum()
+
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.info(
+                    f"Operation type found out are: {','.join(operation_types)}"
+                )
 
             current_value = await self._calculate_current_value(client)
             global_summary = GlobalSummary(

@@ -33,7 +33,7 @@ async def set_stop_loss_percentage_callback_handler(
                 f"💸 WITHDRAWALS: {global_summary.withdrawls:.2f}€",
                 f"💰 CURRENT: {global_summary.current_value:.2f}€",
                 "---------------------------",
-                f"🤑 NET REVENUE: {((global_summary.current_value - global_summary.total_deposits) + global_summary.withdrawls):.2f} EUR",
+                f"🤑 NET REVENUE: {(global_summary.net_revenue):.2f} EUR",
                 "===========================",
             ]
             await callback_query.message.answer(text="\n".join(message_lines))
