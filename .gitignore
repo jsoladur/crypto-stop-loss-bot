@@ -228,4 +228,7 @@ pyrightconfig.json
 .history
 .ionide
 
+### SQLite3 Patch ###
+.db/*.sqlite
+
 # End of https://www.toptal.com/developers/gitignore/api/dotenv,python,macos,visualstudiocode

@@ -21,7 +21,9 @@ keyboards_builder = KeyboardsBuilder()
 async def login(
     login_query_params: Annotated[LoginDto, Query()], request: Request
 ) -> Response:
-    if "userinfo" in request.session:
+    if not configuration_properties.telegram_bot_enabled:
+        response = Response(status_code=status.HTTP_412_PRECONDITION_FAILED)
+    elif "userinfo" in request.session:
         userinfo = request.session["userinfo"]
         await telegram_service.perform_successful_login(
             login=login_query_params, userinfo=userinfo
@@ -53,7 +55,9 @@ async def login(
 
 @router.get("/oauth/callback")
 async def login_callback(request: Request) -> Response:
-    if "login_query_params" not in request.session:
+    if not configuration_properties.telegram_bot_enabled:
+        response = Response(status_code=status.HTTP_412_PRECONDITION_FAILED)
+    elif "login_query_params" not in request.session:
         logger.error("Login query parameters not found in session.")
         response = Response(
             status_code=status.HTTP_400_BAD_REQUEST,
