@@ -18,6 +18,7 @@ class Bit2MeOrderDtoObjectMother:
         symbol: str | None = None,
         order_type: Bit2MeOrderType | None = None,
         status: Bit2MeOrderStatus | None = None,
+        stop_price: float | int | None = None,
         price: float | int | None = None,
     ) -> Bit2MeOrderDto:
         """
@@ -27,7 +28,12 @@ class Bit2MeOrderDtoObjectMother:
             ["stop-limit", "limit", "market"]
         )
         stop_price = (
-            cls._faker.pyfloat(positive=True, min_value=500, max_value=1_000)
+            stop_price
+            or (
+                (price - 1)
+                if price is not None
+                else cls._faker.pyfloat(positive=True, min_value=500, max_value=1_000)
+            )
             if order_type == "stop-limit"
             else None
         )
@@ -35,7 +41,7 @@ class Bit2MeOrderDtoObjectMother:
             price
             if price is not None
             else (
-                (stop_price - 1)
+                (stop_price + 1)
                 if stop_price
                 else cls._faker.pyfloat(positive=True, min_value=500, max_value=1_000)
             )

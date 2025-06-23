@@ -75,6 +75,15 @@ def _prepare_httpserver_mock(
     )
     opened_buy_orders = (
         [
+            # Bullish breakout buy order
+            Bit2MeOrderDtoObjectMother.create(
+                side="buy",
+                symbol=opened_sell_bit2me_order.symbol,
+                order_type="stop-limit",
+                status=faker.random_element(["open", "inactive"]),
+                price=opened_sell_bit2me_order.price
+                * round(faker.pyfloat(min_value=1.20, max_value=1.40), ndigits=2),
+            ),
             # Min buy order
             Bit2MeOrderDtoObjectMother.create(
                 side="buy",
