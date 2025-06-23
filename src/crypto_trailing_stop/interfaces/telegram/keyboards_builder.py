@@ -89,7 +89,7 @@ class KeyboardsBuilder:
                 text=f"{percent_value} %",
                 callback_data=f"persist_stop_loss$${symbol}$${percent_value}",
             )
-            for percent_value in np.arange(1, 5.1, 0.25).tolist()
+            for percent_value in np.arange(0.25, 5.25, 0.25).tolist()
         ]
         # Add buttons in rows of 3
         for i in range(0, len(buttons), 3):
