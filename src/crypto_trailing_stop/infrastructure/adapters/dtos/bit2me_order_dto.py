@@ -33,6 +33,10 @@ class Bit2MeOrderDto(_AbstractBit2MeOrderDto):
     stop_price: float | int | None = Field(None, alias="stopPrice")
     price: float | int
 
+    @property
+    def effective_price(self) -> float | int:
+        return self.stop_price if self.stop_price is not None else self.price
+
 
 CreateNewBit2MeOrderDto.model_rebuild()
 Bit2MeOrderDto.model_rebuild()
