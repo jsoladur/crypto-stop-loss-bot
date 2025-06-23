@@ -17,7 +17,8 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
 )
 from crypto_trailing_stop.commons.constants import (
     TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD,
-    NUMBER_OF_DIGITS_IN_PRICE_BY_SYMBOL,
+    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
+    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
 )
 from crypto_trailing_stop.infrastructure.services import (
     StopLossPercentService,
@@ -64,9 +65,9 @@ class TrailingStopLostTaskService(AbstractTaskService):
                 )
             )
             for open_sell_order in opened_sell_orders:
-                number_of_digits_in_price = NUMBER_OF_DIGITS_IN_PRICE_BY_SYMBOL.get(
+                number_of_digits_in_price = NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
                     open_sell_order.symbol,
-                    2,
+                    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
                 )
                 tickers = await self._get_or_fetch_tickers_by_symbol(
                     open_sell_order.symbol, global_tickers_by_symbol, client=client

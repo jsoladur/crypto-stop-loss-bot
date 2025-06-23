@@ -2,9 +2,11 @@ TRAILING_STOP_LOSS_DEFAULT_PERCENT = (
     2.50  # Best Spot Loss value intra-day, based on experience
 )
 TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD = 0.00025
-NUMBER_OF_DIGITS_IN_PRICE_BY_SYMBOL = {
+NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL = {
+    "BTC/EUR": 1,
     "XRP/EUR": 4,
 }
+DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE = 2
 AUTHORIZED_GOOGLE_USER_EMAILS = [
     "josemaria.sola.duran@gmail.com",
     "jmsola3092@gmail.com",
