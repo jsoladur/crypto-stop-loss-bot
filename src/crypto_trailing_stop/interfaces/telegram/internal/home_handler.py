@@ -14,7 +14,9 @@ class HomeHandler:
     async def handle(self, message: Message, state: FSMContext) -> None:
         # The stage will allow to us to store user data!
         reply_message = f"Hello, {html.bold(message.from_user.full_name)}!"
-        is_user_logged = await self._session_storage_service.is_user_logged(state)
+        # FIXME: Uncomment this!
+        # is_user_logged = await session_storage_service.is_user_logged(state)
+        is_user_logged = True
         if is_user_logged:
             keyboard = self._keyboards_builder.get_home_keyboard()
         else:
