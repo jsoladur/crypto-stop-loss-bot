@@ -35,7 +35,7 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
     integration_test_env: tuple[HTTPServer, str],
 ) -> None:
     """
-    Test that all expected calls to Bit2Me are made when a trailing stop is lost.
+    Test that all expected calls to Bit2Me are made when a trailing stop is loss.
     """
     # Mock the Bit2Me API
     app, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
@@ -53,7 +53,7 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
             transport=ASGITransport(app=manager.app), base_url="http://test"
         ) as client:
             for _ in range(MAX_SECONDS):
-                # Call the function that triggers the trailing stop lost
+                # Call the function that triggers the trailing stop loss
                 response = await client.get("/health/status")
                 response.raise_for_status()
                 await sleep(delay=1.0)
