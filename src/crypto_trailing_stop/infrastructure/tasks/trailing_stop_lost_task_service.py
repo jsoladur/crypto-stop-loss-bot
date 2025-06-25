@@ -8,6 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
     Bit2MeRemoteService,
 )
+from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import (
     StopLossPercentItem,
 )
@@ -22,6 +23,7 @@ from crypto_trailing_stop.commons.constants import (
 )
 from crypto_trailing_stop.infrastructure.services import (
     StopLossPercentService,
+    GlobalFlagService,
 )
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     Bit2MeOrderDto,
@@ -38,6 +40,7 @@ class TrailingStopLostTaskService(AbstractTaskService):
     def __init__(self):
         self._configuration_properties = get_configuration_properties()
         self._stop_loss_percent_service = StopLossPercentService()
+        self._global_flag_service = GlobalFlagService()
         self._trailing_stop_loss_price_decrease_threshold = (
             1 - TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD
         )
@@ -52,6 +55,17 @@ class TrailingStopLostTaskService(AbstractTaskService):
 
     @override
     async def run(self) -> None:
+        is_trailing_stop_loss_enabled = await self._global_flag_service.is_enabled_for(
+            GlobalFlagTypeEnum.TRAILING_STOP_LOSS
+        )
+        if is_trailing_stop_loss_enabled:
+            await self._internal_run()
+        else:
+            logger.warning(
+                "[ATTENTION] Stop Loss is disabled! This job will not apply any change over opened sell orders!"
+            )
+
+    async def _internal_run(self) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:
             opened_sell_orders = (
                 await self._bit2me_remote_service.get_pending_stop_limit_orders(

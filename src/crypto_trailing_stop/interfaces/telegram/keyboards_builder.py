@@ -9,6 +9,13 @@ from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import (
     StopLossPercentItem,
 )
+import pydash
+from crypto_trailing_stop.infrastructure.services.vo.push_notification_item import (
+    PushNotificationItem,
+)
+from crypto_trailing_stop.infrastructure.services.vo.global_flag_item import (
+    GlobalFlagItem,
+)
 import numpy as np
 
 
@@ -48,20 +55,29 @@ class KeyboardsBuilder:
 
     def get_home_keyboard(self) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
-        builder.row(
+        home_buttons = [
             InlineKeyboardButton(
                 text="📈 Get Global Summary", callback_data="get_global_summary"
-            )
-        )
+            ),
+            InlineKeyboardButton(
+                text="🚏 Set Stop Loss Percent(%)",
+                callback_data="stop_loss_percent_home",
+            ),
+            InlineKeyboardButton(
+                text="🚩 Global Flags",
+                callback_data="global_flags_home",
+            ),
+            InlineKeyboardButton(
+                text="📫 Push Notifications",
+                callback_data="push_notificacions_home",
+            ),
+        ]
+        # Add buttons in rows of 3
+        for buttons_chunk in pydash.chunk(home_buttons, size=2):
+            builder.row(*buttons_chunk)
         builder.row(
             InlineKeyboardButton(
-                text="🚏 Set Stop Loss Percent (%)",
-                callback_data="set_stop_loss_percent",
-            )
-        )
-        builder.row(
-            InlineKeyboardButton(
-                text="⏻ Logout",
+                text="📴 Logout",
                 callback_data="logout",
             )
         )
@@ -78,6 +94,12 @@ class KeyboardsBuilder:
                     callback_data=f"set_stop_loss_percent$${stop_loss_percent_item.symbol}",
                 )
             )
+        builder.row(
+            InlineKeyboardButton(
+                text="<< Back",
+                callback_data="go_back_home",
+            )
+        )
         return builder.as_markup()
 
     def get_stop_loss_percent_values_by_symbol_keyboard(
@@ -92,12 +114,50 @@ class KeyboardsBuilder:
             for percent_value in np.arange(0.25, 5.25, 0.25).tolist()
         ]
         # Add buttons in rows of 3
-        for i in range(0, len(buttons), 3):
-            builder.row(*buttons[i : i + 3])
+        for buttons_chunk in pydash.chunk(buttons, size=3):
+            builder.row(*buttons_chunk)
         builder.row(
             InlineKeyboardButton(
                 text="<< Back",
-                callback_data="set_stop_loss_percent",
+                callback_data="stop_loss_percent_home",
+            )
+        )
+        return builder.as_markup()
+
+    def get_push_notifications_home_keyboard(
+        self, push_notification_items: list[PushNotificationItem]
+    ) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        for item in push_notification_items:
+            builder.row(
+                InlineKeyboardButton(
+                    text=f"Toggle {item.notification_type.description} ({'🟢' if item.activated else '🟥'})",
+                    callback_data=f"toggle_push_notification$${item.notification_type.value}",
+                )
+            )
+        builder.row(
+            InlineKeyboardButton(
+                text="<< Back",
+                callback_data="go_back_home",
+            )
+        )
+        return builder.as_markup()
+
+    def get_global_flags_home_keyboard(
+        self, global_flags_items: list[GlobalFlagItem]
+    ) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        for item in global_flags_items:
+            builder.row(
+                InlineKeyboardButton(
+                    text=f"{'⏸ Pause' if item.value else '▶️ Resume'} {item.name.description} ({'🟢' if item.value else '🟥'})",
+                    callback_data=f"toggle_global_flag$${item.name.value}",
+                )
+            )
+        builder.row(
+            InlineKeyboardButton(
+                text="<< Back",
+                callback_data="go_back_home",
             )
         )
         return builder.as_markup()
