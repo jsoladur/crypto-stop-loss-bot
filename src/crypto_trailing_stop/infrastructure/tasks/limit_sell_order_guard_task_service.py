@@ -37,7 +37,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     @override
     async def run(self) -> None:
         sell_limit_order_guard_enabled = await self._global_flag_service.is_enabled_for(
-            GlobalFlagTypeEnum.SELL_LIMIT_ORDER_GUARD
+            GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
         )
         if sell_limit_order_guard_enabled:
             await self._internal_run()
