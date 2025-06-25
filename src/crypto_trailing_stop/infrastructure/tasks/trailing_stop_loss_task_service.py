@@ -36,7 +36,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import
 logger = logging.getLogger(__name__)
 
 
-class TrailingStopLostTaskService(AbstractTaskService):
+class TrailingStopLossTaskService(AbstractTaskService):
     def __init__(self):
         self._configuration_properties = get_configuration_properties()
         self._stop_loss_percent_service = StopLossPercentService()
