@@ -17,8 +17,8 @@ stop_loss_percent_service = StopLossPercentService()
 keyboards_builder = KeyboardsBuilder()
 
 
-@dp.callback_query(lambda c: c.data == "set_stop_loss_percent")
-async def stop_loss_percent_callback_handler(
+@dp.callback_query(lambda c: c.data == "stop_loss_percent_home")
+async def stop_loss_percent_home_callback_handler(
     callback_query: CallbackQuery, state: FSMContext
 ) -> None:
     is_user_logged = await session_storage_service.is_user_logged(state)
