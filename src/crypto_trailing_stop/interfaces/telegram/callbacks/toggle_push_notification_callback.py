@@ -24,9 +24,7 @@ keyboards_builder = KeyboardsBuilder()
 async def toggle_push_notification_callback_handler(
     callback_query: CallbackQuery, state: FSMContext
 ) -> None:
-    # FIXME: Uncomment this!
-    # is_user_logged = await session_storage_service.is_user_logged(state)
-    is_user_logged = True
+    is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:
             match = re.match(r"^toggle_push_notification\$\$(.+)$", callback_query.data)

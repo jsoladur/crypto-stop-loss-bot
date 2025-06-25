@@ -21,9 +21,7 @@ keyboards_builder = KeyboardsBuilder()
 async def push_notifications_home_callback(
     callback_query: CallbackQuery, state: FSMContext
 ) -> None:
-    # FIXME: Uncomment this!
-    # is_user_logged = await session_storage_service.is_user_logged(state)
-    is_user_logged = True
+    is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:
             push_notification_items = await push_notification_service.find_push_notification_by_telegram_chat_id(
