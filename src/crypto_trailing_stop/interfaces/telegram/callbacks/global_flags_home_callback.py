@@ -20,9 +20,7 @@ keyboards_builder = KeyboardsBuilder()
 async def stop_loss_percent_home_callback_handler(
     callback_query: CallbackQuery, state: FSMContext
 ) -> None:
-    # FIXME: Uncomment this!
-    # is_user_logged = await session_storage_service.is_user_logged(state)
-    is_user_logged = True
+    is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         global_flag_items = await global_flag_service.find_all()
         await callback_query.message.answer(

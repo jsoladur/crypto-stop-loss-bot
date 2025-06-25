@@ -47,7 +47,7 @@ class GlobalFlagService:
         )
         return ret
 
-    async def is_enabled_by_name(self, name: GlobalFlagTypeEnum) -> bool:
+    async def is_enabled_for(self, name: GlobalFlagTypeEnum) -> bool:
         global_flag = (
             await GlobalFlag.objects().where(GlobalFlag.name == name.value).first()
         )

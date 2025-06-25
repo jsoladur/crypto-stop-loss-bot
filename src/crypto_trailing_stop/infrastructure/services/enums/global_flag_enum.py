@@ -5,7 +5,7 @@ from typing import Any
 class GlobalFlagTypeEnum(str, Enum):
     description: str
 
-    PAUSE_TRAILING_STOP_LOSS = ("PAUSE_TRAILING_STOP_LOSS", "Trailing Stop Loss")
+    TRAILING_STOP_LOSS = ("TRAILING_STOP_LOSS", "Trailing Stop Loss")
 
     @classmethod
     def from_value(cls, value: str) -> "GlobalFlagTypeEnum":
