@@ -2,13 +2,14 @@ from aiogram.fsm.context import FSMContext
 from crypto_trailing_stop.infrastructure.services.enums import (
     SessionKeysEnum,
 )
-from crypto_trailing_stop.config import get_dispacher
+from crypto_trailing_stop.config import get_configuration_properties, get_dispacher
 from aiogram.fsm.storage.base import StorageKey
 from typing import Any
 
 
 class SessionStorageService:
     def __init__(self):
+        self._configuration_properties = get_configuration_properties()
         self._dispacher = get_dispacher()
 
     async def get_or_create_fsm_context(
@@ -24,8 +25,12 @@ class SessionStorageService:
         )
 
     async def is_user_logged(self, state: FSMContext) -> bool:
-        data = await state.get_data()
-        return SessionKeysEnum.USER_CONTEXT.value in data
+        if not self._configuration_properties.login_enabled:
+            ret = True
+        else:
+            data = await state.get_data()
+            ret = SessionKeysEnum.USER_CONTEXT.value in data
+        return ret
 
     async def set_user_logged(
         self, state: FSMContext, userinfo: dict[str, Any]

@@ -30,6 +30,7 @@ class ConfigurationProperties(BaseSettings):
     telegram_bot_enabled: bool = True
     public_domain: str = "http://localhost:8000"
     session_secret_key: str = Field(default_factory=uuid4)
+    login_enabled: bool = True
     # CORS enabled
     cors_enabled: bool = False
     # Telegram bot token
