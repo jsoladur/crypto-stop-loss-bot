@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class SessionKeysEnum(Enum):
+class SessionKeysEnum(str, Enum):
     """
     Enum for session keys used in the application.
     """

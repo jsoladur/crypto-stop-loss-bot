@@ -9,6 +9,9 @@ from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import (
     StopLossPercentItem,
 )
+from crypto_trailing_stop.infrastructure.services.vo.push_notification_item import (
+    PushNotificationItem,
+)
 import numpy as np
 
 
@@ -56,7 +59,19 @@ class KeyboardsBuilder:
         builder.row(
             InlineKeyboardButton(
                 text="🚏 Set Stop Loss Percent (%)",
-                callback_data="set_stop_loss_percent",
+                callback_data="stop_loss_percent_home",
+            )
+        )
+        builder.row(
+            InlineKeyboardButton(
+                text="🚩 Global Flags (%)",
+                callback_data="global_flags_home",
+            )
+        )
+        builder.row(
+            InlineKeyboardButton(
+                text="📫 Push Notifications",
+                callback_data="push_notificacions_home",
             )
         )
         builder.row(
@@ -78,6 +93,12 @@ class KeyboardsBuilder:
                     callback_data=f"set_stop_loss_percent$${stop_loss_percent_item.symbol}",
                 )
             )
+        builder.row(
+            InlineKeyboardButton(
+                text="<< Back",
+                callback_data="go_back_home",
+            )
+        )
         return builder.as_markup()
 
     def get_stop_loss_percent_values_by_symbol_keyboard(
@@ -97,7 +118,26 @@ class KeyboardsBuilder:
         builder.row(
             InlineKeyboardButton(
                 text="<< Back",
-                callback_data="set_stop_loss_percent",
+                callback_data="stop_loss_percent_home",
+            )
+        )
+        return builder.as_markup()
+
+    def get_push_notifications_home_keyboard(
+        self, push_notification_items: list[PushNotificationItem]
+    ) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        for item in push_notification_items:
+            builder.row(
+                InlineKeyboardButton(
+                    text=f"{'🟢' if item.activated else '🟥'} Toggle {item.notification_type.description}",
+                    callback_data=f"toggle_push_notification$${item.notification_type.value}",
+                )
+            )
+        builder.row(
+            InlineKeyboardButton(
+                text="<< Back",
+                callback_data="go_back_home",
             )
         )
         return builder.as_markup()
