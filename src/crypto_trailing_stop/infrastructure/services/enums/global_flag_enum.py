@@ -6,6 +6,7 @@ class GlobalFlagTypeEnum(str, Enum):
     description: str
 
     TRAILING_STOP_LOSS = ("TRAILING_STOP_LOSS", "Trailing Stop Loss")
+    LIMIT_SELL_ORDER_GUARD = ("LIMIT_SELL_ORDER_GUARD", "Limit Sell Order Guard")
 
     @classmethod
     def from_value(cls, value: str) -> "GlobalFlagTypeEnum":

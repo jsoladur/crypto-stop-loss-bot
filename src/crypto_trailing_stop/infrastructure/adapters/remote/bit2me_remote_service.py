@@ -106,16 +106,16 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             ret, *_ = tickers
         return ret
 
-    async def get_pending_stop_limit_orders(
+    async def get_pending_sell_orders(
         self,
         *,
-        side: Bit2MeOrderSide | None = None,
+        order_type: Bit2MeOrderType | None = None,
         client: AsyncClient | None = None,
     ) -> list[Bit2MeOrderDto]:
         return await self.get_orders(
-            side=side,
+            side="sell",
             status=["open", "inactive"],
-            order_type="stop-limit",
+            order_type=order_type,
             client=client,
         )
 

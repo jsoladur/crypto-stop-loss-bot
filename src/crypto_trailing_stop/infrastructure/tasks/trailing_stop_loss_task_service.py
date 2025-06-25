@@ -62,35 +62,42 @@ class TrailingStopLossTaskService(AbstractTaskService):
             await self._internal_run()
         else:
             logger.warning(
-                "[ATTENTION] Stop Loss is disabled! This job will not apply any change over opened sell orders!"
+                "[ATTENTION] Trailing Stop Loss is DISABLED! This job will not apply any change over opened sell orders!"
             )
 
     async def _internal_run(self) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:
-            opened_sell_orders = (
-                await self._bit2me_remote_service.get_pending_stop_limit_orders(
-                    side="sell", client=client
+            opened_stop_limit_sell_orders = (
+                await self._bit2me_remote_service.get_pending_sell_orders(
+                    order_type="stop-limit", client=client
                 )
             )
-            if opened_sell_orders:
-                await self._handle_opened_sell_orders(opened_sell_orders, client=client)
+            if opened_stop_limit_sell_orders:
+                await self._handle_opened_stop_limit_sell_orders(
+                    opened_stop_limit_sell_orders, client=client
+                )
             else:
                 logger.info(
-                    "There are no opened sell orders to handle! Let's see in the upcoming executions..."
+                    "There are no opened stop-limit sell orders to handle! Let's see in the upcoming executions..."
                 )
 
-    async def _handle_opened_sell_orders(
-        self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
+    async def _handle_opened_stop_limit_sell_orders(
+        self,
+        opened_stop_limit_sell_orders: list[Bit2MeOrderDto],
+        *,
+        client: AsyncClient,
     ) -> None:
         current_tickers_by_symbol: dict[
             str, Bit2MeTickersDto
-        ] = await self._fetch_all_tickers_by_symbol(opened_sell_orders, client=client)
+        ] = await self._fetch_all_tickers_by_symbol(
+            opened_stop_limit_sell_orders, client=client
+        )
         max_and_min_buy_order_amount_by_symbol = (
             await self._calculate_max_and_min_buy_order_amount_by_symbol(
-                opened_sell_orders, current_tickers_by_symbol, client=client
+                opened_stop_limit_sell_orders, current_tickers_by_symbol, client=client
             )
         )
-        for open_sell_order in opened_sell_orders:
+        for open_sell_order in opened_stop_limit_sell_orders:
             number_of_digits_in_price = NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
                 open_sell_order.symbol,
                 DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
@@ -182,13 +189,16 @@ class TrailingStopLossTaskService(AbstractTaskService):
 
     async def _calculate_max_and_min_buy_order_amount_by_symbol(
         self,
-        opened_sell_orders: list[Bit2MeOrderDto],
+        opened_stop_limit_sell_orders: list[Bit2MeOrderDto],
         current_tickers_by_symbol: dict[str, Bit2MeTickersDto],
         *,
         client: AsyncClient,
     ) -> dict[str, tuple[float, float]]:
         open_sell_order_symbols = set(
-            [open_sell_order.symbol for open_sell_order in opened_sell_orders]
+            [
+                open_sell_order.symbol
+                for open_sell_order in opened_stop_limit_sell_orders
+            ]
         )
         opened_buy_orders = await self._bit2me_remote_service.get_pending_buy_orders(
             client=client
@@ -230,12 +240,15 @@ class TrailingStopLossTaskService(AbstractTaskService):
 
     async def _fetch_all_tickers_by_symbol(
         self,
-        opened_sell_orders: list[Bit2MeOrderDto],
+        opened_stop_limit_sell_orders: list[Bit2MeOrderDto],
         *,
         client: AsyncClient,
     ) -> dict[str, Bit2MeTickersDto]:
         open_sell_order_symbols = set(
-            [open_sell_order.symbol for open_sell_order in opened_sell_orders]
+            [
+                open_sell_order.symbol
+                for open_sell_order in opened_stop_limit_sell_orders
+            ]
         )
         ret = {
             symbol: await self._bit2me_remote_service.get_tickers_by_symbol(
