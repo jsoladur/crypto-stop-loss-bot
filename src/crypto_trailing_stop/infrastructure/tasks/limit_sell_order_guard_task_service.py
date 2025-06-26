@@ -98,10 +98,11 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                 sell_order, client=client
             )
         )
-        safeguard_stop_price = (
-            await self._orders_analytics_service.calculate_safeguard_stop_price(
-                sell_order, avg_buy_price
-            )
+        (
+            safeguard_stop_price,
+            *_,
+        ) = await self._orders_analytics_service.calculate_safeguard_stop_price(
+            sell_order, avg_buy_price
         )
         logger.info(
             f"Supervising LIMIT SELL order {repr(sell_order)}: "

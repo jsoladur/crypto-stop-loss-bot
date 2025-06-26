@@ -43,7 +43,7 @@ async def set_stop_loss_percent_callback_handler(
             ]
             await callback_query.message.answer(text="\n".join(message_lines))
         except Exception as e:
-            logger.error(f"Error fetching global summary: {str(e)}")
+            logger.error(f"Error fetching global summary: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 f"⚠️ An error occurred while fetching the global summary. Please try again later:\n\n{html.code(str(e))}"
             )

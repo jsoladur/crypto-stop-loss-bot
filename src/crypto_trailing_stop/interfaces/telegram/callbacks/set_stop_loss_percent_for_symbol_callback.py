@@ -7,6 +7,7 @@ from crypto_trailing_stop.interfaces.telegram.keyboards_builder import Keyboards
 from crypto_trailing_stop.infrastructure.services import (
     SessionStorageService,
     StopLossPercentService,
+    GlobalFlagService,
 )
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
     Bit2MeRemoteService,
@@ -20,7 +21,7 @@ dp = get_dispacher()
 session_storage_service = SessionStorageService()
 keyboards_builder = KeyboardsBuilder()
 stop_loss_percent_service = StopLossPercentService(
-    bit2me_remote_service=Bit2MeRemoteService()
+    bit2me_remote_service=Bit2MeRemoteService(), global_flag_service=GlobalFlagService()
 )
 
 

@@ -10,6 +10,9 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import (
     StopLossPercentItem,
 )
+from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import (
+    LimitSellOrderGuardMetrics,
+)
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
     Bit2MeRemoteService,
 )
@@ -29,6 +32,34 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
     ) -> None:
         self._bit2me_remote_service = bit2me_remote_service
         self._stop_loss_percent_service = stop_loss_percent_service
+
+    async def calculate_limit_sell_order_guard_metrics(
+        self,
+    ) -> list[LimitSellOrderGuardMetrics]:
+        async with await self._bit2me_remote_service.get_http_client() as client:
+            opened_limit_sell_orders = (
+                await self._bit2me_remote_service.get_pending_sell_orders(
+                    order_type="limit", client=client
+                )
+            )
+            ret = []
+            for sell_order in opened_limit_sell_orders:
+                avg_buy_price = await self.calculate_correlated_avg_buy_price(
+                    sell_order, client=client
+                )
+                (
+                    safeguard_stop_price,
+                    stop_loss_percent_item,
+                ) = await self.calculate_safeguard_stop_price(sell_order, avg_buy_price)
+                ret.append(
+                    LimitSellOrderGuardMetrics(
+                        limit_sell_order=sell_order,
+                        avg_buy_price=avg_buy_price,
+                        stop_loss_percent_value=stop_loss_percent_item.value,
+                        safeguard_stop_price=safeguard_stop_price,
+                    )
+                )
+            return ret
 
     async def calculate_correlated_avg_buy_price(
         self,
@@ -63,9 +94,9 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
 
     async def calculate_safeguard_stop_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float
-    ) -> float:
+    ) -> tuple[float, StopLossPercentItem]:
         (
-            *_,
+            stop_loss_percent_item,
             stop_loss_percent_decimal_value,
         ) = await self.find_stop_loss_percent_by_sell_order(sell_order)
 
@@ -76,7 +107,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
                 DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
             ),
         )
-        return safeguard_stop_price
+        return safeguard_stop_price, stop_loss_percent_item
 
     async def find_stop_loss_percent_by_sell_order(
         self, sell_order: Bit2MeOrderDto

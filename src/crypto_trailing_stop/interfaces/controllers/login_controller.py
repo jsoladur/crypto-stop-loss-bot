@@ -62,7 +62,7 @@ async def login_callback(request: Request) -> Response:
     if not configuration_properties.telegram_bot_enabled:
         response = Response(status_code=status.HTTP_412_PRECONDITION_FAILED)
     elif "login_query_params" not in request.session:
-        logger.error("Login query parameters not found in session.")
+        logger.warning("Login query parameters not found in session.")
         response = Response(
             status_code=status.HTTP_400_BAD_REQUEST,
             content="Login query parameters not found in session.",

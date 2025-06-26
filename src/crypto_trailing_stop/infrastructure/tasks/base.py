@@ -21,7 +21,10 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import (
     Bit2MeTickersDto,
 )
-from crypto_trailing_stop.infrastructure.services import SessionStorageService
+from crypto_trailing_stop.infrastructure.services import (
+    SessionStorageService,
+    GlobalFlagService,
+)
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from aiogram import html
 
@@ -33,7 +36,8 @@ class AbstractTaskService(ABC):
         self._bit2me_remote_service = Bit2MeRemoteService()
         self._push_notification_service = PushNotificationService()
         self._stop_loss_percent_service = StopLossPercentService(
-            bit2me_remote_service=self._bit2me_remote_service
+            bit2me_remote_service=self._bit2me_remote_service,
+            global_flag_service=GlobalFlagService(),
         )
         self._orders_analytics_service = OrdersAnalyticsService(
             bit2me_remote_service=self._bit2me_remote_service,

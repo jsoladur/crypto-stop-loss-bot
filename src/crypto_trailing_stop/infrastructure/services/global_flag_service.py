@@ -48,6 +48,16 @@ class GlobalFlagService(metaclass=SingletonMeta):
         )
         return ret
 
+    async def force_disable_by_name(self, name: GlobalFlagTypeEnum) -> None:
+        global_flag = (
+            await GlobalFlag.objects().where(GlobalFlag.name == name.value).first()
+        )
+        if global_flag:
+            global_flag.value = False
+        else:
+            global_flag = GlobalFlag(name=name.value, value=False)
+        await global_flag.save()
+
     async def is_enabled_for(self, name: GlobalFlagTypeEnum) -> bool:
         global_flag = (
             await GlobalFlag.objects().where(GlobalFlag.name == name.value).first()
