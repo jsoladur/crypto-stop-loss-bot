@@ -6,6 +6,14 @@ class PushNotificationTypeEnum(str, Enum):
     description: str
 
     BUY_SELL_STRATEGY_ALERT = ("BUY_SELL_STRATEGY_ALERT", "Buy/Sell Strategy alerts")
+    LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT = (
+        "LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT",
+        "Limit Sell Order Guard alerts",
+    )
+    BACKGROUND_JOB_FALTAL_ERRORS = (
+        "BACKGROUND_JOB_FALTAL_ERRORS",
+        "Jobs Fatal Errors alerts",
+    )
 
     @classmethod
     def from_value(cls, value: str) -> "PushNotificationTypeEnum":

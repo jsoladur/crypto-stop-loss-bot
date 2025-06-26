@@ -138,6 +138,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         side: Bit2MeOrderSide | None = None,
         order_type: Bit2MeOrderType | None = None,
         status: list[Bit2MeOrderStatus] | Bit2MeOrderStatus | None = None,
+        symbol: str | None = None,
         client: AsyncClient | None = None,
     ) -> list[Bit2MeOrderDto]:
         status = status or []
@@ -153,6 +154,8 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             params["side"] = side
         if order_type:
             params["orderType"] = order_type
+        if symbol:
+            params["symbol"] = symbol
         response = await self._perform_http_request(
             url="/v1/trading/order",
             params=params,
@@ -165,7 +168,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
 
     async def create_order(
         self, order: CreateNewBit2MeOrderDto, *, client: AsyncClient | None = None
-    ) -> None:
+    ) -> Bit2MeOrderDto:
         order_as_dict: dict[str, Any] = order.model_dump(
             mode="json", by_alias=True, exclude_none=True
         )

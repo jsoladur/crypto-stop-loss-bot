@@ -12,6 +12,9 @@ from tests.helpers.object_mothers import (
 from crypto_trailing_stop.commons.constants import (
     TRAILING_STOP_LOSS_DEFAULT_PERCENT,
 )
+from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import (
+    GlobalFlagTypeEnum,
+)
 from asgi_lifespan import LifespanManager
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import (
     Bit2MeTickersDto,
@@ -24,6 +27,7 @@ from pytest_httpserver.httpserver import HandlerType
 from werkzeug import Response
 from pydantic import RootModel
 from faker import Faker
+from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.constants import MAX_SECONDS
 
 
@@ -39,6 +43,11 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
     """
     # Mock the Bit2Me API
     app, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+
+    # Disable other background jobs to not interact with the tests
+    await disable_all_background_jobs_except(
+        exclusion=GlobalFlagTypeEnum.TRAILING_STOP_LOSS
+    )
 
     _prepare_httpserver_mock(
         faker,
