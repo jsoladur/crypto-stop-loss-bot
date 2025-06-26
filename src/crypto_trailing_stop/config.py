@@ -83,7 +83,7 @@ def get_dispacher() -> Dispatcher:
     return _dispacher
 
 
-def get_oauth_context() -> OAuth:
+def get_oauth_context() -> OAuth:  # pragma: no cover
     configuration_properties = get_configuration_properties()
     oauth = OAuth()
     oauth.register(

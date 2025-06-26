@@ -30,7 +30,7 @@ class AbstractTaskService(ABC):
         self._telegram_service = TelegramService()
 
     @abstractmethod
-    def run(self, *args, **kwargs) -> None:
+    async def run(self, *args, **kwargs) -> None:
         """
         Run the task
         """

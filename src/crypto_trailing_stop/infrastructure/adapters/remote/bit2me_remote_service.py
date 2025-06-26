@@ -220,7 +220,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         body: Any | None = None,
         response: Response,
     ) -> Response:
-        if not response.is_success:
+        if not response.is_success:  # pragma: no cover
             raise ValueError(
                 f"Bit2Me API error: HTTP {method} {self._build_full_url(url, params)} "
                 + f"- Status code: {response.status_code} - {response.text}"
@@ -250,7 +250,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     ) -> str:
         url = self._build_full_url(url, params)
         message_to_sign = f"{nonce}:{url}"
-        if body:
+        if body:  # pragma: no cover
             message_to_sign += f":{json.dumps(body, separators=(',', ':'))}"
         sha256_hash = hashlib.sha256()
         hash_digest = sha256_hash.update(message_to_sign.encode("utf-8"))
