@@ -1,3 +1,5 @@
-from crypto_trailing_stop.infrastructure.tasks.task_manager import TaskManager
+from crypto_trailing_stop.infrastructure.tasks.task_manager import (
+    get_instance as get_task_manager_instance,
+)
 
-__all__ = ["TaskManager"]
+__all__ = ["get_task_manager_instance"]

@@ -16,10 +16,11 @@ from crypto_trailing_stop.infrastructure.services.vo.push_notification_item impo
 from crypto_trailing_stop.infrastructure.services.vo.global_flag_item import (
     GlobalFlagItem,
 )
+from crypto_trailing_stop.commons.patterns import SingletonMeta
 import numpy as np
 
 
-class KeyboardsBuilder:
+class KeyboardsBuilder(metaclass=SingletonMeta):
     def __init__(self):
         self._configuration_properties = get_configuration_properties()
 

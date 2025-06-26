@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 dp = get_dispacher()
 session_storage_service = SessionStorageService()
-push_notification_service = PushNotificationService()
 keyboards_builder = KeyboardsBuilder()
+push_notification_service = PushNotificationService()
 
 
 @dp.callback_query(lambda c: c.data == "push_notificacions_home")
@@ -35,7 +35,8 @@ async def push_notifications_home_callback(
             )
         except Exception as e:
             logger.error(
-                f"Error trying to retrieve push notifications configured for this chat: {str(e)}"
+                f"Error trying to retrieve push notifications configured for this chat: {str(e)}",
+                exc_info=True,
             )
             await callback_query.message.answer(
                 f"⚠️ An error occurred while retrieving push notifications items. Please try again later:\n\n{html.code(str(e))}"

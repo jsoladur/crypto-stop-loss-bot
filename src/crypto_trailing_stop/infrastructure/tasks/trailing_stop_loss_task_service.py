@@ -19,8 +19,8 @@ from crypto_trailing_stop.commons.constants import (
     DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
 )
 from crypto_trailing_stop.infrastructure.services import (
-    StopLossPercentService,
     GlobalFlagService,
+    OrdersAnalyticsService,
 )
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     Bit2MeOrderDto,
@@ -37,8 +37,8 @@ class TrailingStopLossTaskService(AbstractTaskService):
     def __init__(self):
         super().__init__()
         self._configuration_properties = get_configuration_properties()
-        self._stop_loss_percent_service = StopLossPercentService()
         self._global_flag_service = GlobalFlagService()
+        self._orders_analytics_service = OrdersAnalyticsService()
         self._trailing_stop_loss_price_decrease_threshold = (
             1 - TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD
         )
@@ -122,7 +122,9 @@ class TrailingStopLossTaskService(AbstractTaskService):
         (
             stop_loss_percent_item,
             stop_loss_percent_decimal_value,
-        ) = await self._find_stop_loss_percent_by_symbol(sell_order)
+        ) = await self._orders_analytics_service.find_stop_loss_percent_by_sell_order(
+            sell_order
+        )
         # Stop price should be the minimum of the current price and the minimum buy order amount for that symbol
         max_buy_order_amount, min_buy_order_amount = (
             max_and_min_buy_order_amount_by_symbol[sell_order.symbol]

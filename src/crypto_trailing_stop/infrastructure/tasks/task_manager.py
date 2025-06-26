@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
-from crypto_trailing_stop.commons.patterns import SingletonMeta
 from types import ModuleType
 
 from os import path, listdir
@@ -12,9 +11,12 @@ from importlib import import_module
 logger = logging.getLogger(__name__)
 
 
-class TaskManager(metaclass=SingletonMeta):
+class _TaskManager:
     def __init__(self):
         self._load_tasks()
+
+    def get_tasks(self) -> list[AbstractTaskService]:
+        return list(self._tasks.values())
 
     def _load_tasks(self, *, deeply: bool = True) -> None:
         self._tasks = {}
@@ -34,9 +36,6 @@ class TaskManager(metaclass=SingletonMeta):
                     logger.info(f"Loading {attr.__name__}...")
                     self._tasks[id(attr)] = attr()
                     logger.info(f"{attr.__name__} has been loaded successfully...")
-
-    def get_tasks(self) -> list[AbstractTaskService]:
-        return list(self._tasks.values())
 
     def _import_modules_by_dir(
         self, dir_to_imported: str, package: str, *, deeply: bool = False
@@ -95,3 +94,13 @@ class TaskManager(metaclass=SingletonMeta):
         elif not deeply or file_path.name == "__pycache__":
             return False
         return True
+
+
+_instance: _TaskManager | None = None
+
+
+def get_instance() -> _TaskManager:
+    global _instance
+    if _instance is None:
+        _instance = _TaskManager()
+    return _instance

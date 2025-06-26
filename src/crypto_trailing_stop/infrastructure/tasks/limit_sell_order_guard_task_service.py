@@ -10,12 +10,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     CreateNewBit2MeOrderDto,
 )
 from aiogram import html
-from crypto_trailing_stop.commons.constants import (
-    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
-    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
-)
 from crypto_trailing_stop.infrastructure.services import (
-    StopLossPercentService,
     GlobalFlagService,
 )
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
@@ -25,7 +20,6 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import
     Bit2MeTickersDto,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +27,6 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     def __init__(self):
         super().__init__()
         self._configuration_properties = get_configuration_properties()
-        self._stop_loss_percent_service = StopLossPercentService()
         self._global_flag_service = GlobalFlagService()
         self._scheduler: AsyncIOScheduler = get_scheduler()
         self._scheduler.add_job(
@@ -99,27 +92,23 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         *,
         client: AsyncClient,
     ) -> None:
-        number_of_digits_in_price = NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
-            sell_order.symbol,
-            DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
-        )
         *_, fiat_currency = sell_order.symbol.split("/")
-        avg_buy_price = await self._calculate_correlated_avg_buy_price(
-            sell_order, number_of_digits_in_price, client=client
+        avg_buy_price = (
+            await self._orders_analytics_service.calculate_correlated_avg_buy_price(
+                sell_order, client=client
+            )
         )
         (
+            safeguard_stop_price,
             *_,
-            stop_loss_percent_decimal_value,
-        ) = await self._find_stop_loss_percent_by_symbol(sell_order)
-        tickers = current_tickers_by_symbol[sell_order.symbol]
-        safeguard_stop_price = round(
-            avg_buy_price * (1 - stop_loss_percent_decimal_value),
-            ndigits=number_of_digits_in_price,
+        ) = await self._orders_analytics_service.calculate_safeguard_stop_price(
+            sell_order, avg_buy_price
         )
         logger.info(
             f"Supervising LIMIT SELL order {repr(sell_order)}: "
             + f"Avg Buy Price = {avg_buy_price} {fiat_currency} / Safeguard Stop Price = {safeguard_stop_price} {fiat_currency}"
         )
+        tickers = current_tickers_by_symbol[sell_order.symbol]
         if tickers.close <= safeguard_stop_price:
             # Cancel current take-profit sell limit order
             await self._bit2me_remote_service.cancel_order_by_id(
@@ -167,31 +156,3 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                 f"Unexpected error, notifying fatal error via Telegram: {str(e)}",
                 exc_info=True,
             )
-
-    async def _calculate_correlated_avg_buy_price(
-        self,
-        sell_order: Bit2MeOrderDto,
-        number_of_digits_in_price: int,
-        *,
-        client: AsyncClient,
-    ) -> float:
-        last_filled_buy_orders = await self._bit2me_remote_service.get_orders(
-            side="buy", status="filled", symbol=sell_order.symbol, client=client
-        )
-        idx, sum_order_amount = 0, 0.0
-        correlated_filled_buy_orders = []
-        while sum_order_amount < sell_order.order_amount and idx < len(
-            last_filled_buy_orders
-        ):
-            current_filled_buy_order = last_filled_buy_orders[idx]
-            correlated_filled_buy_orders.append(current_filled_buy_order)
-            sum_order_amount += current_filled_buy_order.order_amount
-            idx += 1
-        numerator = sum(
-            [o.price * o.order_amount for o in correlated_filled_buy_orders]
-        )
-        denominator = sum([o.order_amount for o in correlated_filled_buy_orders])
-        correlated_avg_buy_price = round(
-            numerator / denominator, ndigits=number_of_digits_in_price
-        )
-        return correlated_avg_buy_price

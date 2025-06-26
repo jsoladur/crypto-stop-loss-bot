@@ -24,6 +24,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import (
     Bit2MeTickersDto,
 )
+from crypto_trailing_stop.commons.patterns import SingletonMeta
 import hashlib
 import hmac
 import base64
@@ -31,6 +32,8 @@ import json
 
 
 class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
+    __metaclass__ = SingletonMeta
+
     def __init__(self):
         self._configuration_properties = get_configuration_properties()
         self._base_url = str(self._configuration_properties.bit2me_api_base_url)

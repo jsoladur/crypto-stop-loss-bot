@@ -6,6 +6,10 @@ from crypto_trailing_stop.interfaces.telegram.keyboards_builder import Keyboards
 from crypto_trailing_stop.infrastructure.services import (
     SessionStorageService,
     StopLossPercentService,
+    GlobalFlagService,
+)
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
+    Bit2MeRemoteService,
 )
 from aiogram.fsm.context import FSMContext
 
@@ -13,8 +17,10 @@ logger = logging.getLogger(__name__)
 
 dp = get_dispacher()
 session_storage_service = SessionStorageService()
-stop_loss_percent_service = StopLossPercentService()
 keyboards_builder = KeyboardsBuilder()
+stop_loss_percent_service = StopLossPercentService(
+    bit2me_remote_service=Bit2MeRemoteService(), global_flag_service=GlobalFlagService()
+)
 
 
 @dp.callback_query(lambda c: c.data == "stop_loss_percent_home")
@@ -34,7 +40,7 @@ async def stop_loss_percent_home_callback_handler(
                 ),
             )
         except Exception as e:
-            logger.error(f"Error retrieving stop loss items: {str(e)}")
+            logger.error(f"Error retrieving stop loss items: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 f"⚠️ An error occurred while retrieving stop loss items. Please try again later:\n\n{html.code(str(e))}"
             )

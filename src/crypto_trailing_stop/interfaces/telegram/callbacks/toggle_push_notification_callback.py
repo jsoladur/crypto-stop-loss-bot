@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 dp = get_dispacher()
 session_storage_service = SessionStorageService()
-push_notification_service = PushNotificationService()
 keyboards_builder = KeyboardsBuilder()
+push_notification_service = PushNotificationService()
 
 
 @dp.callback_query(F.data.regexp(r"^toggle_push_notification\$\$(.+)$"))
@@ -42,7 +42,8 @@ async def toggle_push_notification_callback_handler(
             )
         except Exception as e:
             logger.error(
-                f"Error trying to toggle push notifications for this chat: {str(e)}"
+                f"Error trying to toggle push notifications for this chat: {str(e)}",
+                exc_info=True,
             )
             await callback_query.message.answer(
                 f"⚠️ An error occurred while toggling push notifications. Please try again later:\n\n{html.code(str(e))}"

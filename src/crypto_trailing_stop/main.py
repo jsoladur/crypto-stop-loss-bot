@@ -16,8 +16,8 @@ from crypto_trailing_stop.config import (
     get_telegram_bot,
     get_scheduler,
 )
+from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.database import init_database
-from crypto_trailing_stop.infrastructure.tasks import TaskManager
 from crypto_trailing_stop.interfaces.controllers.health_controller import (
     router as health_router,
 )
@@ -63,7 +63,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize database
     await init_database()
     # Background task manager initialization
-    TaskManager()
+    task_manager = get_task_manager_instance()
+    logger.info(f"{len(task_manager.get_tasks())} jobs have been loaded!")
     # Telegram bot initialization
     # Initialize Bot instance with default bot properties which will be passed to all API calls
     configuration_properties = get_configuration_properties()
@@ -101,7 +102,7 @@ def _boostrap_app() -> None:
     app = FastAPI(
         title="Crypto Trailing Stop API",
         description="API for Crypto Trailing Stop Bot",
-        version="0.5.0",
+        version="0.6.0",
         contact={
             "name": "jmsoladev",
             "url": "https://www.jmsoladev.com",

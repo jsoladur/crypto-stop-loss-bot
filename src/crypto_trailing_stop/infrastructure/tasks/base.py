@@ -5,19 +5,27 @@ from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service i
     Bit2MeRemoteService,
 )
 from crypto_trailing_stop.interfaces.telegram.services import TelegramService
+from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import (
+    StopLossPercentService,
+)
 from crypto_trailing_stop.infrastructure.services.push_notification_service import (
     PushNotificationService,
 )
-from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
-from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import (
-    StopLossPercentItem,
+from crypto_trailing_stop.infrastructure.services.orders_analytics_service import (
+    OrdersAnalyticsService,
 )
+from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     Bit2MeOrderDto,
 )
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import (
     Bit2MeTickersDto,
 )
+from crypto_trailing_stop.infrastructure.services import (
+    SessionStorageService,
+    GlobalFlagService,
+)
+from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from aiogram import html
 
 logger = logging.getLogger(__name__)
@@ -27,29 +35,24 @@ class AbstractTaskService(ABC):
     def __init__(self):
         self._bit2me_remote_service = Bit2MeRemoteService()
         self._push_notification_service = PushNotificationService()
-        self._telegram_service = TelegramService()
+        self._stop_loss_percent_service = StopLossPercentService(
+            bit2me_remote_service=self._bit2me_remote_service,
+            global_flag_service=GlobalFlagService(),
+        )
+        self._orders_analytics_service = OrdersAnalyticsService(
+            bit2me_remote_service=self._bit2me_remote_service,
+            stop_loss_percent_service=self._stop_loss_percent_service,
+        )
+        self._telegram_service = TelegramService(
+            session_storage_service=SessionStorageService(),
+            keyboards_builder=KeyboardsBuilder(),
+        )
 
     @abstractmethod
     async def run(self, *args, **kwargs) -> None:
         """
         Run the task
         """
-
-    async def _find_stop_loss_percent_by_symbol(
-        self, sell_order: Bit2MeOrderDto
-    ) -> tuple[StopLossPercentItem, float]:
-        crypto_currency_symbol = sell_order.symbol.split("/")[0].strip().upper()
-        stop_loss_percent_item = (
-            await self._stop_loss_percent_service.find_stop_loss_percent_by_symbol(
-                symbol=crypto_currency_symbol
-            )
-        )
-        stop_loss_percent_decimal_value = stop_loss_percent_item.value / 100
-        logger.info(
-            f"Stop Loss Percent for Symbol {crypto_currency_symbol} "
-            + f"is setup to '{stop_loss_percent_item.value} %' (Decimal: {stop_loss_percent_decimal_value})..."
-        )
-        return stop_loss_percent_item, stop_loss_percent_decimal_value
 
     async def _fetch_all_tickers_by_symbol(
         self,

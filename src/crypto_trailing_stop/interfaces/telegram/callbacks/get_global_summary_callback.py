@@ -7,6 +7,9 @@ from crypto_trailing_stop.infrastructure.services import (
     SessionStorageService,
     GlobalSummaryService,
 )
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
+    Bit2MeRemoteService,
+)
 from aiogram.fsm.context import FSMContext
 
 logger = logging.getLogger(__name__)
@@ -14,7 +17,9 @@ logger = logging.getLogger(__name__)
 dp = get_dispacher()
 session_storage_service = SessionStorageService()
 keyboards_builder = KeyboardsBuilder()
-global_summary_service = GlobalSummaryService()
+global_summary_service = GlobalSummaryService(
+    bit2me_remote_service=Bit2MeRemoteService()
+)
 
 
 @dp.callback_query(lambda c: c.data == "get_global_summary")
@@ -38,7 +43,7 @@ async def set_stop_loss_percent_callback_handler(
             ]
             await callback_query.message.answer(text="\n".join(message_lines))
         except Exception as e:
-            logger.error(f"Error fetching global summary: {str(e)}")
+            logger.error(f"Error fetching global summary: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 f"⚠️ An error occurred while fetching the global summary. Please try again later:\n\n{html.code(str(e))}"
             )
