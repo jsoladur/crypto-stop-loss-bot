@@ -12,7 +12,6 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
 from aiogram import html
 from crypto_trailing_stop.infrastructure.services import (
     GlobalFlagService,
-    OrdersAnalyticsService,
 )
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     Bit2MeOrderDto,
@@ -29,7 +28,6 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         super().__init__()
         self._configuration_properties = get_configuration_properties()
         self._global_flag_service = GlobalFlagService()
-        self._orders_analytics_service = OrdersAnalyticsService()
         self._scheduler: AsyncIOScheduler = get_scheduler()
         self._scheduler.add_job(
             id=self.__class__.__name__,

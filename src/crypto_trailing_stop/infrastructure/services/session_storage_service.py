@@ -5,9 +5,10 @@ from crypto_trailing_stop.infrastructure.services.enums import (
 from crypto_trailing_stop.config import get_configuration_properties, get_dispacher
 from aiogram.fsm.storage.base import StorageKey
 from typing import Any
+from crypto_trailing_stop.commons.patterns import SingletonMeta
 
 
-class SessionStorageService:
+class SessionStorageService(metaclass=SingletonMeta):
     def __init__(self):
         self._configuration_properties = get_configuration_properties()
         self._dispacher = get_dispacher()

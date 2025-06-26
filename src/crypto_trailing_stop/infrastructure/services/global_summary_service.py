@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class GlobalSummaryService:
-    def __init__(self) -> None:
-        self._bit2me_remote_service = Bit2MeRemoteService()
+    def __init__(self, bit2me_remote_service: Bit2MeRemoteService) -> None:
+        self._bit2me_remote_service = bit2me_remote_service
 
     async def get_global_summary(self) -> GlobalSummary:
         """

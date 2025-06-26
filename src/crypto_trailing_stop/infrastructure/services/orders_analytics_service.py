@@ -16,15 +16,19 @@ from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service i
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import (
     StopLossPercentService,
 )
-
+from crypto_trailing_stop.commons.patterns import SingletonMeta
 
 logger = logging.getLogger(__name__)
 
 
-class OrdersAnalyticsService:
-    def __init__(self):
-        self._bit2me_remote_service = Bit2MeRemoteService()
-        self._stop_loss_percent_service = StopLossPercentService()
+class OrdersAnalyticsService(metaclass=SingletonMeta):
+    def __init__(
+        self,
+        bit2me_remote_service: Bit2MeRemoteService,
+        stop_loss_percent_service: StopLossPercentService,
+    ) -> None:
+        self._bit2me_remote_service = bit2me_remote_service
+        self._stop_loss_percent_service = stop_loss_percent_service
 
     async def calculate_correlated_avg_buy_price(
         self,

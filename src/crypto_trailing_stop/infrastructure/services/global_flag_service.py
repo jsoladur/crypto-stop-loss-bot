@@ -6,11 +6,12 @@ from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnu
 from crypto_trailing_stop.infrastructure.services.vo.global_flag_item import (
     GlobalFlagItem,
 )
+from crypto_trailing_stop.commons.patterns import SingletonMeta
 
 logger = logging.getLogger(__name__)
 
 
-class GlobalFlagService:
+class GlobalFlagService(metaclass=SingletonMeta):
     def __init__(self) -> None:
         self._configuration_properties = get_configuration_properties()
 

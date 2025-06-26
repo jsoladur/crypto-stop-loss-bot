@@ -7,14 +7,19 @@ from crypto_trailing_stop.infrastructure.services import (
     SessionStorageService,
     StopLossPercentService,
 )
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
+    Bit2MeRemoteService,
+)
 from aiogram.fsm.context import FSMContext
 
 logger = logging.getLogger(__name__)
 
 dp = get_dispacher()
 session_storage_service = SessionStorageService()
-stop_loss_percent_service = StopLossPercentService()
 keyboards_builder = KeyboardsBuilder()
+stop_loss_percent_service = StopLossPercentService(
+    bit2me_remote_service=Bit2MeRemoteService()
+)
 
 
 @dp.callback_query(lambda c: c.data == "stop_loss_percent_home")

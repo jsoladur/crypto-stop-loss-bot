@@ -11,6 +11,9 @@ from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service impo
 from crypto_trailing_stop.infrastructure.services.push_notification_service import (
     PushNotificationService,
 )
+from crypto_trailing_stop.infrastructure.services.orders_analytics_service import (
+    OrdersAnalyticsService,
+)
 from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     Bit2MeOrderDto,
@@ -18,6 +21,8 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import (
     Bit2MeTickersDto,
 )
+from crypto_trailing_stop.infrastructure.services import SessionStorageService
+from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from aiogram import html
 
 logger = logging.getLogger(__name__)
@@ -27,8 +32,17 @@ class AbstractTaskService(ABC):
     def __init__(self):
         self._bit2me_remote_service = Bit2MeRemoteService()
         self._push_notification_service = PushNotificationService()
-        self._stop_loss_percent_service = StopLossPercentService()
-        self._telegram_service = TelegramService()
+        self._stop_loss_percent_service = StopLossPercentService(
+            bit2me_remote_service=self._bit2me_remote_service
+        )
+        self._orders_analytics_service = OrdersAnalyticsService(
+            bit2me_remote_service=self._bit2me_remote_service,
+            stop_loss_percent_service=self._stop_loss_percent_service,
+        )
+        self._telegram_service = TelegramService(
+            session_storage_service=SessionStorageService(),
+            keyboards_builder=KeyboardsBuilder(),
+        )
 
     @abstractmethod
     async def run(self, *args, **kwargs) -> None:

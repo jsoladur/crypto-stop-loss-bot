@@ -13,6 +13,9 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_d
     TotalDto,
     ConvertedBalanceDto,
 )
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
+    Bit2MeRemoteService,
+)
 from urllib.parse import urlencode
 from crypto_trailing_stop.infrastructure.services.global_summary_service import (
     GlobalSummaryService,
@@ -31,7 +34,9 @@ async def should_calculate_global_summary_properly(
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = (
         integration_test_jobs_disabled_env
     )
-    global_summary_service = GlobalSummaryService()
+    global_summary_service = GlobalSummaryService(
+        bit2me_remote_service=Bit2MeRemoteService()
+    )
     _prepare_httpserver_mock(
         faker,
         httpserver,

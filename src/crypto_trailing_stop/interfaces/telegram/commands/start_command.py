@@ -4,9 +4,14 @@ from aiogram.types import Message
 from crypto_trailing_stop.config import get_dispacher
 from aiogram.fsm.context import FSMContext
 from crypto_trailing_stop.interfaces.telegram.internal.home_handler import HomeHandler
+from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
+from crypto_trailing_stop.infrastructure.services import SessionStorageService
 
 dp = get_dispacher()
-home_handler = HomeHandler()
+home_handler = HomeHandler(
+    session_storage_service=SessionStorageService(),
+    keyboards_builder=KeyboardsBuilder(),
+)
 
 
 @dp.message(CommandStart())

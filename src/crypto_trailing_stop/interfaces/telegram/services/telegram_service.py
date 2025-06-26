@@ -1,16 +1,20 @@
 from crypto_trailing_stop.config import get_telegram_bot
-from crypto_trailing_stop.infrastructure.services import SessionStorageService
 from crypto_trailing_stop.interfaces.dtos.login_dto import LoginDto
+from crypto_trailing_stop.infrastructure.services import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from aiogram.types import ReplyMarkupUnion
 from typing import Any
 
 
 class TelegramService:
-    def __init__(self):
+    def __init__(
+        self,
+        session_storage_service: SessionStorageService,
+        keyboards_builder: KeyboardsBuilder,
+    ) -> None:
         self._telegram_bot = get_telegram_bot()
-        self._session_storage_service = SessionStorageService()
-        self._keyboards_builder = KeyboardsBuilder()
+        self._session_storage_service = session_storage_service
+        self._keyboards_builder = keyboards_builder
 
     async def perform_successful_login(
         self, login: LoginDto, userinfo: dict[str, Any]

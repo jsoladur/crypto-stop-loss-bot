@@ -4,6 +4,7 @@ from typing import Annotated
 from crypto_trailing_stop.interfaces.dtos.login_dto import LoginDto
 from crypto_trailing_stop.interfaces.telegram.services import TelegramService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
+from crypto_trailing_stop.infrastructure.services import SessionStorageService
 from crypto_trailing_stop.config import get_oauth_context, get_configuration_properties
 from crypto_trailing_stop.commons.constants import AUTHORIZED_GOOGLE_USER_EMAILS
 from urllib.parse import urlunparse, urlparse
@@ -13,8 +14,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/login", tags=["login"])
 
 configuration_properties = get_configuration_properties()
-telegram_service = TelegramService()
 keyboards_builder = KeyboardsBuilder()
+session_storage_service = SessionStorageService()
+telegram_service = TelegramService(
+    session_storage_service=session_storage_service, keyboards_builder=keyboards_builder
+)
 
 
 @router.get("/oauth")

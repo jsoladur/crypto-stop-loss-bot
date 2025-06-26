@@ -11,7 +11,6 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from authlib.integrations.starlette_client import OAuth
 from pydantic import Field
 
-
 _configuration_properties: ConfigurationProperties | None = None
 _scheduler: AsyncIOScheduler | None = None
 _telegram_bot: Bot | None = None

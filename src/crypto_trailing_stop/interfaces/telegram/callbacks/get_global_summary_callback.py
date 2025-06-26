@@ -7,6 +7,9 @@ from crypto_trailing_stop.infrastructure.services import (
     SessionStorageService,
     GlobalSummaryService,
 )
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
+    Bit2MeRemoteService,
+)
 from aiogram.fsm.context import FSMContext
 
 logger = logging.getLogger(__name__)
@@ -14,7 +17,9 @@ logger = logging.getLogger(__name__)
 dp = get_dispacher()
 session_storage_service = SessionStorageService()
 keyboards_builder = KeyboardsBuilder()
-global_summary_service = GlobalSummaryService()
+global_summary_service = GlobalSummaryService(
+    bit2me_remote_service=Bit2MeRemoteService()
+)
 
 
 @dp.callback_query(lambda c: c.data == "get_global_summary")

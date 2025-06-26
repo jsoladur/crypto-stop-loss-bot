@@ -11,16 +11,17 @@ from crypto_trailing_stop.infrastructure.database.models import StopLossPercent
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import (
     StopLossPercentItem,
 )
+from crypto_trailing_stop.commons.patterns import SingletonMeta
 import pydash
 import cachebox
 
 logger = logging.getLogger(__name__)
 
 
-class StopLossPercentService:
-    def __init__(self) -> None:
-        self._bit2me_remote_service = Bit2MeRemoteService()
+class StopLossPercentService(metaclass=SingletonMeta):
+    def __init__(self, bit2me_remote_service: Bit2MeRemoteService) -> None:
         self._configuration_properties = get_configuration_properties()
+        self._bit2me_remote_service = bit2me_remote_service
 
     async def find_all_stop_loss_percent(self) -> list[StopLossPercentItem]:
         stored_stop_loss_percent_list = await StopLossPercent.objects()

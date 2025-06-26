@@ -6,11 +6,12 @@ from crypto_trailing_stop.infrastructure.services.enums import PushNotificationT
 from crypto_trailing_stop.infrastructure.services.vo.push_notification_item import (
     PushNotificationItem,
 )
+from crypto_trailing_stop.commons.patterns import SingletonMeta
 
 logger = logging.getLogger(__name__)
 
 
-class PushNotificationService:
+class PushNotificationService(metaclass=SingletonMeta):
     def __init__(self) -> None:
         self._configuration_properties = get_configuration_properties()
 

@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 dp = get_dispacher()
 session_storage_service = SessionStorageService()
-global_flag_service = GlobalFlagService()
 keyboards_builder = KeyboardsBuilder()
+global_flag_service = GlobalFlagService()
 
 
 @dp.callback_query(lambda c: c.data == "global_flags_home")

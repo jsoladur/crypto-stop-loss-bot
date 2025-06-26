@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 dp = get_dispacher()
 session_storage_service = SessionStorageService()
-push_notification_service = PushNotificationService()
 keyboards_builder = KeyboardsBuilder()
+push_notification_service = PushNotificationService()
 
 
 @dp.callback_query(F.data.regexp(r"^toggle_push_notification\$\$(.+)$"))
