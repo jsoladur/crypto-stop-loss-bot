@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
+from crypto_trailing_stop.commons.patterns import SingletonMeta
 from types import ModuleType
 
 from os import path, listdir
@@ -11,7 +12,7 @@ from importlib import import_module
 logger = logging.getLogger(__name__)
 
 
-class TaskManager:
+class TaskManager(metaclass=SingletonMeta):
     def __init__(self):
         self._load_tasks()
 

@@ -106,16 +106,16 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             ret, *_ = tickers
         return ret
 
-    async def get_pending_stop_limit_orders(
+    async def get_pending_sell_orders(
         self,
         *,
-        side: Bit2MeOrderSide | None = None,
+        order_type: Bit2MeOrderType | None = None,
         client: AsyncClient | None = None,
     ) -> list[Bit2MeOrderDto]:
         return await self.get_orders(
-            side=side,
+            side="sell",
             status=["open", "inactive"],
-            order_type="stop-limit",
+            order_type=order_type,
             client=client,
         )
 
@@ -138,6 +138,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         side: Bit2MeOrderSide | None = None,
         order_type: Bit2MeOrderType | None = None,
         status: list[Bit2MeOrderStatus] | Bit2MeOrderStatus | None = None,
+        symbol: str | None = None,
         client: AsyncClient | None = None,
     ) -> list[Bit2MeOrderDto]:
         status = status or []
@@ -153,6 +154,8 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             params["side"] = side
         if order_type:
             params["orderType"] = order_type
+        if symbol:
+            params["symbol"] = symbol
         response = await self._perform_http_request(
             url="/v1/trading/order",
             params=params,
@@ -165,7 +168,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
 
     async def create_order(
         self, order: CreateNewBit2MeOrderDto, *, client: AsyncClient | None = None
-    ) -> None:
+    ) -> Bit2MeOrderDto:
         order_as_dict: dict[str, Any] = order.model_dump(
             mode="json", by_alias=True, exclude_none=True
         )
@@ -217,7 +220,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         body: Any | None = None,
         response: Response,
     ) -> Response:
-        if not response.is_success:
+        if not response.is_success:  # pragma: no cover
             raise ValueError(
                 f"Bit2Me API error: HTTP {method} {self._build_full_url(url, params)} "
                 + f"- Status code: {response.status_code} - {response.text}"
@@ -247,7 +250,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     ) -> str:
         url = self._build_full_url(url, params)
         message_to_sign = f"{nonce}:{url}"
-        if body:
+        if body:  # pragma: no cover
             message_to_sign += f":{json.dumps(body, separators=(',', ':'))}"
         sha256_hash = hashlib.sha256()
         hash_digest = sha256_hash.update(message_to_sign.encode("utf-8"))

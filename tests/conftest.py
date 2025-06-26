@@ -42,22 +42,48 @@ def httpserver_test_env() -> Generator[tuple[HTTPServer, str], None, None]:
         yield (httpserver, bit2me_api_key, bit2me_api_secret)
 
 
+@pytest.fixture(autouse=True)
+def database_path_env() -> Generator[None, None, None]:
+    with NamedTemporaryFile(suffix=".sqlite") as temp_db:
+        environ["DATABASE_PATH"] = temp_db.name
+        yield
+
+
+@pytest.fixture
+def integration_test_jobs_disabled_env(
+    httpserver_test_env: tuple[HTTPServer, str],
+) -> Generator[tuple[HTTPServer, str], None, None]:
+    global main_module
+    httpserver, bit2me_api_key, bit2me_api_secret, *_ = httpserver_test_env
+    # XXX: Disable background tasks
+    environ["BACKGROUND_TASKS_ENABLED"] = "false"
+
+    if main_module:
+        main_module = reload(main_module)
+    else:
+        main_module = import_module("crypto_trailing_stop.main")
+
+    yield (main_module.app, httpserver, bit2me_api_key, bit2me_api_secret)
+    # Cleanup
+    httpserver.clear()
+    reload(config)
+
+
 @pytest.fixture
 def integration_test_env(
     httpserver_test_env: tuple[HTTPServer, str],
 ) -> Generator[tuple[HTTPServer, str], None, None]:
     global main_module
-    with NamedTemporaryFile(suffix=".sqlite") as temp_db:
-        environ["DATABASE_PATH"] = temp_db.name
-        httpserver, bit2me_api_key, bit2me_api_secret, *_ = httpserver_test_env
 
-        if main_module:
-            main_module = reload(main_module)
-        else:
-            main_module = import_module("crypto_trailing_stop.main")
+    httpserver, bit2me_api_key, bit2me_api_secret, *_ = httpserver_test_env
 
-        yield (main_module.app, httpserver, bit2me_api_key, bit2me_api_secret)
+    if main_module:
+        main_module = reload(main_module)
+    else:
+        main_module = import_module("crypto_trailing_stop.main")
 
-        # Cleanup
-        httpserver.clear()
-        reload(config)
+    yield (main_module.app, httpserver, bit2me_api_key, bit2me_api_secret)
+
+    # Cleanup
+    httpserver.clear()
+    reload(config)

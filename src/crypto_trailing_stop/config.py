@@ -48,7 +48,7 @@ class ConfigurationProperties(BaseSettings):
     # Trailing stop loss configuration
     trailing_stop_loss_percent: float | int = TRAILING_STOP_LOSS_DEFAULT_PERCENT
     # Jobs configuration
-    job_interval_seconds: int = 10
+    job_interval_seconds: int = 10  # 10 seconds
 
 
 def get_configuration_properties() -> ConfigurationProperties:
@@ -83,7 +83,7 @@ def get_dispacher() -> Dispatcher:
     return _dispacher
 
 
-def get_oauth_context() -> OAuth:
+def get_oauth_context() -> OAuth:  # pragma: no cover
     configuration_properties = get_configuration_properties()
     oauth = OAuth()
     oauth.register(

@@ -19,7 +19,7 @@ class CreateNewBit2MeOrderDto(_AbstractBit2MeOrderDto):
     )
 
     amount: str
-    price: str
+    price: str | None = None
     stop_price: str | None = Field(None, alias="stopPrice")
 
 

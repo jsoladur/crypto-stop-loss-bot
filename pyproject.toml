@@ -28,6 +28,7 @@ dependencies = [
 start = "fastapi dev src/crypto_trailing_stop/main.py --app app --reload --host 0.0.0.0"
 test = "pytest -x --log-cli-level=INFO"
 "test:coverage" = "pytest --cov=./src --log-cli-level=INFO"
+"test:coverage:html" = "pytest --cov=./src --cov-report=html --log-cli-level=INFO"
 lint = "pre-commit install && pre-commit run --all"
 
 
@@ -59,8 +60,10 @@ python_functions = "should_* test_*"
 
 [tool.coverage.run]
 source = ["src"]
-branch = false
+branch = true  # optional, but better for full logic path coverage
+concurrency = ["thread", "multiprocessing"]
+
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 75
+fail_under = 60

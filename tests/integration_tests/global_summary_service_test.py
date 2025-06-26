@@ -26,9 +26,11 @@ logger = logging.getLogger(__name__)
 @pytest.mark.asyncio
 async def should_calculate_global_summary_properly(
     faker: Faker,
-    integration_test_env: tuple[HTTPServer, str],
+    integration_test_jobs_disabled_env: tuple[HTTPServer, str],
 ) -> None:
-    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = (
+        integration_test_jobs_disabled_env
+    )
     global_summary_service = GlobalSummaryService()
     _prepare_httpserver_mock(
         faker,
