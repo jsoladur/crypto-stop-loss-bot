@@ -66,13 +66,14 @@ class PushNotificationService:
         )
         return ret
 
-    async def is_enabled_for(
-        self, telegram_chat_id: int, notification_type: PushNotificationTypeEnum
-    ) -> bool:
-        push_notification = (
-            await PushNotification.objects()
-            .where(PushNotification.telegram_chat_id == telegram_chat_id)
-            .where(PushNotification.notification_type == notification_type.value)
-            .first()
+    async def get_subscription_by_type(
+        self, notification_type: PushNotificationTypeEnum
+    ) -> list[int]:
+        push_notifications = await PushNotification.objects().where(
+            PushNotification.notification_type == notification_type.value
         )
-        return push_notification is not None and push_notification.activated
+        ret = [
+            push_notification.telegram_chat_id
+            for push_notification in push_notifications
+        ]
+        return ret
