@@ -52,11 +52,15 @@ async def handle_persist_stop_loss_callback(
             answer_text = (
                 f"ℹ Stop loss for {html.bold(symbol)} at {html.bold(str(percent_value) + '%')} has been successfully stored and it will be applied right now! \n\n"
                 + html.bold(
-                    "⚠️ IMPORTANT NOTE: Limit Sell Order Guard Jobs has been DISABLED for PRECAUTION!"
+                    "⚠️ IMPORTANT NOTE: Limit Sell Order Guard Jobs has been DISABLED for PRECAUTION! "
                     + "Please, enable it after double-check everything out!"
                 )
             )
-            limit_sell_order_guard_metrics_list = await orders_analytics_service.calculate_limit_sell_order_guard_metrics()
+            limit_sell_order_guard_metrics_list = (
+                await orders_analytics_service.calculate_limit_sell_order_guard_metrics(
+                    symbol=symbol
+                )
+            )
             if limit_sell_order_guard_metrics_list:
                 answer_text += (
                     f"\n\n🔨🔨{html.bold('Limit Sell Order Guard Metrics')} 🔨🔨\n\n"
