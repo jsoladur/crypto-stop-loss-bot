@@ -44,6 +44,7 @@ class TrailingStopLossTaskService(AbstractTaskService):
         )
         self._scheduler: AsyncIOScheduler = get_scheduler()
         self._scheduler.add_job(
+            id=self.__class__.__name__,
             func=self.run,
             trigger="interval",
             seconds=self._configuration_properties.job_interval_seconds,
