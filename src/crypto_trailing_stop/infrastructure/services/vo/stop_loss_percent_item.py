@@ -8,5 +8,5 @@ class StopLossPercentItem:
 
     def __post_init__(self):
         self.symbol = self.symbol.strip().upper()
-        if self.value < 0.25 or self.value > 5.0:
-            raise ValueError("Stop loss percent must be a value between 0.25 and 5.0")
+        if self.value < 0.25 or self.value > 10.0:
+            raise ValueError("Stop loss percent must be a value between 0.25 and 10.0")
