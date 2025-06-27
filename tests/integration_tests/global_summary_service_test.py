@@ -6,6 +6,7 @@ from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import Bit2MeSummaryXlsxObjectMother
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import (
     Bit2MeAccountInfoDto,
+    Profile,
 )
 from pydantic import RootModel
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_dto import (
@@ -70,7 +71,8 @@ def _prepare_httpserver_mock(
             registrationDate=faker.date_time_between_dates(
                 datetime_start=datetime(registration_year, 1, 1),
                 datetime_end=datetime(registration_year, 12, 31, 23, 59, 59),
-            )
+            ),
+            profile=Profile(currency_code="EUR"),
         ).model_dump(mode="json", by_alias=True),
     )
     # Get summary of each year in order to calculate currency metrics
