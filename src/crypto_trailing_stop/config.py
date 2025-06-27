@@ -41,6 +41,8 @@ class ConfigurationProperties(BaseSettings):
     bit2me_api_base_url: AnyUrl
     bit2me_api_key: str
     bit2me_api_secret: str
+    # Buy Sell Signals configuration
+    buy_sell_signals_proximity_threshold: float = 0.002
     # Google OAuth configuration
     google_oauth_client_id: str
     google_oauth_client_secret: str
