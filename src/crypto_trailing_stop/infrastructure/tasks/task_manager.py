@@ -1,7 +1,10 @@
 import logging
 from pathlib import Path
 
-from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
+from crypto_trailing_stop.infrastructure.tasks.base import (
+    AbstractTaskService,
+    AbstractTradingTaskService,
+)
 from types import ModuleType
 
 from os import path, listdir
@@ -31,7 +34,7 @@ class _TaskManager:
                 if (
                     isinstance(attr, type)
                     and issubclass(attr, AbstractTaskService)
-                    and attr != AbstractTaskService
+                    and attr not in [AbstractTaskService, AbstractTradingTaskService]
                 ):
                     logger.info(f"Loading {attr.__name__}...")
                     self._tasks[id(attr)] = attr()

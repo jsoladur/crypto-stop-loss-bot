@@ -366,6 +366,7 @@ dependencies = [
     { name = "piccolo", extra = ["sqlite"] },
     { name = "pydantic-settings" },
     { name = "pydash" },
+    { name = "ta" },
     { name = "uvicorn" },
 ]
 
@@ -399,6 +400,7 @@ requires-dist = [
     { name = "piccolo", extras = ["sqlite"], specifier = ">=1.27.1" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },
     { name = "pydash", specifier = ">=8.0.5" },
+    { name = "ta", specifier = ">=0.11.0" },
     { name = "uvicorn", specifier = ">=0.34.0" },
 ]
 
@@ -1359,6 +1361,16 @@ sdist = { url = "https://files.pythonhosted.org/packages/04/1b/52b27f2e13ceedc79
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a0/4b/528ccf7a982216885a1ff4908e886b8fb5f19862d1962f56a3fce2435a70/starlette-0.46.1-py3-none-any.whl", hash = "sha256:77c74ed9d2720138b25875133f3a2dae6d854af2ec37dceb56aef370c1d8a227", size = 71995, upload-time = "2025-03-08T10:55:32.662Z" },
 ]
+
+[[package]]
+name = "ta"
+version = "0.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e0/9a/37d92a6b470dc9088612c2399a68f1a9ac22872d4e1eff416818e22ab11b/ta-0.11.0.tar.gz", hash = "sha256:de86af43418420bd6b088a2ea9b95483071bf453c522a8441bc2f12bcf8493fd", size = 25308, upload-time = "2023-11-02T13:53:35.434Z" }
 
 [[package]]
 name = "targ"

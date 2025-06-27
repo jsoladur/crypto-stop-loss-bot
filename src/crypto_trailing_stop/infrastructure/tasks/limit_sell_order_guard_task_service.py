@@ -4,7 +4,7 @@ from httpx import AsyncClient
 from crypto_trailing_stop.config import get_scheduler, get_configuration_properties
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
-from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
+from crypto_trailing_stop.infrastructure.tasks.base import AbstractTradingTaskService
 from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     CreateNewBit2MeOrderDto,
@@ -23,7 +23,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import
 logger = logging.getLogger(__name__)
 
 
-class LimitSellOrderGuardTaskService(AbstractTaskService):
+class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
     def __init__(self):
         super().__init__()
         self._configuration_properties = get_configuration_properties()

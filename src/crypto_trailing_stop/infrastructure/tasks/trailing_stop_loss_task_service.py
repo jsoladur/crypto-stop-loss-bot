@@ -9,7 +9,7 @@ from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnu
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import (
     StopLossPercentItem,
 )
-from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
+from crypto_trailing_stop.infrastructure.tasks.base import AbstractTradingTaskService
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     CreateNewBit2MeOrderDto,
 )
@@ -33,7 +33,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import
 logger = logging.getLogger(__name__)
 
 
-class TrailingStopLossTaskService(AbstractTaskService):
+class TrailingStopLossTaskService(AbstractTradingTaskService):
     def __init__(self):
         super().__init__()
         self._configuration_properties = get_configuration_properties()

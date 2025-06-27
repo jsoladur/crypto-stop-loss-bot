@@ -22,6 +22,7 @@ dependencies = [
     "piccolo[sqlite]>=1.27.1",
     "pydantic-settings>=2.8.1",
     "pydash>=8.0.5",
+    "ta>=0.11.0",
     "uvicorn>=0.34.0",
 ]
 
@@ -63,7 +64,6 @@ python_functions = "should_* test_*"
 source = ["src"]
 branch = true  # optional, but better for full logic path coverage
 concurrency = ["thread", "multiprocessing"]
-
 
 [tool.coverage.report]
 show_missing = true

@@ -5,7 +5,7 @@ from faker import Faker
 
 @pytest.mark.skip(reason="To be implemented!")
 @pytest.mark.asyncio
-async def should_create_market_sell_order_when_price_goes_down_applying_guard(
+async def should_send_via_telegram_notifications_after_detecting_buy_sell_signals(
     faker: Faker,
     integration_test_env: tuple[HTTPServer, str],
 ) -> None:
