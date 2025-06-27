@@ -44,6 +44,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
                     order_type="limit", client=client
                 )
             )
+            previous_used_buy_order_ids: set[str] = set()
             ret = []
             for sell_order in opened_limit_sell_orders:
                 if (
@@ -51,8 +52,11 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
                     or len(symbol) <= 0
                     or sell_order.symbol.lower().startswith(symbol.lower())
                 ):
-                    avg_buy_price = await self.calculate_correlated_avg_buy_price(
-                        sell_order, client=client
+                    (
+                        avg_buy_price,
+                        previous_used_buy_order_ids,
+                    ) = await self.calculate_correlated_avg_buy_price(
+                        sell_order, previous_used_buy_order_ids, client=client
                     )
                     (
                         safeguard_stop_price,
@@ -73,9 +77,10 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
     async def calculate_correlated_avg_buy_price(
         self,
         sell_order: Bit2MeOrderDto,
+        previous_used_buy_order_ids: set[str] = set(),
         *,
         client: AsyncClient | None = None,
-    ) -> float:
+    ) -> tuple[float, set[str]]:
         last_filled_buy_orders = await self._bit2me_remote_service.get_orders(
             side="buy", status="filled", symbol=sell_order.symbol, client=client
         )
@@ -85,21 +90,23 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             last_filled_buy_orders
         ):
             current_filled_buy_order = last_filled_buy_orders[idx]
-            correlated_filled_buy_orders.append(current_filled_buy_order)
-            sum_order_amount += current_filled_buy_order.order_amount
+            if current_filled_buy_order.id not in previous_used_buy_order_ids:
+                correlated_filled_buy_orders.append(current_filled_buy_order)
+                sum_order_amount += current_filled_buy_order.order_amount
             idx += 1
+        previous_used_buy_order_ids.update([o.id for o in correlated_filled_buy_orders])
         numerator = sum(
             [o.price * o.order_amount for o in correlated_filled_buy_orders]
         )
         denominator = sum([o.order_amount for o in correlated_filled_buy_orders])
-        correlated_avg_buy_price = round(
+        avg_buy_price = round(
             numerator / denominator,
             ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
                 sell_order.symbol,
                 DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
             ),
         )
-        return correlated_avg_buy_price
+        return avg_buy_price, previous_used_buy_order_ids
 
     async def calculate_safeguard_stop_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float

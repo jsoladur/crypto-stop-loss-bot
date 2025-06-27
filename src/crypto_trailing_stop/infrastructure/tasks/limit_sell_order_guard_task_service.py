@@ -76,10 +76,14 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         ] = await self._fetch_all_tickers_by_symbol(
             opened_limit_sell_orders, client=client
         )
+        previous_used_buy_order_ids: set[str] = set()
         for sell_order in opened_limit_sell_orders:
             try:
-                await self._handle_single_sell_order(
-                    sell_order, current_tickers_by_symbol, client=client
+                previous_used_buy_order_ids, *_ = await self._handle_single_sell_order(
+                    sell_order,
+                    current_tickers_by_symbol,
+                    previous_used_buy_order_ids,
+                    client=client,
                 )
             except Exception as e:
                 logger.error(str(e), exc_info=True)
@@ -89,14 +93,16 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         self,
         sell_order: Bit2MeOrderDto,
         current_tickers_by_symbol: dict[str, Bit2MeTickersDto],
+        previous_used_buy_order_ids: set[str],
         *,
         client: AsyncClient,
-    ) -> None:
+    ) -> set[str]:
         *_, fiat_currency = sell_order.symbol.split("/")
-        avg_buy_price = (
-            await self._orders_analytics_service.calculate_correlated_avg_buy_price(
-                sell_order, client=client
-            )
+        (
+            avg_buy_price,
+            previous_used_buy_order_ids,
+        ) = await self._orders_analytics_service.calculate_correlated_avg_buy_price(
+            sell_order, previous_used_buy_order_ids, client=client
         )
         (
             safeguard_stop_price,
@@ -131,6 +137,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                 current_symbol_price=tickers.close,
                 safeguard_stop_price=safeguard_stop_price,
             )
+        return (previous_used_buy_order_ids,)
 
     async def _notify_new_market_order_created_via_telegram(
         self,
