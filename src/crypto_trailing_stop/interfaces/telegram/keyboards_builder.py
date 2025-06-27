@@ -112,10 +112,10 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
                 text=f"{percent_value} %",
                 callback_data=f"persist_stop_loss$${symbol}$${percent_value}",
             )
-            for percent_value in np.arange(0.25, 5.25, 0.25).tolist()
+            for percent_value in np.arange(0.25, 10.25, 0.25).tolist()
         ]
         # Add buttons in rows of 3
-        for buttons_chunk in pydash.chunk(buttons, size=3):
+        for buttons_chunk in pydash.chunk(buttons, size=5):
             builder.row(*buttons_chunk)
         builder.row(
             InlineKeyboardButton(
