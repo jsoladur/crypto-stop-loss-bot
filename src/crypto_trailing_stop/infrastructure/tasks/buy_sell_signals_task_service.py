@@ -41,6 +41,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self._proximity_threshold = (
             self._configuration_properties.buy_sell_signals_proximity_threshold
         )
+        self._last_signal_evalutation_result_cache: dict[
+            str, SignalsEvaluationResult
+        ] = {}
         self._scheduler: AsyncIOScheduler = get_scheduler()
         self._scheduler.add_job(
             id=self.__class__.__name__,
@@ -51,7 +54,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             hour="*",
             # XXX: For testing purposes
             # trigger="interval",
-            # seconds=5,
+            # seconds=self._configuration_properties.job_interval_seconds,
             coalesce=True,
         )
 
@@ -113,34 +116,47 @@ class BuySellSignalsTaskService(AbstractTaskService):
         # Use the default, wider threshold for 4H signals
         # Use a threshold of 0 for 1H signals to disable the proximity check
         signals = self._check_signals(
+            symbol,
+            timeframe,
             df_with_indicators,
             proximity_threshold=self._proximity_threshold if timeframe == "4h" else 0,
         )
-        base_symbol = symbol.split("/")[0].strip().upper()
-        # 1. Report RSI Anticipation Zones
-        if signals.rsi_state != "neutral":
-            icon = "📈" if signals.rsi_state == "overbought" else "📉"
-            message = f"{icon} {html.bold('Anticipation Zone ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)} - RSI is {signals.rsi_state}!"
-            await self._notify_alert(telegram_chat_ids, message)
-        # 2. Report Confirmation Signals (now identical for both timeframes)
-        if not signals.buy or not signals.sell:
-            if signals.buy:
-                message = f"🟢 🤩{html.bold('BUY SIGNAL ' + '(' + timeframe.upper() + ')')}🤩 for {html.bold(base_symbol)}!"
-                await self._notify_alert(telegram_chat_ids, message)
-            if signals.sell:
-                message = f"🔴 ⚠{html.bold('SELL SIGNAL ' + '(' + timeframe.upper() + ')')}⚠ for {html.bold(base_symbol)}!"
-                await self._notify_alert(telegram_chat_ids, message)
-        if not signals.buy and not signals.sell:
-            logger.info(
-                f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}."
-            )
 
-    async def _notify_alert(self, telegram_chat_ids: list[str], message) -> None:
-        for tg_chat_id in telegram_chat_ids:
-            await self._telegram_service.send_message(
-                chat_id=tg_chat_id,
-                text=message,
-            )
+        if self._is_new_signals(signals):
+            base_symbol = symbol.split("/")[0].strip().upper()
+            # 1. Report RSI Anticipation Zones
+            if signals.rsi_state != "neutral":
+                icon = "📈" if signals.rsi_state == "overbought" else "📉"
+                message = f"{icon} {html.bold('Anticipation Zone ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)} - RSI is {signals.rsi_state}!"
+                await self._notify_alert(telegram_chat_ids, message)
+            # 2. Report Confirmation Signals (now identical for both timeframes)
+            if not signals.buy or not signals.sell:
+                if signals.buy:
+                    message = f"🟢 🤩{html.bold('BUY SIGNAL ' + '(' + timeframe.upper() + ')')}🤩 for {html.bold(base_symbol)}!"
+                    await self._notify_alert(telegram_chat_ids, message)
+                if signals.sell:
+                    message = f"🔴 ⚠{html.bold('SELL SIGNAL ' + '(' + timeframe.upper() + ')')}⚠ for {html.bold(base_symbol)}!"
+                    await self._notify_alert(telegram_chat_ids, message)
+            if not signals.buy and not signals.sell:
+                logger.info(
+                    f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}."
+                )
+        else:
+            logger.info("Calculated signals were already notified previously!")
+
+    def _is_new_signals(self, current_signals: SignalsEvaluationResult) -> bool:
+        is_new_signals = (
+            current_signals.cache_key not in self._last_signal_evalutation_result_cache
+        )
+        if not is_new_signals:
+            previous_signals = self._last_signal_evalutation_result_cache[
+                current_signals.cache_key
+            ]
+            is_new_signals = previous_signals.timestamp != current_signals.timestamp
+        self._last_signal_evalutation_result_cache[current_signals.cache_key] = (
+            current_signals
+        )
+        return is_new_signals
 
     def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         logger.info("Calculating indicators...")
@@ -157,6 +173,8 @@ class BuySellSignalsTaskService(AbstractTaskService):
 
     def _check_signals(
         self,
+        symbol: str,
+        timeframe: Literal["4h", "1h"],
         df: pd.DataFrame,
         proximity_threshold: float,
         rsi_overbought: int = 70,
@@ -166,7 +184,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             ret = SignalsEvaluationResult(buy=False, sell=False, rsi_state="neutral")
         else:
             logger.info(
-                f"Checking for signals with proximity threshold: {proximity_threshold}"
+                f"Checking signals for {symbol} ({timeframe.upper()}) with proximity threshold: {proximity_threshold}"
             )
             last = df.iloc[-1]
             prev = df.iloc[-2]
@@ -208,6 +226,18 @@ class BuySellSignalsTaskService(AbstractTaskService):
             else:
                 rsi_state = "neutral"
             ret = SignalsEvaluationResult(
-                buy=buy_signal, sell=sell_signal, rsi_state=rsi_state
+                timestamp=last["timestamp"].timestamp(),
+                symbol=symbol,
+                timeframe=timeframe,
+                buy=buy_signal,
+                sell=sell_signal,
+                rsi_state=rsi_state,
             )
         return ret
+
+    async def _notify_alert(self, telegram_chat_ids: list[str], message) -> None:
+        for tg_chat_id in telegram_chat_ids:
+            await self._telegram_service.send_message(
+                chat_id=tg_chat_id,
+                text=message,
+            )
