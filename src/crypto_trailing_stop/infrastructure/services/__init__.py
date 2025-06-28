@@ -16,6 +16,9 @@ from crypto_trailing_stop.infrastructure.services.global_flag_service import (
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import (
     OrdersAnalyticsService,
 )
+from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import (
+    CryptoAnalyticsService,
+)
 
 __all__ = [
     "SessionStorageService",
@@ -24,4 +27,5 @@ __all__ = [
     "PushNotificationService",
     "GlobalFlagService",
     "OrdersAnalyticsService",
+    "CryptoAnalyticsService",
 ]

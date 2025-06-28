@@ -56,26 +56,30 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
 
     def get_home_keyboard(self) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
-        home_buttons = [
+        builder.row(
             InlineKeyboardButton(
                 text="📈 Get Global Summary", callback_data="get_global_summary"
             ),
             InlineKeyboardButton(
-                text="🚏 Set Stop Loss Percent(%)",
-                callback_data="stop_loss_percent_home",
+                text="💵 Get Current Prices", callback_data="get_current_prices"
             ),
+        )
+        builder.row(
             InlineKeyboardButton(
-                text="🚩 Global Flags",
+                text="🚏 Set Stop Loss Percent (%)",
+                callback_data="stop_loss_percent_home",
+            )
+        )
+        builder.row(
+            InlineKeyboardButton(
+                text="🚩 Global Flags (Jobs)",
                 callback_data="global_flags_home",
             ),
             InlineKeyboardButton(
-                text="📫 Push Notifications",
+                text="🔔 Notifications",
                 callback_data="push_notificacions_home",
             ),
-        ]
-        # Add buttons in rows of 3
-        for buttons_chunk in pydash.chunk(home_buttons, size=2):
-            builder.row(*buttons_chunk)
+        )
         builder.row(
             InlineKeyboardButton(
                 text="📴 Logout",
@@ -132,7 +136,7 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
         for item in push_notification_items:
             builder.row(
                 InlineKeyboardButton(
-                    text=f"Toggle {item.notification_type.description} ({'🟢' if item.activated else '🟥'})",
+                    text=f"{'⏸ Pause' if item.activated else '▶️ Resume'} {item.notification_type.description} ({'🔔' if item.activated else '🔕'})",
                     callback_data=f"toggle_push_notification$${item.notification_type.value}",
                 )
             )
