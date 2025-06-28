@@ -1,9 +1,6 @@
 from abc import ABCMeta
 import logging
 from httpx import AsyncClient
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
-    Bit2MeRemoteService,
-)
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import (
     StopLossPercentService,
 )
@@ -30,7 +27,6 @@ logger = logging.getLogger(__name__)
 class AbstractTradingTaskService(AbstractTaskService, metaclass=ABCMeta):
     def __init__(self):
         super().__init__()
-        self._bit2me_remote_service = Bit2MeRemoteService()
         self._stop_loss_percent_service = StopLossPercentService(
             bit2me_remote_service=self._bit2me_remote_service,
             global_flag_service=GlobalFlagService(),
@@ -40,22 +36,16 @@ class AbstractTradingTaskService(AbstractTaskService, metaclass=ABCMeta):
             stop_loss_percent_service=self._stop_loss_percent_service,
         )
 
-    async def _fetch_all_tickers_by_symbol(
+    async def _fetch_tickers_for_open_sell_orders(
         self,
-        opened_stop_limit_sell_orders: list[Bit2MeOrderDto],
+        open_sell_orders: list[Bit2MeOrderDto],
         *,
         client: AsyncClient,
     ) -> dict[str, Bit2MeTickersDto]:
         open_sell_order_symbols = set(
-            [
-                open_sell_order.symbol
-                for open_sell_order in opened_stop_limit_sell_orders
-            ]
+            [open_sell_order.symbol for open_sell_order in open_sell_orders]
         )
-        ret = {
-            symbol: await self._bit2me_remote_service.get_tickers_by_symbol(
-                symbol, client=client
-            )
-            for symbol in open_sell_order_symbols
-        }
+        ret = await self._fetch_tickers_by_simbols(
+            open_sell_order_symbols, client=client
+        )
         return ret
