@@ -49,8 +49,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
             id=self.__class__.__name__,
             func=self.run,
             # XXX: Production ready
+            # Running at minute 2, 3, 5, 7, 10 past the hour!
             trigger="cron",
-            minute=2,
+            minute=[2, 3, 5, 7, 10],
             hour="*",
             # XXX: For testing purposes
             # trigger="interval",
