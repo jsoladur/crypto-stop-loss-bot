@@ -47,7 +47,7 @@ class AbstractTaskService(ABC):
 
     async def _notify_fatal_error_via_telegram(self, e: Exception) -> None:
         try:
-            telegram_chat_ids = await self._push_notification_service.get_subscription_by_type(
+            telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
                 notification_type=PushNotificationTypeEnum.BACKGROUND_JOB_FALTAL_ERRORS
             )
             for tg_chat_id in telegram_chat_ids:

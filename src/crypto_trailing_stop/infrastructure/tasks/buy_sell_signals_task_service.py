@@ -22,7 +22,10 @@ from crypto_trailing_stop.infrastructure.services import (
 from crypto_trailing_stop.infrastructure.services.push_notification_service import (
     PushNotificationService,
 )
-from crypto_trailing_stop.commons.constants import BUY_SELL_ALERTS_TIMEFRAMES
+from crypto_trailing_stop.commons.constants import (
+    BUY_SELL_ALERTS_TIMEFRAMES,
+    BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN,
+)
 import pandas as pd
 from ta.trend import EMAIndicator, MACD
 from ta.momentum import RSIIndicator
@@ -47,15 +50,21 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self._scheduler.add_job(
             id=self.__class__.__name__,
             func=self.run,
+            max_instances=1,  # Prevent overlapping
+            coalesce=True,  # Skip intermediate runs if one was missed
             # XXX: Production ready
-            # Running at minute 2, 3, 5, 7, 10 past the hour!
+            # Running at some specific minutes past hour every hour!
             trigger="cron",
-            minute="2,3,5,7,10,15,30,45",
+            minute=",".join(
+                [
+                    str(minute)
+                    for minute in BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN
+                ]
+            ),
             hour="*",
             # XXX: For testing purposes
             # trigger="interval",
             # seconds=self._configuration_properties.job_interval_seconds,
-            coalesce=True,
         )
 
     @override
@@ -65,7 +74,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         )
         if is_buy_sell_signals_enabled and (
             telegram_chat_ids
-            := await self._push_notification_service.get_subscription_by_type(
+            := await self._push_notification_service.get_actived_subscription_by_type(
                 notification_type=PushNotificationTypeEnum.BUY_SELL_STRATEGY_ALERT
             )
         ):
