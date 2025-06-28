@@ -51,7 +51,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             # XXX: Production ready
             # Running at minute 2, 3, 5, 7, 10 past the hour!
             trigger="cron",
-            minute="2,3,5,7,10",
+            minute="2,3,5,7,10,15,30,45",
             hour="*",
             # XXX: For testing purposes
             # trigger="interval",
