@@ -34,7 +34,8 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             func=self.run,
             trigger="interval",
             seconds=self._configuration_properties.job_interval_seconds,
-            coalesce=True,
+            max_instances=1,  # Prevent overlapping
+            coalesce=True,  # Skip intermediate runs if one was missed
         )
 
     @override
@@ -148,7 +149,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
     ) -> None:
         try:
             crypto_currency, fiat_currency = new_market_order.symbol.split("/")
-            telegram_chat_ids = await self._push_notification_service.get_subscription_by_type(
+            telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
                 notification_type=PushNotificationTypeEnum.LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT
             )
             for tg_chat_id in telegram_chat_ids:

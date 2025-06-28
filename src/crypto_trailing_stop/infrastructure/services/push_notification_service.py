@@ -67,11 +67,13 @@ class PushNotificationService(metaclass=SingletonMeta):
         )
         return ret
 
-    async def get_subscription_by_type(
+    async def get_actived_subscription_by_type(
         self, notification_type: PushNotificationTypeEnum
     ) -> list[int]:
-        push_notifications = await PushNotification.objects().where(
-            PushNotification.notification_type == notification_type.value
+        push_notifications = (
+            await PushNotification.objects()
+            .where(PushNotification.notification_type == notification_type.value)
+            .where(PushNotification.activated == True)  # noqa: E712
         )
         ret = [
             push_notification.telegram_chat_id

@@ -12,4 +12,20 @@ AUTHORIZED_GOOGLE_USER_EMAILS = [
     "jmsola3092@gmail.com",
 ]
 DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS = 86_400  # 1 day
+BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN = [
+    2,
+    3,
+    5,
+    7,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35,
+    40,
+    45,
+    50,
+    55,
+]
 BUY_SELL_ALERTS_TIMEFRAMES = ["4h", "1h"]
