@@ -153,7 +153,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             previous_signals = self._last_signal_evalutation_result_cache[
                 current_signals.cache_key
             ]
-            is_new_signals = previous_signals.timestamp != current_signals.timestamp
+            is_new_signals = previous_signals != current_signals
         self._last_signal_evalutation_result_cache[current_signals.cache_key] = (
             current_signals
         )
