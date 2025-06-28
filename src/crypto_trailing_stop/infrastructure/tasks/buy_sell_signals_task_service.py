@@ -5,12 +5,12 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
 from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
-    Bit2MeRemoteService,
-)
 from aiogram import html
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import (
     SignalsEvaluationResult,
+)
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import (
+    Bit2MeTickersDto,
 )
 from typing import Literal
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import (
@@ -36,7 +36,6 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self._configuration_properties = get_configuration_properties()
         self._global_flag_service = GlobalFlagService()
         self._push_notification_service = PushNotificationService()
-        self._bit2me_remote_service = Bit2MeRemoteService()
         self._ccxt_remote_service = CcxtRemoteService()
         self._proximity_threshold = (
             self._configuration_properties.buy_sell_signals_proximity_threshold
@@ -86,12 +85,21 @@ class BuySellSignalsTaskService(AbstractTaskService):
             bit2me_account_info = await self._bit2me_remote_service.get_account_info(
                 client=client
             )
+            symbols = [
+                f"{crypto_currency}/{bit2me_account_info.profile.currency_code}"
+                for crypto_currency in favourite_crypto_currencies
+            ]
+
+            current_tickers_by_symbol: dict[
+                str, Bit2MeTickersDto
+            ] = await self._fetch_tickers_by_simbols(symbols, client=client)
+
             symbol_timeframe_tuples = [
                 (
-                    f"{crypto_currency}/{bit2me_account_info.profile.currency_code}",
+                    symbol,
                     timeframe,
                 )
-                for crypto_currency in favourite_crypto_currencies
+                for symbol in symbols
                 for timeframe in BUY_SELL_ALERTS_TIMEFRAMES
             ]
             for current_symbol, current_timeframe in symbol_timeframe_tuples:
@@ -100,6 +108,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
                         telegram_chat_ids,
                         symbol=current_symbol,
                         timeframe=current_timeframe,
+                        tickers=current_tickers_by_symbol[current_symbol],
                     )
                 except Exception as e:
                     logger.error(str(e), exc_info=True)
@@ -111,6 +120,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         *,
         symbol: str,
         timeframe: Literal["4h", "1h"],
+        tickers: Bit2MeTickersDto,
     ) -> None:
         df = await self._ccxt_remote_service.fetch_ohlcv(symbol, timeframe)
         df_with_indicators = self._calculate_indicators(df)
@@ -129,15 +139,19 @@ class BuySellSignalsTaskService(AbstractTaskService):
             if signals.rsi_state != "neutral":
                 icon = "📈" if signals.rsi_state == "overbought" else "📉"
                 message = f"{icon} {html.bold('Anticipation Zone ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)} - RSI is {signals.rsi_state}!"
-                await self._notify_alert(telegram_chat_ids, message)
+                await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
             # 2. Report Confirmation Signals (now identical for both timeframes)
             if not signals.buy or not signals.sell:
                 if signals.buy:
-                    message = f"🟢 🤩{html.bold('BUY SIGNAL ' + '(' + timeframe.upper() + ')')}🤩 for {html.bold(base_symbol)}!"
-                    await self._notify_alert(telegram_chat_ids, message)
+                    message = f"🟢 - 🛒 {html.bold('BUY SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"
+                    await self._notify_alert(
+                        telegram_chat_ids, message, tickers=tickers
+                    )
                 if signals.sell:
-                    message = f"🔴 ⚠{html.bold('SELL SIGNAL ' + '(' + timeframe.upper() + ')')}⚠ for {html.bold(base_symbol)}!"
-                    await self._notify_alert(telegram_chat_ids, message)
+                    message = f"🔴 - 🔚 {html.bold('SELL SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"
+                    await self._notify_alert(
+                        telegram_chat_ids, message, tickers=tickers
+                    )
             if not signals.buy and not signals.sell:
                 logger.info(
                     f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}."
@@ -236,9 +250,18 @@ class BuySellSignalsTaskService(AbstractTaskService):
             )
         return ret
 
-    async def _notify_alert(self, telegram_chat_ids: list[str], message) -> None:
+    async def _notify_alert(
+        self,
+        telegram_chat_ids: list[str],
+        body_message: str,
+        *,
+        tickers: Bit2MeTickersDto,
+    ) -> None:
+        crypto_currency, fiat_currency = tickers.symbol.split("/")
+        message = "⚡⚡ ATTENTION ⚡⚡\n\n"
+        message += f"{body_message}\n"
+        message += html.bold(
+            f"🔥 {crypto_currency} current price is {tickers.close} {fiat_currency}"
+        )
         for tg_chat_id in telegram_chat_ids:
-            await self._telegram_service.send_message(
-                chat_id=tg_chat_id,
-                text=message,
-            )
+            await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
