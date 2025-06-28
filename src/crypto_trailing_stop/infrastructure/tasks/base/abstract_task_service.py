@@ -6,6 +6,13 @@ from crypto_trailing_stop.interfaces.telegram.services import TelegramService
 from crypto_trailing_stop.infrastructure.services.push_notification_service import (
     PushNotificationService,
 )
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import (
+    Bit2MeTickersDto,
+)
+from httpx import AsyncClient
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
+    Bit2MeRemoteService,
+)
 from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
 from aiogram import html
 
@@ -14,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class AbstractTaskService(ABC):
     def __init__(self) -> None:
+        self._bit2me_remote_service = Bit2MeRemoteService()
         self._push_notification_service = PushNotificationService()
         self._telegram_service = TelegramService(
             session_storage_service=SessionStorageService(),
@@ -25,6 +33,17 @@ class AbstractTaskService(ABC):
         """
         Run the task
         """
+
+    async def _fetch_tickers_by_simbols(
+        self, symbols: list[str], *, client: AsyncClient
+    ) -> dict[str, Bit2MeTickersDto]:
+        ret = {
+            symbol: await self._bit2me_remote_service.get_tickers_by_symbol(
+                symbol, client=client
+            )
+            for symbol in symbols
+        }
+        return ret
 
     async def _notify_fatal_error_via_telegram(self, e: Exception) -> None:
         try:

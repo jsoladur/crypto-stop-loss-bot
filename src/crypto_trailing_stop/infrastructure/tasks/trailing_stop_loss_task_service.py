@@ -87,7 +87,7 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
     ) -> None:
         current_tickers_by_symbol: dict[
             str, Bit2MeTickersDto
-        ] = await self._fetch_all_tickers_by_symbol(
+        ] = await self._fetch_tickers_for_open_sell_orders(
             opened_stop_limit_sell_orders, client=client
         )
         max_and_min_buy_order_amount_by_symbol = (
