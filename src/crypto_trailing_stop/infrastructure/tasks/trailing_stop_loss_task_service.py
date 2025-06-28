@@ -48,7 +48,8 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
             func=self.run,
             trigger="interval",
             seconds=self._configuration_properties.job_interval_seconds,
-            coalesce=True,
+            max_instances=1,  # Prevent overlapping
+            coalesce=True,  # Skip intermediate runs if one was missed
         )
 
     @override
