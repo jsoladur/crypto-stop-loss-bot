@@ -147,7 +147,13 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 message = f"{icon} {html.bold('Anticipation Zone ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)} - RSI is {signals.rsi_state}!"
                 await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
             # 2. Report Confirmation Signals (now identical for both timeframes)
-            if not signals.buy or not signals.sell:
+            if signals.is_choppy:
+                message = (
+                    f"🟡 - 🫥 {html.bold('CHOPPY MARKET ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}.\n"
+                    + "🤫 Volatility is low. DO NOT ACT! 🤫"
+                )
+                await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+            elif not signals.buy or not signals.sell:
                 if signals.buy:
                     message = f"🟢 - 🛒 {html.bold('BUY SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"
                     await self._notify_alert(
@@ -158,10 +164,10 @@ class BuySellSignalsTaskService(AbstractTaskService):
                     await self._notify_alert(
                         telegram_chat_ids, message, tickers=tickers
                     )
-            if not signals.buy and not signals.sell:
-                logger.info(
-                    f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}."
-                )
+                if not signals.buy and not signals.sell:
+                    logger.info(
+                        f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}."
+                    )
         else:
             logger.info("Calculated signals were already notified previously!")
 
@@ -226,7 +232,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             else:
                 print(
                     f"{symbol} - ({timeframe.upper()}) :: "
-                    + f"Market is trending (ATR {last['atr']:.2f} > Threshold {min_volatility_threshold:.2f}). "
+                    + f"Market is trending (ATR {last['atr']:.2f} >= Threshold {min_volatility_threshold:.2f}). "
                     + f"Checking for signals with proximity threshold: {proximity_threshold:.2f}"
                 )
                 # A proximity_threshold of 0 effectively disables the proximity check
