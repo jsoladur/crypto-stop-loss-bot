@@ -36,7 +36,7 @@ class _TaskManager:
             await self._tasks[global_flag_type].stop()
 
     def get_tasks(self) -> list[AbstractTaskService]:
-        return list(self._tasks.values() if self._tasks else [])
+        return dict(self._tasks)
 
     def _import_task_modules(self, *, deeply: bool = True) -> dict[GlobalFlagTypeEnum, AbstractTaskService]:
         tasks = {}
