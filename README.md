@@ -1,63 +1,130 @@
-# Crypto Stop Loss Bot
+# Crypto Trailing Stop Bot
 
-A Python-based backend service for managing cryptocurrency stuff, especially trailing stop loss orders in Bit2Me.
+A Python-based bot for automated cryptocurrency trading with trailing stop-loss, analytics, and Telegram integration. Designed for Bit2Me exchange, it provides portfolio management, buy/sell signal automation, and real-time notifications.
 
-## Description
+---
 
-This project provides a backend service that implements trailing stop loss functionality for cryptocurrency trading. It monitors crypto prices and automatically executes sell orders based on trailing stop loss rules.
+## Features
+- Automated trailing stop-loss for crypto assets
+- Integration with Bit2Me API
+- Buy/sell signal detection using technical indicators (RSI, volatility, etc.)
+- Telegram bot for user interaction and notifications
+- Portfolio summary and analytics
+- Configurable background tasks and job scheduling
+- OAuth login (Google)
+- Modular, extensible architecture
 
-## Prerequisites
+---
 
-- Python 3.13 or higher
-- uv package manager
+## Architecture Overview
+```mermaid
+graph TD
+    A[User/Telegram] -->|Commands, Notifications| B(TelegramService)
+    B --> C(Main FastAPI App)
+    C --> D[Task Manager]
+    D --> E[Buy/Sell Signals Service]
+    D --> F[Trailing Stop-Loss Service]
+    D --> G[Limit Sell Order Guard]
+    C --> H[Global Summary Service]
+    C --> I[Bit2Me Remote Service]
+    I --> J[Bit2Me API]
+    C --> K[Database]
+```
+
+---
 
 ## Installation
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/jsoladur/crypto-trailing-stop-loss-project.git
-   cd crypto-trailing-stop-loss-project/backend
-   ```
+### Prerequisites
+- Python 3.13+
+- Docker (optional, for containerized deployment)
 
-2. Set up a virtual environment:
-   ```bash
-   uv venv
-   source .venv/bin/activate  # On Unix/macOS
-   # OR
-   .venv\Scripts\activate     # On Windows
-   ```
+### Clone the repository
+```sh
+git clone https://github.com/yourusername/crypto-stop-loss-bot.git
+cd crypto-stop-loss-bot
+```
 
-3. Install dependencies:
-   ```bash
-   uv sync
-   ```
+### Install dependencies
 
-4. Create a `.env` file in the root directory and add your configuration:
-   ```
-    # CORS enabled
-   CORS_ENABLED=false
-   # App configuration
-   TELEGRAM_BOT_ENABLED=true
-   BACKGROUND_TASKS_ENABLED=true
-   PUBLIC_DOMAIN=
-   # Google OAuth configuration
-   GOOGLE_OAUTH_CLIENT_ID=
-   GOOGLE_OAUTH_CLIENT_SECRET=
-   # Telegram bot configuration
-   TELEGRAM_BOT_TOKEN=
-   # Bit2Me API configuration
-   BIT2ME_API_BASE_URL=
-   BIT2ME_API_KEY=
-   BIT2ME_API_SECRET=
-   ```
+You can use [uv](https://github.com/astral-sh/uv) for fast dependency installation (recommended):
 
-6. Run the service:
-   ```
-   task start
-   ```  
+```sh
+uv sync
+```
 
-## Project Structure
+### Environment Setup
+Copy `.env.example` to `.env` and fill in required values:
+- Telegram bot token
+- Bit2Me API credentials
+- Google OAuth credentials
 
-The backend follows Clean Architecture principles, organizing code into layers:
+---
 
-...
+## Usage
+
+### Local Development
+```sh
+python -m src.crypto_trailing_stop.main
+```
+Or, using Taskipy:
+```sh
+pip install taskipy
+task start
+```
+
+### Docker Compose
+```sh
+docker-compose up --build
+```
+
+### API Endpoints
+- FastAPI runs at `http://localhost:8000/`
+- Interactive docs: `http://localhost:8000/docs`
+
+### Telegram Bot
+- Start the bot and interact via Telegram for notifications and commands.
+
+---
+
+## Configuration
+All configuration is managed via environment variables (see `.env.example`). Key options:
+- `TELEGRAM_BOT_TOKEN`: Telegram bot token
+- `BIT2ME_API_KEY`, `BIT2ME_API_SECRET`: Bit2Me API credentials
+- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`: Google OAuth
+- `DATABASE_PATH`: SQLite DB path
+- `BACKGROUND_TASKS_ENABLED`: Enable/disable background jobs
+- `TRAILING_STOP_LOSS_PERCENT`: Default trailing stop-loss percent
+
+---
+
+## Contributing
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/YourFeature`)
+3. Commit your changes (`git commit -am 'Add new feature'`)
+4. Push to the branch (`git push origin feature/YourFeature`)
+5. Open a pull request
+
+Run tests and lint before submitting:
+```sh
+task test
+```
+
+---
+
+## License
+MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+## Author
+José María Sola Durán (<josemaria.sola.duran@gmail.com>)
+
+---
+
+## Acknowledgements
+- [Bit2Me](https://bit2me.com/)
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [Aiogram](https://docs.aiogram.dev/)
+- [APScheduler](https://apscheduler.readthedocs.io/)
+- [CCXT](https://github.com/ccxt/ccxt)

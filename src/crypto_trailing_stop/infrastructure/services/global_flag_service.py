@@ -27,11 +27,14 @@ class GlobalFlagService(metaclass=SingletonMeta):
             global_flag.value = not global_flag.value
         else:
             global_flag = GlobalFlag(name=name.value, value=False)
+        await self._toggle_task(name, value=global_flag.value)
         await global_flag.save()
         ret = GlobalFlagItem(name=GlobalFlagTypeEnum.from_value(global_flag.name), value=global_flag.value)
         return ret
 
     async def force_disable_by_name(self, name: GlobalFlagTypeEnum) -> None:
+        # Immediately stop the task!
+        await self._toggle_task(name, value=False)
         global_flag = await GlobalFlag.objects().where(GlobalFlag.name == name.value).first()
         if global_flag:
             global_flag.value = False
@@ -42,3 +45,12 @@ class GlobalFlagService(metaclass=SingletonMeta):
     async def is_enabled_for(self, name: GlobalFlagTypeEnum) -> bool:
         global_flag = await GlobalFlag.objects().where(GlobalFlag.name == name.value).first()
         return global_flag is None or global_flag.value is True
+
+    async def _toggle_task(self, name: GlobalFlagTypeEnum, value: bool) -> None:
+        # Communicate to task manager to start/stop the task
+        from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
+
+        if value:
+            await get_task_manager_instance().start(name)
+        else:
+            await get_task_manager_instance().stop(name)

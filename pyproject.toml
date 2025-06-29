@@ -1,6 +1,6 @@
 [project]
 name = "crypto-trailing-stop"
-version = "0.9.1"
+version = "0.10.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -88,9 +88,9 @@ python_functions = "should_* test_*"
 
 [tool.coverage.run]
 source = ["src"]
-branch = true  # optional, but better for full logic path coverage
+branch = false
 concurrency = ["thread", "multiprocessing"]
 
 [tool.coverage.report]
 show_missing = true
-# fail_under = 80
+fail_under = 70

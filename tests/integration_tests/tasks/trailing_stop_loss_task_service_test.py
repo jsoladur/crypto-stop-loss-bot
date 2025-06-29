@@ -1,12 +1,9 @@
 import math
-from asyncio import sleep
 from urllib.parse import urlencode
 
 import pydash
 import pytest
-from asgi_lifespan import LifespanManager
 from faker import Faker
-from httpx import ASGITransport, AsyncClient
 from pydantic import RootModel
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
@@ -16,8 +13,8 @@ from crypto_trailing_stop.commons.constants import TRAILING_STOP_LOSS_DEFAULT_PE
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
-from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
-from tests.helpers.constants import MAX_SECONDS
+from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
+from crypto_trailing_stop.infrastructure.tasks.trailing_stop_loss_task_service import TrailingStopLossTaskService
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, Bit2MeTickersDtoObjectMother
 
@@ -31,22 +28,17 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
     Test that all expected calls to Bit2Me are made when a trailing stop is loss.
     """
     # Mock the Bit2Me API
-    app, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
-
+    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
     # Disable other background jobs to not interact with the tests
-    await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.TRAILING_STOP_LOSS)
+    task_manager = get_task_manager_instance()
 
     _prepare_httpserver_mock(
         faker, simulate_pending_buy_orders_to_filled, httpserver, bit2me_api_key, bit2me_api_secret
     )
-
-    async with LifespanManager(app) as manager:
-        async with AsyncClient(transport=ASGITransport(app=manager.app), base_url="http://test") as client:
-            for _ in range(MAX_SECONDS):
-                # Call the function that triggers the trailing stop loss
-                response = await client.get("/health/status")
-                response.raise_for_status()
-                await sleep(delay=1.0)
+    trailing_stop_loss_task_service: TrailingStopLossTaskService = task_manager.get_tasks()[
+        GlobalFlagTypeEnum.TRAILING_STOP_LOSS
+    ]
+    await trailing_stop_loss_task_service._run()
 
     httpserver.check_assertions()
 
@@ -136,7 +128,7 @@ def _prepare_httpserver_mock(
         Bit2MeAPIRequestMacher(
             "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": opened_sell_bit2me_order.symbol}
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.PERMANENT,
+        handler_type=HandlerType.ONESHOT,
     ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
 
     lowest_buy_price = math.inf
@@ -153,7 +145,7 @@ def _prepare_httpserver_mock(
             Bit2MeAPIRequestMacher(
                 f"/bit2me-api/v1/trading/order/{str(opened_sell_bit2me_order.id)}", method="DELETE"
             ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-            handler_type=HandlerType.PERMANENT,
+            handler_type=HandlerType.ONESHOT,
         ).respond_with_response(Response(status=204))
 
         # Mock call to POST /v1/trading/order
@@ -161,7 +153,7 @@ def _prepare_httpserver_mock(
             Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
                 bit2me_api_key, bik2me_api_secret
             ),
-            handler_type=HandlerType.PERMANENT,
+            handler_type=HandlerType.ONESHOT,
         ).respond_with_json(
             Bit2MeOrderDtoObjectMother.create(
                 side="sell", order_type="stop-limit", status=faker.random_element(["open", "inactive"])
