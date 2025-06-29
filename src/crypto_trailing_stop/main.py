@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # Initialize database
     await init_database()
     # Background task manager initialization
-    task_manager = get_task_manager_instance()
+    task_manager = await get_task_manager_instance().load_tasks()
     logger.info(f"{len(task_manager.get_tasks())} jobs have been loaded!")
     # Telegram bot initialization
     # Initialize Bot instance with default bot properties which will be passed to all API calls

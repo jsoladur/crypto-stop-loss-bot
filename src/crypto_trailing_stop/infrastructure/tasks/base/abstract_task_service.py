@@ -6,7 +6,7 @@ from apscheduler.job import Job
 from apscheduler.triggers.base import BaseTrigger
 from httpx import AsyncClient
 
-from crypto_trailing_stop.config import get_scheduler
+from crypto_trailing_stop.config import get_configuration_properties, get_scheduler
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services import SessionStorageService
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class AbstractTaskService(ABC):
     def __init__(self) -> None:
+        self._configuration_properties = get_configuration_properties()
         self._bit2me_remote_service = Bit2MeRemoteService()
         self._push_notification_service = PushNotificationService()
         self._telegram_service = TelegramService(
@@ -27,18 +28,18 @@ class AbstractTaskService(ABC):
         )
         self._job: Job | None = None
 
-    def start(self) -> None:
+    async def start(self) -> None:
         if not self._job:
             self._job = self._create_job()
         else:
             self._job.resume()
 
-    def stop(self) -> None:
+    async def stop(self) -> None:
         if self._job:
             self._job.pause()
 
     @abstractmethod
-    def _get_global_flag_type(self) -> GlobalFlagTypeEnum:
+    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
         """
         Get the global flag type
         """
@@ -56,13 +57,15 @@ class AbstractTaskService(ABC):
         """
 
     def _create_job(self) -> Job:
-        self._job = get_scheduler().add_job(
+        trigger = self._get_job_trigger()
+        job = get_scheduler().add_job(
             id=self.__class__.__name__,
             func=self._run,
-            trigger=self._get_job_trigger(),
+            trigger=trigger,
             max_instances=1,  # Prevent overlapping
             coalesce=True,  # Skip intermediate runs if one was missed
         )
+        return job
 
     async def _fetch_tickers_by_simbols(
         self, symbols: list[str], *, client: AsyncClient

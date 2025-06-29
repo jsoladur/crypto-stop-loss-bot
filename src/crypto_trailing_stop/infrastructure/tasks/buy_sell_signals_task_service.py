@@ -14,10 +14,8 @@ from crypto_trailing_stop.commons.constants import (
     BUY_SELL_ALERTS_TIMEFRAMES,
     BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN,
 )
-from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
-from crypto_trailing_stop.infrastructure.services import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
@@ -29,28 +27,24 @@ logger = logging.getLogger(__name__)
 class BuySellSignalsTaskService(AbstractTaskService):
     def __init__(self):
         super().__init__()
-        self._configuration_properties = get_configuration_properties()
-        self._global_flag_service = GlobalFlagService()
         self._push_notification_service = PushNotificationService()
         self._ccxt_remote_service = CcxtRemoteService()
         self._last_signal_evalutation_result_cache: dict[str, SignalsEvaluationResult] = {}
 
     @override
     async def _run(self) -> None:
-        is_buy_sell_signals_enabled = await self._global_flag_service.is_enabled_for(
-            GlobalFlagTypeEnum.BUY_SELL_SIGNALS
+        telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
+            notification_type=PushNotificationTypeEnum.BUY_SELL_STRATEGY_ALERT
         )
-        if is_buy_sell_signals_enabled and (
-            telegram_chat_ids := await self._push_notification_service.get_actived_subscription_by_type(
-                notification_type=PushNotificationTypeEnum.BUY_SELL_STRATEGY_ALERT
-            )
-        ):
+        if telegram_chat_ids:
             await self._internal_run(telegram_chat_ids)
         else:
-            logger.warning("[ATTENTION] Buy/Sell Signals job is DISABLED! You will not receive any alert!!")
+            logger.info(
+                "There are no Telegram chat subscriptions for sending the alerts... Skipping to calculate them!"
+            )
 
     @override
-    def _get_global_flag_type(self) -> GlobalFlagTypeEnum:
+    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
         return GlobalFlagTypeEnum.BUY_SELL_SIGNALS
 
     @override

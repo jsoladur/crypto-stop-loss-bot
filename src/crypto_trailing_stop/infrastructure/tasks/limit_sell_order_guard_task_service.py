@@ -5,10 +5,8 @@ from aiogram import html
 from apscheduler.triggers.interval import IntervalTrigger
 from httpx import AsyncClient
 
-from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.services import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTradingTaskService
 
@@ -16,33 +14,12 @@ logger = logging.getLogger(__name__)
 
 
 class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
-    def __init__(self):
-        super().__init__()
-        self._configuration_properties = get_configuration_properties()
-        self._global_flag_service = GlobalFlagService()
-
     @override
-    async def _run(self) -> None:
-        sell_limit_order_guard_enabled = await self._global_flag_service.is_enabled_for(
-            GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
-        )
-        if sell_limit_order_guard_enabled:
-            await self._internal_run()
-        else:
-            logger.warning(
-                "[ATTENTION] Limit Sell Order Guard is DISABLED! "
-                + "Sell orders are not being watched, which can provoke SEVERAL RISKS!!"
-            )
-
-    @override
-    def _get_global_flag_type(self) -> GlobalFlagTypeEnum:
+    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
         return GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
 
     @override
-    def _get_job_trigger(self) -> IntervalTrigger:
-        return IntervalTrigger(seconds=self._configuration_properties.job_interval_seconds)
-
-    async def _internal_run(self) -> None:
+    async def _run(self) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:
             opened_limit_sell_orders = await self._bit2me_remote_service.get_pending_sell_orders(
                 order_type="limit", client=client
@@ -51,6 +28,10 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
                 await self._handle_opened_limit_sell_orders(opened_limit_sell_orders, client=client)
             else:
                 logger.info("There are no opened limit sell orders to handle! Let's see in the upcoming executions...")
+
+    @override
+    def _get_job_trigger(self) -> IntervalTrigger:
+        return IntervalTrigger(seconds=self._configuration_properties.job_interval_seconds)
 
     async def _handle_opened_limit_sell_orders(
         self, opened_limit_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient

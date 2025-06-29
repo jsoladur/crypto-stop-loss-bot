@@ -11,10 +11,9 @@ from crypto_trailing_stop.commons.constants import (
     NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
     TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD,
 )
-from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.services import GlobalFlagService, OrdersAnalyticsService
+from crypto_trailing_stop.infrastructure.services import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTradingTaskService
@@ -25,33 +24,15 @@ logger = logging.getLogger(__name__)
 class TrailingStopLossTaskService(AbstractTradingTaskService):
     def __init__(self):
         super().__init__()
-        self._configuration_properties = get_configuration_properties()
-        self._global_flag_service = GlobalFlagService()
         self._orders_analytics_service = OrdersAnalyticsService()
         self._trailing_stop_loss_price_decrease_threshold = 1 - TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD
 
     @override
-    async def _run(self) -> None:
-        is_trailing_stop_loss_enabled = await self._global_flag_service.is_enabled_for(
-            GlobalFlagTypeEnum.TRAILING_STOP_LOSS
-        )
-        if is_trailing_stop_loss_enabled:
-            await self._internal_run()
-        else:
-            logger.warning(
-                "[ATTENTION] Trailing Stop Loss is DISABLED! "
-                + "This job will not apply any change over opened sell orders!"
-            )
-
-    @override
-    def _get_global_flag_type(self) -> GlobalFlagTypeEnum:
+    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
         return GlobalFlagTypeEnum.TRAILING_STOP_LOSS
 
     @override
-    def _get_job_trigger(self) -> IntervalTrigger:
-        return IntervalTrigger(seconds=self._configuration_properties.job_interval_seconds)
-
-    async def _internal_run(self) -> None:
+    async def _run(self) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:
             opened_stop_limit_sell_orders = await self._bit2me_remote_service.get_pending_sell_orders(
                 order_type="stop-limit", client=client
@@ -62,6 +43,10 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
                 logger.info(
                     "There are no opened stop-limit sell orders to handle! Let's see in the upcoming executions..."
                 )
+
+    @override
+    def _get_job_trigger(self) -> IntervalTrigger:
+        return IntervalTrigger(seconds=self._configuration_properties.job_interval_seconds)
 
     async def _handle_opened_stop_limit_sell_orders(
         self, opened_stop_limit_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient

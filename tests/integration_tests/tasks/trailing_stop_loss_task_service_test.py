@@ -4,7 +4,6 @@ from urllib.parse import urlencode
 
 import pydash
 import pytest
-from asgi_lifespan import LifespanManager
 from faker import Faker
 from httpx import ASGITransport, AsyncClient
 from pydantic import RootModel
@@ -32,21 +31,17 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
     """
     # Mock the Bit2Me API
     app, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
-
     # Disable other background jobs to not interact with the tests
     await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.TRAILING_STOP_LOSS)
-
     _prepare_httpserver_mock(
         faker, simulate_pending_buy_orders_to_filled, httpserver, bit2me_api_key, bit2me_api_secret
     )
-
-    async with LifespanManager(app) as manager:
-        async with AsyncClient(transport=ASGITransport(app=manager.app), base_url="http://test") as client:
-            for _ in range(MAX_SECONDS):
-                # Call the function that triggers the trailing stop loss
-                response = await client.get("/health/status")
-                response.raise_for_status()
-                await sleep(delay=1.0)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        for _ in range(MAX_SECONDS):
+            # Call the function that triggers the trailing stop loss
+            response = await client.get("/health/status")
+            response.raise_for_status()
+            await sleep(delay=1.0)
 
     httpserver.check_assertions()
 
@@ -136,7 +131,7 @@ def _prepare_httpserver_mock(
         Bit2MeAPIRequestMacher(
             "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": opened_sell_bit2me_order.symbol}
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.PERMANENT,
+        handler_type=HandlerType.ONESHOT,
     ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
 
     lowest_buy_price = math.inf
@@ -153,7 +148,7 @@ def _prepare_httpserver_mock(
             Bit2MeAPIRequestMacher(
                 f"/bit2me-api/v1/trading/order/{str(opened_sell_bit2me_order.id)}", method="DELETE"
             ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-            handler_type=HandlerType.PERMANENT,
+            handler_type=HandlerType.ONESHOT,
         ).respond_with_response(Response(status=204))
 
         # Mock call to POST /v1/trading/order
@@ -161,7 +156,7 @@ def _prepare_httpserver_mock(
             Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
                 bit2me_api_key, bik2me_api_secret
             ),
-            handler_type=HandlerType.PERMANENT,
+            handler_type=HandlerType.ONESHOT,
         ).respond_with_json(
             Bit2MeOrderDtoObjectMother.create(
                 side="sell", order_type="stop-limit", status=faker.random_element(["open", "inactive"])
