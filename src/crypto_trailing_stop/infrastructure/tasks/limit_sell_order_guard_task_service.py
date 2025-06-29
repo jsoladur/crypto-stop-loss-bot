@@ -2,10 +2,10 @@ import logging
 from typing import override
 
 from aiogram import html
-from apscheduler.job import Job
+from apscheduler.triggers.interval import IntervalTrigger
 from httpx import AsyncClient
 
-from crypto_trailing_stop.config import get_configuration_properties, get_scheduler
+from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.services import GlobalFlagService
@@ -20,17 +20,9 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         super().__init__()
         self._configuration_properties = get_configuration_properties()
         self._global_flag_service = GlobalFlagService()
-        self._job = get_scheduler().add_job(
-            id=self.__class__.__name__,
-            func=self.run,
-            trigger="interval",
-            seconds=self._configuration_properties.job_interval_seconds,
-            max_instances=1,  # Prevent overlapping
-            coalesce=True,  # Skip intermediate runs if one was missed
-        )
 
     @override
-    async def run(self) -> None:
+    async def _run(self) -> None:
         sell_limit_order_guard_enabled = await self._global_flag_service.is_enabled_for(
             GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
         )
@@ -42,11 +34,13 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
                 + "Sell orders are not being watched, which can provoke SEVERAL RISKS!!"
             )
 
-    def get_job(self) -> Job:
-        return self._job
-
-    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
+    @override
+    def _get_global_flag_type(self) -> GlobalFlagTypeEnum:
         return GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
+
+    @override
+    def _get_job_trigger(self) -> IntervalTrigger:
+        return IntervalTrigger(seconds=self._configuration_properties.job_interval_seconds)
 
     async def _internal_run(self) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:

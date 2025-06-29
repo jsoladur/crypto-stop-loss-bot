@@ -3,8 +3,10 @@ from abc import ABC, abstractmethod
 
 from aiogram import html
 from apscheduler.job import Job
+from apscheduler.triggers.base import BaseTrigger
 from httpx import AsyncClient
 
+from crypto_trailing_stop.config import get_scheduler
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services import SessionStorageService
@@ -23,24 +25,44 @@ class AbstractTaskService(ABC):
         self._telegram_service = TelegramService(
             session_storage_service=SessionStorageService(), keyboards_builder=KeyboardsBuilder()
         )
+        self._job: Job | None = None
+
+    def start(self) -> None:
+        if not self._job:
+            self._job = self._create_job()
+        else:
+            self._job.resume()
+
+    def stop(self) -> None:
+        if self._job:
+            self._job.pause()
 
     @abstractmethod
-    def run(self, *args, **kwargs) -> None:
+    def _get_global_flag_type(self) -> GlobalFlagTypeEnum:
+        """
+        Get the global flag type
+        """
+
+    @abstractmethod
+    async def _run(self, *args, **kwargs) -> None:
         """
         Run the task
         """
 
     @abstractmethod
-    def get_job(self) -> Job:
+    def _get_job_trigger(self) -> BaseTrigger:
         """
-        Apscheduler job instance
+        Get the job trigger
         """
 
-    @abstractmethod
-    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
-        """
-        Global flag type associated to the background job
-        """
+    def _create_job(self) -> Job:
+        self._job = get_scheduler().add_job(
+            id=self.__class__.__name__,
+            func=self._run,
+            trigger=self._get_job_trigger(),
+            max_instances=1,  # Prevent overlapping
+            coalesce=True,  # Skip intermediate runs if one was missed
+        )
 
     async def _fetch_tickers_by_simbols(
         self, symbols: list[str], *, client: AsyncClient

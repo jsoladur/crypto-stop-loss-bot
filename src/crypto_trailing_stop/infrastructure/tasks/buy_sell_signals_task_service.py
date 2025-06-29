@@ -4,7 +4,8 @@ from typing import Literal, override
 
 import pandas as pd
 from aiogram import html
-from apscheduler.job import Job
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, EMAIndicator
 from ta.volatility import AverageTrueRange  # Import ATR indicator
@@ -13,7 +14,7 @@ from crypto_trailing_stop.commons.constants import (
     BUY_SELL_ALERTS_TIMEFRAMES,
     BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN,
 )
-from crypto_trailing_stop.config import get_configuration_properties, get_scheduler
+from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services import GlobalFlagService
@@ -33,23 +34,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self._push_notification_service = PushNotificationService()
         self._ccxt_remote_service = CcxtRemoteService()
         self._last_signal_evalutation_result_cache: dict[str, SignalsEvaluationResult] = {}
-        self._job = get_scheduler().add_job(
-            id=self.__class__.__name__,
-            func=self.run,
-            max_instances=1,  # Prevent overlapping
-            coalesce=True,  # Skip intermediate runs if one was missed
-            # XXX: Production ready
-            # Running at some specific minutes past hour every hour!
-            trigger="cron",
-            minute=",".join([str(minute) for minute in BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN]),
-            hour="*",
-            # XXX: For testing purposes
-            # trigger="interval",
-            # seconds=self._configuration_properties.job_interval_seconds,
-        )
 
     @override
-    async def run(self) -> None:
+    async def _run(self) -> None:
         is_buy_sell_signals_enabled = await self._global_flag_service.is_enabled_for(
             GlobalFlagTypeEnum.BUY_SELL_SIGNALS
         )
@@ -62,11 +49,19 @@ class BuySellSignalsTaskService(AbstractTaskService):
         else:
             logger.warning("[ATTENTION] Buy/Sell Signals job is DISABLED! You will not receive any alert!!")
 
-    def get_job(self) -> Job:
-        return self._job
-
-    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
+    @override
+    def _get_global_flag_type(self) -> GlobalFlagTypeEnum:
         return GlobalFlagTypeEnum.BUY_SELL_SIGNALS
+
+    @override
+    def _get_job_trigger(self) -> CronTrigger | IntervalTrigger:
+        if self._configuration_properties.buy_sell_signals_run_via_cron_pattern:
+            trigger = CronTrigger(
+                minute=",".join([str(minute) for minute in BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN]), hour="*"
+            )
+        else:
+            trigger = IntervalTrigger(seconds=self._configuration_properties.job_interval_seconds)
+        return trigger
 
     async def _internal_run(self, telegram_chat_ids: list[int]) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:

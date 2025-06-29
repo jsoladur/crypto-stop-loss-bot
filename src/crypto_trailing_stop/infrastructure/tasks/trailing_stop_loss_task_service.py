@@ -3,7 +3,7 @@ import math
 from typing import override
 
 import pydash
-from apscheduler.job import Job
+from apscheduler.triggers.interval import IntervalTrigger
 from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import (
@@ -11,7 +11,7 @@ from crypto_trailing_stop.commons.constants import (
     NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
     TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD,
 )
-from crypto_trailing_stop.config import get_configuration_properties, get_scheduler
+from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.services import GlobalFlagService, OrdersAnalyticsService
@@ -29,17 +29,9 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
         self._global_flag_service = GlobalFlagService()
         self._orders_analytics_service = OrdersAnalyticsService()
         self._trailing_stop_loss_price_decrease_threshold = 1 - TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD
-        self._job = get_scheduler().add_job(
-            id=self.__class__.__name__,
-            func=self.run,
-            trigger="interval",
-            seconds=self._configuration_properties.job_interval_seconds,
-            max_instances=1,  # Prevent overlapping
-            coalesce=True,  # Skip intermediate runs if one was missed
-        )
 
     @override
-    async def run(self) -> None:
+    async def _run(self) -> None:
         is_trailing_stop_loss_enabled = await self._global_flag_service.is_enabled_for(
             GlobalFlagTypeEnum.TRAILING_STOP_LOSS
         )
@@ -51,11 +43,13 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
                 + "This job will not apply any change over opened sell orders!"
             )
 
-    def get_job(self) -> Job:
-        return self._job
-
-    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
+    @override
+    def _get_global_flag_type(self) -> GlobalFlagTypeEnum:
         return GlobalFlagTypeEnum.TRAILING_STOP_LOSS
+
+    @override
+    def _get_job_trigger(self) -> IntervalTrigger:
+        return IntervalTrigger(seconds=self._configuration_properties.job_interval_seconds)
 
     async def _internal_run(self) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:

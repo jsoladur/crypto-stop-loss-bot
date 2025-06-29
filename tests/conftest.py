@@ -21,6 +21,8 @@ def faker() -> Faker:
 
 @pytest.fixture(scope="session", autouse=True)
 def defaults_env(faker: Faker) -> Generator[None]:
+    # Background jobs configuration
+    environ["BUY_SELL_SIGNALS_RUN_VIA_CRON_PATTERN"] = "false"
     # Database configuration
     environ["DATABASE_IN_MEMORY"] = "false"
     # App configuration env variables

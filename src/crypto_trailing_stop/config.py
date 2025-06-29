@@ -39,6 +39,7 @@ class ConfigurationProperties(BaseSettings):
     bit2me_api_key: str
     bit2me_api_secret: str
     # Buy Sell Signals configuration
+    buy_sell_signals_run_via_cron_pattern: bool = True
     buy_sell_signals_proximity_threshold: float = 0.002
     buy_sell_signals_4h_volatility_threshold: float = 0.005
     buy_sell_signals_1h_volatility_threshold: float = 0.003
