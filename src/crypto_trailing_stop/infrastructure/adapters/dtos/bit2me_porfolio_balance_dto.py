@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ConvertedBalanceDto(BaseModel):
@@ -13,17 +13,13 @@ class WalletDto(BaseModel):
 
     balance: float | int
     currency: str
-    converted_balance: ConvertedBalanceDto | None = Field(
-        alias="convertedBalance", default=None
-    )
+    converted_balance: ConvertedBalanceDto | None = Field(alias="convertedBalance", default=None)
 
 
 class TotalDto(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    converted_balance: ConvertedBalanceDto = Field(
-        alias="convertedBalance", default=...
-    )
+    converted_balance: ConvertedBalanceDto = Field(alias="convertedBalance", default=...)
 
 
 class Bit2MePortfolioBalanceDto(BaseModel):

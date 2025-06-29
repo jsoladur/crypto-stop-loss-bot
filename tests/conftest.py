@@ -1,12 +1,14 @@
 from collections.abc import Generator
-from os import environ
-from uuid import uuid4
-from types import ModuleType
 from importlib import import_module, reload
-import pytest
-from pytest_httpserver import HTTPServer
-from faker import Faker
+from os import environ
 from tempfile import NamedTemporaryFile
+from types import ModuleType
+from uuid import uuid4
+
+import pytest
+from faker import Faker
+from pytest_httpserver import HTTPServer
+
 from crypto_trailing_stop import config
 
 main_module: ModuleType | None = None
@@ -18,7 +20,7 @@ def faker() -> Faker:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def defaults_env(faker: Faker) -> Generator[None, None, None]:
+def defaults_env(faker: Faker) -> Generator[None]:
     # Database configuration
     environ["DATABASE_IN_MEMORY"] = "false"
     # App configuration env variables
@@ -32,7 +34,7 @@ def defaults_env(faker: Faker) -> Generator[None, None, None]:
 
 
 @pytest.fixture(scope="session")
-def httpserver_test_env() -> Generator[tuple[HTTPServer, str], None, None]:
+def httpserver_test_env() -> Generator[tuple[HTTPServer, str]]:
     with HTTPServer(threaded=True) as httpserver:
         # Set up the HTTP server for testing
         environ["BIT2ME_API_BASE_URL"] = httpserver.url_for(suffix="/bit2me-api")
@@ -43,7 +45,7 @@ def httpserver_test_env() -> Generator[tuple[HTTPServer, str], None, None]:
 
 
 @pytest.fixture(autouse=True)
-def database_path_env() -> Generator[None, None, None]:
+def database_path_env() -> Generator[None]:
     with NamedTemporaryFile(suffix=".sqlite") as temp_db:
         environ["DATABASE_PATH"] = temp_db.name
         yield
@@ -52,7 +54,7 @@ def database_path_env() -> Generator[None, None, None]:
 @pytest.fixture
 def integration_test_jobs_disabled_env(
     httpserver_test_env: tuple[HTTPServer, str],
-) -> Generator[tuple[HTTPServer, str], None, None]:
+) -> Generator[tuple[HTTPServer, str]]:
     global main_module
     httpserver, bit2me_api_key, bit2me_api_secret, *_ = httpserver_test_env
     # XXX: Disable background tasks
@@ -70,9 +72,7 @@ def integration_test_jobs_disabled_env(
 
 
 @pytest.fixture
-def integration_test_env(
-    httpserver_test_env: tuple[HTTPServer, str],
-) -> Generator[tuple[HTTPServer, str], None, None]:
+def integration_test_env(httpserver_test_env: tuple[HTTPServer, str]) -> Generator[tuple[HTTPServer, str]]:
     global main_module
 
     httpserver, bit2me_api_key, bit2me_api_secret, *_ = httpserver_test_env

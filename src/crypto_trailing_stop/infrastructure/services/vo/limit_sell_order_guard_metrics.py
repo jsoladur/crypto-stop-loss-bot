@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
-    Bit2MeOrderDto,
-)
+
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 
 
 @dataclass

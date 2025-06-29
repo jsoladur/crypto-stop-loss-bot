@@ -1,36 +1,22 @@
+import asyncio
+import importlib
 import logging
 import sys
-import asyncio
-from os import path, listdir
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from starlette.middleware.sessions import SessionMiddleware
-
+from os import listdir, path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
-from crypto_trailing_stop.config import (
-    get_configuration_properties,
-    get_dispacher,
-    get_telegram_bot,
-    get_scheduler,
-)
-from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
+from crypto_trailing_stop.config import get_configuration_properties, get_dispacher, get_scheduler, get_telegram_bot
 from crypto_trailing_stop.infrastructure.database import init_database
-from crypto_trailing_stop.interfaces.controllers.health_controller import (
-    router as health_router,
-)
-from crypto_trailing_stop.interfaces.controllers.login_controller import (
-    router as login_router,
-)
-import importlib
+from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
+from crypto_trailing_stop.interfaces.controllers.health_controller import router as health_router
+from crypto_trailing_stop.interfaces.controllers.login_controller import router as login_router
 
-logging.basicConfig(
-    level=logging.INFO,
-    stream=sys.stdout,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
+logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(asctime)s - %(levelname)s - %(message)s")
 
 logger = logging.getLogger(__name__)
 
@@ -47,19 +33,15 @@ def _load_telegram_layer(layer_name: str) -> None:
     if path.exists(folder) and path.isdir(folder):
         for filename in listdir(folder):
             if filename.endswith(".py") and filename != "__init__.py":
-                module_name = (
-                    f"{__package__}.interfaces.telegram.{layer_name}.{filename[:-3]}"
-                )
+                module_name = f"{__package__}.interfaces.telegram.{layer_name}.{filename[:-3]}"
                 try:
                     importlib.import_module(module_name)
                 except ModuleNotFoundError:
-                    logging.warning(
-                        f"Module {module_name} not found. Skipping dynamic import."
-                    )
+                    logging.warning(f"Module {module_name} not found. Skipping dynamic import.")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # Initialize database
     await init_database()
     # Background task manager initialization
@@ -102,21 +84,12 @@ def _boostrap_app() -> None:
     app = FastAPI(
         title="Crypto Trailing Stop API",
         description="API for Crypto Trailing Stop Bot",
-        version="0.8.0",
-        contact={
-            "name": "jmsoladev",
-            "url": "https://www.jmsoladev.com",
-            "email": "josemaria.sola.duran@gmail.com",
-        },
-        license_info={
-            "name": "MIT License",
-            "url": "https://opensource.org/license/mit/",
-        },
+        version="0.9.0",
+        contact={"name": "jmsoladev", "url": "https://www.jmsoladev.com", "email": "josemaria.sola.duran@gmail.com"},
+        license_info={"name": "MIT License", "url": "https://opensource.org/license/mit/"},
         lifespan=lifespan,
     )
-    app.add_middleware(
-        SessionMiddleware, secret_key=configuration_properties.session_secret_key
-    )
+    app.add_middleware(SessionMiddleware, secret_key=configuration_properties.session_secret_key)
     configuration_properties = get_configuration_properties()
     if configuration_properties.cors_enabled:
         app.add_middleware(

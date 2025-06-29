@@ -1,6 +1,8 @@
+from uuid import UUID as UUIDType
+from uuid import uuid4
+
+from piccolo.columns import UUID, Boolean, Integer, Text
 from piccolo.table import Table
-from piccolo.columns import UUID, Text, Boolean, Integer
-from uuid import UUID as UUIDType, uuid4
 
 
 class PushNotification(Table):

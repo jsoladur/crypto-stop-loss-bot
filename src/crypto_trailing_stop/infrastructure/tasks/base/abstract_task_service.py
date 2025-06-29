@@ -1,20 +1,16 @@
 import logging
 from abc import ABC, abstractmethod
+
+from aiogram import html
+from httpx import AsyncClient
+
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services import SessionStorageService
+from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
+from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from crypto_trailing_stop.interfaces.telegram.services import TelegramService
-from crypto_trailing_stop.infrastructure.services.push_notification_service import (
-    PushNotificationService,
-)
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import (
-    Bit2MeTickersDto,
-)
-from httpx import AsyncClient
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
-    Bit2MeRemoteService,
-)
-from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
-from aiogram import html
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +20,7 @@ class AbstractTaskService(ABC):
         self._bit2me_remote_service = Bit2MeRemoteService()
         self._push_notification_service = PushNotificationService()
         self._telegram_service = TelegramService(
-            session_storage_service=SessionStorageService(),
-            keyboards_builder=KeyboardsBuilder(),
+            session_storage_service=SessionStorageService(), keyboards_builder=KeyboardsBuilder()
         )
 
     @abstractmethod
@@ -38,10 +33,7 @@ class AbstractTaskService(ABC):
         self, symbols: list[str], *, client: AsyncClient
     ) -> dict[str, Bit2MeTickersDto]:
         ret = {
-            symbol: await self._bit2me_remote_service.get_tickers_by_symbol(
-                symbol, client=client
-            )
-            for symbol in symbols
+            symbol: await self._bit2me_remote_service.get_tickers_by_symbol(symbol, client=client) for symbol in symbols
         }
         return ret
 
@@ -57,7 +49,4 @@ class AbstractTaskService(ABC):
                     + f"Please try again later:\n\n{html.code(str(e))}",
                 )
         except Exception as e:
-            logger.warning(
-                f"Unexpected error, notifying fatal error via Telegram: {str(e)}",
-                exc_info=True,
-            )
+            logger.warning(f"Unexpected error, notifying fatal error via Telegram: {str(e)}", exc_info=True)

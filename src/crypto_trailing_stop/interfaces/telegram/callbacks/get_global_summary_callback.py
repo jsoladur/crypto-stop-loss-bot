@@ -1,31 +1,24 @@
 import logging
-from aiogram.types import CallbackQuery
+
 from aiogram import html
-from crypto_trailing_stop.config import get_dispacher
-from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
-from crypto_trailing_stop.infrastructure.services import (
-    SessionStorageService,
-    GlobalSummaryService,
-)
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
-    Bit2MeRemoteService,
-)
 from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery
+
+from crypto_trailing_stop.config import get_dispacher
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.services import GlobalSummaryService, SessionStorageService
+from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 logger = logging.getLogger(__name__)
 
 dp = get_dispacher()
 session_storage_service = SessionStorageService()
 keyboards_builder = KeyboardsBuilder()
-global_summary_service = GlobalSummaryService(
-    bit2me_remote_service=Bit2MeRemoteService()
-)
+global_summary_service = GlobalSummaryService(bit2me_remote_service=Bit2MeRemoteService())
 
 
 @dp.callback_query(lambda c: c.data == "get_global_summary")
-async def set_stop_loss_percent_callback_handler(
-    callback_query: CallbackQuery, state: FSMContext
-) -> None:
+async def set_stop_loss_percent_callback_handler(callback_query: CallbackQuery, state: FSMContext) -> None:
     is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:
@@ -49,6 +42,5 @@ async def set_stop_loss_percent_callback_handler(
             )
     else:
         await callback_query.message.answer(
-            "⚠️ Please log in to get the global summary.",
-            reply_markup=keyboards_builder.get_login_keyboard(state),
+            "⚠️ Please log in to get the global summary.", reply_markup=keyboards_builder.get_login_keyboard(state)
         )

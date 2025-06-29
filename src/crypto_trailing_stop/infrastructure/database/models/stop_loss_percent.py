@@ -1,6 +1,8 @@
+from uuid import UUID as UUIDType
+from uuid import uuid4
+
+from piccolo.columns import UUID, Float, Text
 from piccolo.table import Table
-from piccolo.columns import UUID, Text, Float
-from uuid import UUID as UUIDType, uuid4
 
 
 class StopLossPercent(Table):

@@ -1,9 +1,11 @@
+from importlib import import_module
+from inspect import isclass
+from os import listdir, makedirs, path
+
 from piccolo.engine.sqlite import SQLiteEngine
 from piccolo.table import Table
+
 from crypto_trailing_stop.config import get_configuration_properties
-from inspect import isclass
-from importlib import import_module
-from os import path, listdir, makedirs
 
 
 async def init_database() -> None:
@@ -14,9 +16,7 @@ async def init_database() -> None:
         makedirs(path.dirname(configuration_properties.database_path), exist_ok=True)
         engine = SQLiteEngine(path=configuration_properties.database_path)
     # Set up the database
-    for model_filename in listdir(
-        path.relpath(path.join(path.dirname(__file__), "models"))
-    ):
+    for model_filename in listdir(path.relpath(path.join(path.dirname(__file__), "models"))):
         if model_filename.endswith(".py") and model_filename != "__init__.py":
             module_name = model_filename[:-3]
             module = import_module(f".models.{module_name}", package=__package__)

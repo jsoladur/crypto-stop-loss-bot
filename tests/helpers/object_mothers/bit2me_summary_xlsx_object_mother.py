@@ -1,9 +1,10 @@
-import pandas as pd
-from datetime import datetime, timedelta
+import io
 import random
 import uuid
+from datetime import datetime, timedelta
+
+import pandas as pd
 from faker import Faker
-import io
 
 # Define constants for the Excel file generation
 COLUMN_NAMES = [
@@ -58,12 +59,8 @@ class Bit2MeSummaryXlsxObjectMother:
         year_end = datetime(year, 12, 31, 23, 59, 59)
 
         # Generate start_date and end_date within the specified year using faker
-        start_date = cls._faker.date_time_between_dates(
-            datetime_start=year_start, datetime_end=year_end
-        )
-        end_date = cls._faker.date_time_between_dates(
-            datetime_start=start_date, datetime_end=year_end
-        )
+        start_date = cls._faker.date_time_between_dates(datetime_start=year_start, datetime_end=year_end)
+        end_date = cls._faker.date_time_between_dates(datetime_start=start_date, datetime_end=year_end)
 
         # Calculate the total seconds between the Faker-generated start_date and end_date
         time_difference_seconds = int((end_date - start_date).total_seconds())
@@ -74,37 +71,19 @@ class Bit2MeSummaryXlsxObjectMother:
             # pydecimal is good for financial data to avoid floating point issues
             to_amount = round(
                 float(
-                    cls._faker.pydecimal(
-                        left_digits=4,
-                        right_digits=6,
-                        min_value=0.1,
-                        max_value=5000.0,
-                        positive=True,
-                    )
+                    cls._faker.pydecimal(left_digits=4, right_digits=6, min_value=0.1, max_value=5000.0, positive=True)
                 ),
                 6,
             )
             from_amount = round(
                 float(
-                    cls._faker.pydecimal(
-                        left_digits=4,
-                        right_digits=6,
-                        min_value=0.1,
-                        max_value=5000.0,
-                        positive=True,
-                    )
+                    cls._faker.pydecimal(left_digits=4, right_digits=6, min_value=0.1, max_value=5000.0, positive=True)
                 ),
                 6,
             )
             fee_amount = round(
                 float(
-                    cls._faker.pydecimal(
-                        left_digits=2,
-                        right_digits=6,
-                        min_value=0.1,
-                        max_value=10.0,
-                        positive=True,
-                    )
+                    cls._faker.pydecimal(left_digits=2, right_digits=6, min_value=0.1, max_value=10.0, positive=True)
                 ),
                 6,
             )
@@ -124,7 +103,9 @@ class Bit2MeSummaryXlsxObjectMother:
             # Generate a descriptive string based on operation type
             description = ""
             if op_type == "Trade":
-                description = f"Traded {from_amount} {DEFAULT_CURRENCY} for {to_amount} {DEFAULT_CURRENCY} on {cls._faker.word()}"
+                description = (
+                    f"Traded {from_amount} {DEFAULT_CURRENCY} for {to_amount} {DEFAULT_CURRENCY} on {cls._faker.word()}"
+                )
             elif op_type == "Deposit":
                 # Using faker for a more varied description
                 description = f"Deposit to {cls._faker.bank_country()} bank account via credit card"
@@ -132,13 +113,9 @@ class Bit2MeSummaryXlsxObjectMother:
                 # Using faker for a more varied description
                 description = f"Withdrawal to {cls._faker.bank_country()} bank account for wallet {uuid.uuid4()}"
             elif op_type == "Staking":
-                description = (
-                    f"Staking rewards in {group} program from {cls._faker.company()}"
-                )
+                description = f"Staking rewards in {group} program from {cls._faker.company()}"
             else:
-                description = cls._faker.sentence(
-                    nb_words=8
-                )  # Generic sentence if needed
+                description = cls._faker.sentence(nb_words=8)  # Generic sentence if needed
 
             row = {
                 "Operation type": op_type,
@@ -167,9 +144,7 @@ class Bit2MeSummaryXlsxObjectMother:
         header_as_data_df = pd.DataFrame([COLUMN_NAMES], columns=COLUMN_NAMES)
 
         # Concatenate the empty row, then the header row (as data), then the actual data
-        df_final = pd.concat(
-            [empty_df, header_as_data_df, actual_data_df], ignore_index=True
-        )
+        df_final = pd.concat([empty_df, header_as_data_df, actual_data_df], ignore_index=True)
 
         # Save DataFrame to an in-memory bytes buffer
         # Set header=False because the header is now part of the DataFrame's content

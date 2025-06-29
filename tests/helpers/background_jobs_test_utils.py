@@ -1,9 +1,5 @@
-from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import (
-    GlobalFlagTypeEnum,
-)
-from crypto_trailing_stop.infrastructure.services import (
-    GlobalFlagService,
-)
+from crypto_trailing_stop.infrastructure.services import GlobalFlagService
+from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 
 
 async def disable_all_background_jobs_except(*, exclusion: GlobalFlagTypeEnum) -> None:

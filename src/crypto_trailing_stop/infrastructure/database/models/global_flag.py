@@ -1,6 +1,8 @@
+from uuid import UUID as UUIDType
+from uuid import uuid4
+
+from piccolo.columns import UUID, Boolean, Text
 from piccolo.table import Table
-from piccolo.columns import UUID, Text, Boolean
-from uuid import UUID as UUIDType, uuid4
 
 
 class GlobalFlag(Table, tablename="flag"):
