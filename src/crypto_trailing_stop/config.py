@@ -41,10 +41,12 @@ class ConfigurationProperties(BaseSettings):
     # Buy Sell Signals configuration
     buy_sell_signals_run_via_cron_pattern: bool = True
     buy_sell_signals_proximity_threshold: float = 0.002
-    buy_sell_signals_4h_volatility_threshold: float = 0.005
-    buy_sell_signals_1h_volatility_threshold: float = 0.003
-    buy_sell_signals_rsi_overbought: int = (70,)
-    buy_sell_signals_rsi_oversold: int = (30,)
+    # Better after backtesting in TradingView to 0.018
+    buy_sell_signals_4h_volatility_threshold: float = 0.018
+    # Better after backtesting in TradingView to 0.007
+    buy_sell_signals_1h_volatility_threshold: float = 0.007
+    buy_sell_signals_rsi_overbought: int = 70
+    buy_sell_signals_rsi_oversold: int = 30
     # Google OAuth configuration
     google_oauth_client_id: str
     google_oauth_client_secret: str

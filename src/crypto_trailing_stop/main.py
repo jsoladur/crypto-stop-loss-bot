@@ -84,7 +84,7 @@ def _boostrap_app() -> None:
     app = FastAPI(
         title="Crypto Trailing Stop API",
         description="API for Crypto Trailing Stop Bot",
-        version="0.9.0",
+        version="0.9.1",
         contact={"name": "jmsoladev", "url": "https://www.jmsoladev.com", "email": "josemaria.sola.duran@gmail.com"},
         license_info={"name": "MIT License", "url": "https://opensource.org/license/mit/"},
         lifespan=lifespan,
