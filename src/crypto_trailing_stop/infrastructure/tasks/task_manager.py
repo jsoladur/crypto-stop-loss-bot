@@ -30,10 +30,12 @@ class _TaskManager:
     async def start(self, global_flag_type: GlobalFlagTypeEnum) -> None:
         if global_flag_type in self._tasks:
             await self._tasks[global_flag_type].start()
+            logger.info(f"Task {global_flag_type.value} STARTED!")
 
     async def stop(self, global_flag_type: GlobalFlagTypeEnum) -> None:
         if global_flag_type in self._tasks:
             await self._tasks[global_flag_type].stop()
+            logger.info(f"Task {global_flag_type.value} STOPPED!")
 
     def get_tasks(self) -> list[AbstractTaskService]:
         return dict(self._tasks)
