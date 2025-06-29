@@ -4,7 +4,7 @@ from typing import Literal, override
 
 import pandas as pd
 from aiogram import html
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.job import Job
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, EMAIndicator
 from ta.volatility import AverageTrueRange  # Import ATR indicator
@@ -33,8 +33,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self._push_notification_service = PushNotificationService()
         self._ccxt_remote_service = CcxtRemoteService()
         self._last_signal_evalutation_result_cache: dict[str, SignalsEvaluationResult] = {}
-        self._scheduler: AsyncIOScheduler = get_scheduler()
-        self._scheduler.add_job(
+        self._job = get_scheduler().add_job(
             id=self.__class__.__name__,
             func=self.run,
             max_instances=1,  # Prevent overlapping
@@ -62,6 +61,12 @@ class BuySellSignalsTaskService(AbstractTaskService):
             await self._internal_run(telegram_chat_ids)
         else:
             logger.warning("[ATTENTION] Buy/Sell Signals job is DISABLED! You will not receive any alert!!")
+
+    def get_job(self) -> Job:
+        return self._job
+
+    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
+        return GlobalFlagTypeEnum.BUY_SELL_SIGNALS
 
     async def _internal_run(self, telegram_chat_ids: list[int]) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:

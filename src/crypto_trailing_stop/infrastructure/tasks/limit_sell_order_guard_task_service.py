@@ -2,7 +2,7 @@ import logging
 from typing import override
 
 from aiogram import html
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.job import Job
 from httpx import AsyncClient
 
 from crypto_trailing_stop.config import get_configuration_properties, get_scheduler
@@ -20,8 +20,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         super().__init__()
         self._configuration_properties = get_configuration_properties()
         self._global_flag_service = GlobalFlagService()
-        self._scheduler: AsyncIOScheduler = get_scheduler()
-        self._scheduler.add_job(
+        self._job = get_scheduler().add_job(
             id=self.__class__.__name__,
             func=self.run,
             trigger="interval",
@@ -42,6 +41,12 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
                 "[ATTENTION] Limit Sell Order Guard is DISABLED! "
                 + "Sell orders are not being watched, which can provoke SEVERAL RISKS!!"
             )
+
+    def get_job(self) -> Job:
+        return self._job
+
+    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
+        return GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
 
     async def _internal_run(self) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:

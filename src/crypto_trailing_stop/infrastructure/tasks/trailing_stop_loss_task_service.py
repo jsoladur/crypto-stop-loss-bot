@@ -3,7 +3,7 @@ import math
 from typing import override
 
 import pydash
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.job import Job
 from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import (
@@ -29,8 +29,7 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
         self._global_flag_service = GlobalFlagService()
         self._orders_analytics_service = OrdersAnalyticsService()
         self._trailing_stop_loss_price_decrease_threshold = 1 - TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD
-        self._scheduler: AsyncIOScheduler = get_scheduler()
-        self._scheduler.add_job(
+        self._job = get_scheduler().add_job(
             id=self.__class__.__name__,
             func=self.run,
             trigger="interval",
@@ -51,6 +50,12 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
                 "[ATTENTION] Trailing Stop Loss is DISABLED! "
                 + "This job will not apply any change over opened sell orders!"
             )
+
+    def get_job(self) -> Job:
+        return self._job
+
+    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
+        return GlobalFlagTypeEnum.TRAILING_STOP_LOSS
 
     async def _internal_run(self) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:

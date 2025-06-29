@@ -2,12 +2,13 @@ import logging
 from abc import ABC, abstractmethod
 
 from aiogram import html
+from apscheduler.job import Job
 from httpx import AsyncClient
 
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services import SessionStorageService
-from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
+from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from crypto_trailing_stop.interfaces.telegram.services import TelegramService
@@ -27,6 +28,18 @@ class AbstractTaskService(ABC):
     def run(self, *args, **kwargs) -> None:
         """
         Run the task
+        """
+
+    @abstractmethod
+    def get_job(self) -> Job:
+        """
+        Apscheduler job instance
+        """
+
+    @abstractmethod
+    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
+        """
+        Global flag type associated to the background job
         """
 
     async def _fetch_tickers_by_simbols(
