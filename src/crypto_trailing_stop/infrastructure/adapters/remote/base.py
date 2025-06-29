@@ -32,31 +32,14 @@ class AbstractHttpRemoteAsyncService(ABC):
             method=method, url=url, params=params, headers=headers, body=body
         )
         if client:
-            response = await client.request(
-                method=method,
-                url=url,
-                params=params,
-                headers=headers,
-                json=body,
-                **kwargs,
-            )
+            response = await client.request(method=method, url=url, params=params, headers=headers, json=body, **kwargs)
         else:  # pragma: no cover
             async with await self.get_http_client() as client:
                 response = await client.request(
-                    method=method,
-                    url=url,
-                    params=params,
-                    headers=headers,
-                    json=body,
-                    **kwargs,
+                    method=method, url=url, params=params, headers=headers, json=body, **kwargs
                 )
         response = await self._apply_response_interceptor(
-            method=method,
-            url=url,
-            params=params,
-            headers=headers,
-            body=body,
-            response=response,
+            method=method, url=url, params=params, headers=headers, body=body, response=response
         )
         return response
 

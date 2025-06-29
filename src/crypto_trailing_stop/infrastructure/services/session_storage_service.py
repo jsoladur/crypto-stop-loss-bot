@@ -1,11 +1,11 @@
-from aiogram.fsm.context import FSMContext
-from crypto_trailing_stop.infrastructure.services.enums import (
-    SessionKeysEnum,
-)
-from crypto_trailing_stop.config import get_configuration_properties, get_dispacher
-from aiogram.fsm.storage.base import StorageKey
 from typing import Any
+
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.storage.base import StorageKey
+
 from crypto_trailing_stop.commons.patterns import SingletonMeta
+from crypto_trailing_stop.config import get_configuration_properties, get_dispacher
+from crypto_trailing_stop.infrastructure.services.enums import SessionKeysEnum
 
 
 class SessionStorageService(metaclass=SingletonMeta):
@@ -13,16 +13,10 @@ class SessionStorageService(metaclass=SingletonMeta):
         self._configuration_properties = get_configuration_properties()
         self._dispacher = get_dispacher()
 
-    async def get_or_create_fsm_context(
-        self, *, bot_id: int, chat_id: int, user_id: int
-    ) -> FSMContext:
+    async def get_or_create_fsm_context(self, *, bot_id: int, chat_id: int, user_id: int) -> FSMContext:
         return FSMContext(
             storage=self._dispacher.storage,
-            key=StorageKey(
-                bot_id=int(bot_id),
-                chat_id=int(chat_id),
-                user_id=int(user_id),
-            ),
+            key=StorageKey(bot_id=int(bot_id), chat_id=int(chat_id), user_id=int(user_id)),
         )
 
     async def is_user_logged(self, state: FSMContext) -> bool:
@@ -33,9 +27,7 @@ class SessionStorageService(metaclass=SingletonMeta):
             ret = SessionKeysEnum.USER_CONTEXT.value in data
         return ret
 
-    async def set_user_logged(
-        self, state: FSMContext, userinfo: dict[str, Any]
-    ) -> None:
+    async def set_user_logged(self, state: FSMContext, userinfo: dict[str, Any]) -> None:
         data = await state.get_data()
         data[SessionKeysEnum.USER_CONTEXT.value] = userinfo
         await state.set_data(data)

@@ -1,6 +1,7 @@
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Literal
 from abc import ABCMeta
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 Bit2MeOrderStatus = Literal["open", "filled", "cancelled", "inactive"]
 Bit2MeOrderSide = Literal["buy", "sell"]
@@ -14,9 +15,7 @@ class _AbstractBit2MeOrderDto(BaseModel, metaclass=ABCMeta):
 
 
 class CreateNewBit2MeOrderDto(_AbstractBit2MeOrderDto):
-    model_config = ConfigDict(
-        populate_by_name=True, use_enum_values=True, extra="ignore"
-    )
+    model_config = ConfigDict(populate_by_name=True, use_enum_values=True, extra="ignore")
 
     amount: str
     price: str | None = None
@@ -24,9 +23,7 @@ class CreateNewBit2MeOrderDto(_AbstractBit2MeOrderDto):
 
 
 class Bit2MeOrderDto(_AbstractBit2MeOrderDto):
-    model_config = ConfigDict(
-        populate_by_name=True, use_enum_values=True, extra="ignore"
-    )
+    model_config = ConfigDict(populate_by_name=True, use_enum_values=True, extra="ignore")
     id: str
     status: Bit2MeOrderStatus
     order_amount: float | int = Field(..., alias="orderAmount")

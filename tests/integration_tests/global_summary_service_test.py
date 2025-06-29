@@ -1,49 +1,34 @@
-import pytest
 import logging
-from pytest_httpserver import HTTPServer
-from datetime import datetime, UTC
-from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
-from tests.helpers.object_mothers import Bit2MeSummaryXlsxObjectMother
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import (
-    Bit2MeAccountInfoDto,
-    Profile,
-)
+from datetime import UTC, datetime
+from urllib.parse import urlencode
+
+import pytest
+from faker import Faker
 from pydantic import RootModel
+from pytest_httpserver import HTTPServer
+from pytest_httpserver.httpserver import HandlerType
+
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto, Profile
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_dto import (
     Bit2MePortfolioBalanceDto,
-    TotalDto,
     ConvertedBalanceDto,
+    TotalDto,
 )
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
-    Bit2MeRemoteService,
-)
-from urllib.parse import urlencode
-from crypto_trailing_stop.infrastructure.services.global_summary_service import (
-    GlobalSummaryService,
-)
-from pytest_httpserver.httpserver import HandlerType
-from faker import Faker
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.services.global_summary_service import GlobalSummaryService
+from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
+from tests.helpers.object_mothers import Bit2MeSummaryXlsxObjectMother
 
 logger = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
 async def should_calculate_global_summary_properly(
-    faker: Faker,
-    integration_test_jobs_disabled_env: tuple[HTTPServer, str],
+    faker: Faker, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
 ) -> None:
-    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = (
-        integration_test_jobs_disabled_env
-    )
-    global_summary_service = GlobalSummaryService(
-        bit2me_remote_service=Bit2MeRemoteService()
-    )
-    _prepare_httpserver_mock(
-        faker,
-        httpserver,
-        bit2me_api_key,
-        bit2me_api_secret,
-    )
+    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
+    global_summary_service = GlobalSummaryService(bit2me_remote_service=Bit2MeRemoteService())
+    _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
     global_summary = await global_summary_service.get_global_summary()
 
     logger.info(repr(global_summary))
@@ -51,20 +36,14 @@ async def should_calculate_global_summary_properly(
     assert global_summary is not None
 
 
-def _prepare_httpserver_mock(
-    faker: Faker,
-    httpserver: HTTPServer,
-    bit2me_api_key: str,
-    bik2me_api_secret: str,
-) -> None:
+def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str) -> None:
     registration_year = datetime.now(UTC).year - 1
 
     # Get account registration date
     httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/account",
-            method="GET",
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        Bit2MeAPIRequestMacher("/bit2me-api/v1/account", method="GET").set_bit2me_api_key_and_secret(
+            bit2me_api_key, bik2me_api_secret
+        ),
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(
         Bit2MeAccountInfoDto(
@@ -73,7 +52,7 @@ def _prepare_httpserver_mock(
                 datetime_end=datetime(registration_year, 12, 31, 23, 59, 59),
             ),
             profile=Profile(currency_code="EUR"),
-        ).model_dump(mode="json", by_alias=True),
+        ).model_dump(mode="json", by_alias=True)
     )
     # Get summary of each year in order to calculate currency metrics
     for current_year in range(registration_year, datetime.now(UTC).year + 1):
@@ -83,12 +62,7 @@ def _prepare_httpserver_mock(
                 f"/bit2me-api/v1/accounting/summary/{current_year}",
                 method="GET",
                 query_string=urlencode(
-                    {
-                        "timeZone": "Europe/Madrid",
-                        "langCode": "en",
-                        "documentType": "xlsx",
-                    },
-                    doseq=False,
+                    {"timeZone": "Europe/Madrid", "langCode": "en", "documentType": "xlsx"}, doseq=False
                 ),
             ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
             handler_type=HandlerType.ONESHOT,
@@ -98,12 +72,7 @@ def _prepare_httpserver_mock(
     httpserver.expect(
         Bit2MeAPIRequestMacher(
             "/bit2me-api/v1/portfolio/balance",
-            query_string=urlencode(
-                {
-                    "userCurrency": "EUR",
-                },
-                doseq=False,
-            ),
+            query_string=urlencode({"userCurrency": "EUR"}, doseq=False),
             method="GET",
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.ONESHOT,
@@ -114,12 +83,11 @@ def _prepare_httpserver_mock(
                     serviceName="all",
                     total=TotalDto(
                         converted_balance=ConvertedBalanceDto(
-                            currency="EUR",
-                            value=faker.pyfloat(min_value=1_000, max_value=3_000),
+                            currency="EUR", value=faker.pyfloat(min_value=1_000, max_value=3_000)
                         )
                     ),
                     wallets=[],
                 )
             ]
-        ).model_dump(mode="json", by_alias=True),
+        ).model_dump(mode="json", by_alias=True)
     )

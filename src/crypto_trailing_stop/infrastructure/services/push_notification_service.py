@@ -1,12 +1,10 @@
 import logging
 
+from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.database.models import PushNotification
 from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
-from crypto_trailing_stop.infrastructure.services.vo.push_notification_item import (
-    PushNotificationItem,
-)
-from crypto_trailing_stop.commons.patterns import SingletonMeta
+from crypto_trailing_stop.infrastructure.services.vo.push_notification_item import PushNotificationItem
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +13,7 @@ class PushNotificationService(metaclass=SingletonMeta):
     def __init__(self) -> None:
         self._configuration_properties = get_configuration_properties()
 
-    async def find_push_notification_by_telegram_chat_id(
-        self, telegram_chat_id: int
-    ) -> list[PushNotificationItem]:
+    async def find_push_notification_by_telegram_chat_id(self, telegram_chat_id: int) -> list[PushNotificationItem]:
         push_notifications = await PushNotification.objects().where(
             PushNotification.telegram_chat_id == telegram_chat_id
         )
@@ -25,9 +21,7 @@ class PushNotificationService(metaclass=SingletonMeta):
         for current in PushNotificationTypeEnum:
             persisted = next(
                 filter(
-                    lambda n: PushNotificationTypeEnum.from_value(n.notification_type)
-                    == current,
-                    push_notifications,
+                    lambda n: PushNotificationTypeEnum.from_value(n.notification_type) == current, push_notifications
                 ),
                 None,
             )
@@ -53,30 +47,21 @@ class PushNotificationService(metaclass=SingletonMeta):
             push_notification.activated = not push_notification.activated
         else:
             push_notification = PushNotification(
-                telegram_chat_id=telegram_chat_id,
-                notification_type=notification_type.value,
-                activated=True,
+                telegram_chat_id=telegram_chat_id, notification_type=notification_type.value, activated=True
             )
         await push_notification.save()
         ret = PushNotificationItem(
             telegram_chat_id=push_notification.telegram_chat_id,
-            notification_type=PushNotificationTypeEnum.from_value(
-                push_notification.notification_type
-            ),
+            notification_type=PushNotificationTypeEnum.from_value(push_notification.notification_type),
             activated=push_notification.activated,
         )
         return ret
 
-    async def get_actived_subscription_by_type(
-        self, notification_type: PushNotificationTypeEnum
-    ) -> list[int]:
+    async def get_actived_subscription_by_type(self, notification_type: PushNotificationTypeEnum) -> list[int]:
         push_notifications = (
             await PushNotification.objects()
             .where(PushNotification.notification_type == notification_type.value)
             .where(PushNotification.activated == True)  # noqa: E712
         )
-        ret = [
-            push_notification.telegram_chat_id
-            for push_notification in push_notifications
-        ]
+        ret = [push_notification.telegram_chat_id for push_notification in push_notifications]
         return ret

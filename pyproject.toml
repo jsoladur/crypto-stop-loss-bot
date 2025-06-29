@@ -55,6 +55,32 @@ crypto-trailing-stop = "crypto_trailing_stop:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = [
+    "I",   # isort
+    "UP",  # pyupgrade
+    "E501", # Add the `line-too-long` rule to the enforced rule set.
+    "T201" # Remove print statements
+]
+ignore = ["UP038"]
+
+[tool.ruff.lint.mccabe]
+# Flag errors (`C901`) whenever the complexity level exceeds 10.
+max-complexity = 10
+
+[tool.ruff.lint.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
 [tool.pytest.ini_options]
 log_cli_level = "INFO"
 asyncio_mode = "auto"
