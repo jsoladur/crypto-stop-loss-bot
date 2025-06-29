@@ -10,6 +10,7 @@ class SignalsEvaluationResult:
     buy: bool
     sell: bool
     rsi_state: Literal["neutral", "overbought", "oversold"]
+    is_choppy: bool
 
     @property
     def cache_key(self) -> str:
