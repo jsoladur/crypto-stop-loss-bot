@@ -19,6 +19,7 @@ from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service imp
 from crypto_trailing_stop.infrastructure.services import (
     GlobalFlagService,
 )
+from datetime import datetime, UTC
 from crypto_trailing_stop.infrastructure.services.push_notification_service import (
     PushNotificationService,
 )
@@ -29,6 +30,7 @@ from crypto_trailing_stop.commons.constants import (
 import pandas as pd
 from ta.trend import EMAIndicator, MACD
 from ta.momentum import RSIIndicator
+from ta.volatility import AverageTrueRange  # Import ATR indicator
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +42,6 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self._global_flag_service = GlobalFlagService()
         self._push_notification_service = PushNotificationService()
         self._ccxt_remote_service = CcxtRemoteService()
-        self._proximity_threshold = (
-            self._configuration_properties.buy_sell_signals_proximity_threshold
-        )
         self._last_signal_evalutation_result_cache: dict[
             str, SignalsEvaluationResult
         ] = {}
@@ -139,9 +138,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             symbol,
             timeframe,
             df_with_indicators,
-            proximity_threshold=self._proximity_threshold if timeframe == "4h" else 0,
         )
-
         if self._is_new_signals(signals):
             base_symbol = symbol.split("/")[0].strip().upper()
             # 1. Report RSI Anticipation Zones
@@ -184,80 +181,138 @@ class BuySellSignalsTaskService(AbstractTaskService):
 
     def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         logger.info("Calculating indicators...")
+        # Exponential Moving Average (EMA) 9
         df["ema9"] = EMAIndicator(df["close"], window=9).ema_indicator()
+        # Exponential Moving Average (EMA) 21
         df["ema21"] = EMAIndicator(df["close"], window=21).ema_indicator()
+        # Exponential Moving Average (EMA) 200
         df["ema200"] = EMAIndicator(df["close"], window=200).ema_indicator()
+        # Moving Average Convergence Divergence (MACD)
         macd = MACD(df["close"], window_slow=26, window_fast=12, window_sign=9)
         df["macd_hist"] = macd.macd_diff()
+        # Relative Strength Index (RSI)
         df["rsi"] = RSIIndicator(df["close"], window=14).rsi()
+        # Average True Range (ATR)
+        df["atr"] = AverageTrueRange(
+            df["high"], df["low"], df["close"], window=14
+        ).average_true_range()
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)
         logger.info("Indicator calculation complete.")
         return df
 
     def _check_signals(
-        self,
-        symbol: str,
-        timeframe: Literal["4h", "1h"],
-        df: pd.DataFrame,
-        proximity_threshold: float,
-        rsi_overbought: int = 70,
-        rsi_oversold: int = 30,
+        self, symbol: str, timeframe: Literal["4h", "1h"], df: pd.DataFrame
     ) -> SignalsEvaluationResult:
-        if len(df) < 2:
-            ret = SignalsEvaluationResult(buy=False, sell=False, rsi_state="neutral")
-        else:
-            logger.info(
-                f"Checking signals for {symbol} ({timeframe.upper()}) with proximity threshold: {proximity_threshold}"
-            )
+        timestamp = datetime.now(tz=UTC).timestamp()
+        buy_signal, sell_signal, is_choppy = False, False, False
+        rsi_state = "neutral"
+        if len(df) >= 2:
             last = df.iloc[-1]
             prev = df.iloc[-2]
-
-            # A proximity_threshold of 0 effectively disables the proximity check
-            use_proximity = proximity_threshold > 0
-
-            # Buy Signal Logic
-            ema_bullish_cross = (
-                prev["ema9"] <= prev["ema21"] and last["ema9"] > last["ema21"]
+            # Update timestamp
+            timestamp = last["timestamp"].timestamp()
+            proximity_threshold, volatility_threshold = (
+                self._get_proximity_and_volatility_thresholds(timeframe)
             )
-            ema_bullish_proximity = use_proximity and (
-                last["ema9"] > last["ema21"]
-                and abs(last["ema9"] - last["ema21"]) / last["ema21"]
-                < proximity_threshold
-            )
-            buy_signal = (ema_bullish_cross or ema_bullish_proximity) and last[
-                "macd_hist"
-            ] > 0
-
-            # Sell Signal Logic
-            ema_bearish_cross = (
-                prev["ema9"] >= prev["ema21"] and last["ema9"] < last["ema21"]
-            )
-            ema_bearish_proximity = use_proximity and (
-                last["ema9"] < last["ema21"]
-                and abs(last["ema9"] - last["ema21"]) / last["ema21"]
-                < proximity_threshold
-            )
-            sell_signal = (ema_bearish_cross or ema_bearish_proximity) and last[
-                "macd_hist"
-            ] < 0
-
-            # RSI Anticipation Zone Logic
-            if last["rsi"] > rsi_overbought:
-                rsi_state = "overbought"
-            elif last["rsi"] < rsi_oversold:
-                rsi_state = "oversold"
+            min_volatility_threshold = last["close"] * volatility_threshold
+            is_choppy = last["atr"] < min_volatility_threshold
+            if is_choppy:
+                logger.info(
+                    f"{symbol} - ({timeframe.upper()}) :: "
+                    + f"Market too choppy (ATR {last['atr']:.2f} < Threshold {min_volatility_threshold:.2f}). "
+                    + "Skipping signal check..."
+                )
             else:
-                rsi_state = "neutral"
-            ret = SignalsEvaluationResult(
-                timestamp=last["timestamp"].timestamp(),
-                symbol=symbol,
-                timeframe=timeframe,
-                buy=buy_signal,
-                sell=sell_signal,
-                rsi_state=rsi_state,
-            )
+                print(
+                    f"{symbol} - ({timeframe.upper()}) :: "
+                    + f"Market is trending (ATR {last['atr']:.2f} > Threshold {min_volatility_threshold:.2f}). "
+                    + f"Checking for signals with proximity threshold: {proximity_threshold:.2f}"
+                )
+                # A proximity_threshold of 0 effectively disables the proximity check
+                buy_signal = self._calculate_buy_signal(prev, last, proximity_threshold)
+                # Sell Signal Logic
+                sell_signal = self._calculate_sell_signal(
+                    prev, last, proximity_threshold
+                )
+                # RSI Anticipation Zone Logic
+                rsi_state = self._get_rsi_for_anticipation_zone(last)
+        ret = SignalsEvaluationResult(
+            timestamp=timestamp,
+            symbol=symbol,
+            timeframe=timeframe,
+            buy=buy_signal,
+            sell=sell_signal,
+            rsi_state=rsi_state,
+            is_choppy=is_choppy,
+        )
         return ret
+
+    def _calculate_buy_signal(
+        self, prev: pd.Series, last: pd.Series, proximity_threshold: float
+    ) -> bool:
+        use_proximity = proximity_threshold > 0
+        # Buy Signal Logic
+        ema_bullish_cross = (
+            prev["ema9"] <= prev["ema21"] and last["ema9"] > last["ema21"]
+        )
+        ema_bullish_proximity = use_proximity and (
+            last["ema9"] > last["ema21"]
+            and abs(last["ema9"] - last["ema21"]) / last["ema21"] < proximity_threshold
+        )
+        buy_signal = (ema_bullish_cross or ema_bullish_proximity) and last[
+            "macd_hist"
+        ] > 0
+
+        return buy_signal
+
+    def _calculate_sell_signal(
+        self, prev: pd.Series, last: pd.Series, proximity_threshold: float
+    ) -> bool:
+        use_proximity = proximity_threshold > 0
+        ema_bearish_cross = (
+            prev["ema9"] >= prev["ema21"] and last["ema9"] < last["ema21"]
+        )
+        ema_bearish_proximity = use_proximity and (
+            last["ema9"] < last["ema21"]
+            and abs(last["ema9"] - last["ema21"]) / last["ema21"] < proximity_threshold
+        )
+        sell_signal = (ema_bearish_cross or ema_bearish_proximity) and last[
+            "macd_hist"
+        ] < 0
+
+        return sell_signal
+
+    def _get_rsi_for_anticipation_zone(
+        self, last: pd.Series
+    ) -> Literal["neutral", "overbought", "oversold"]:
+        if last["rsi"] > self._configuration_properties.buy_sell_signals_rsi_overbought:
+            rsi_state = "overbought"
+        elif last["rsi"] < self._configuration_properties.buy_sell_signals_rsi_oversold:
+            rsi_state = "oversold"
+        else:
+            rsi_state = "neutral"
+        return rsi_state
+
+    def _get_proximity_and_volatility_thresholds(
+        self, timeframe: Literal["4h", "1h"]
+    ) -> tuple[float, float]:
+        # EMA Proximity threshold
+        proximity_threshold = (
+            self._configuration_properties.buy_sell_signals_proximity_threshold
+            if timeframe == "4h"
+            else 0
+        )
+        # XXX: [JMSOLA] Volatility Filter Logic
+        # Only proceed if the market has meaningful volatility.
+        # Here, we define "meaningful" as an ATR value that is at least 0.5% of the closing price
+        # for 4h period, and 0.3% of the closing price for 1h periodº
+        volatility_threshold = (
+            self._configuration_properties.buy_sell_signals_4h_volatility_threshold
+            if timeframe == "4h"
+            else self._configuration_properties.buy_sell_signals_1h_volatility_threshold
+        )
+        return proximity_threshold, volatility_threshold
 
     async def _notify_alert(
         self,
