@@ -158,6 +158,8 @@ class BuySellSignalsTaskService(AbstractTaskService):
             prev = df.iloc[-2]
             # Update timestamp
             timestamp = last["timestamp"].timestamp()
+            # Calculate RSI Anticipation Zone (RSI)
+            rsi_state = self._get_rsi_for_anticipation_zone(last)
             proximity_threshold, volatility_threshold = self._get_proximity_and_volatility_thresholds(timeframe)
             min_volatility_threshold = last["close"] * volatility_threshold
             is_choppy = last["atr"] < min_volatility_threshold
@@ -177,8 +179,6 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 buy_signal = self._calculate_buy_signal(prev, last, proximity_threshold)
                 # Sell Signal Logic
                 sell_signal = self._calculate_sell_signal(prev, last, proximity_threshold)
-                # RSI Anticipation Zone Logic
-                rsi_state = self._get_rsi_for_anticipation_zone(last)
         ret = SignalsEvaluationResult(
             timestamp=timestamp,
             symbol=symbol,
