@@ -95,9 +95,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
             base_symbol = symbol.split("/")[0].strip().upper()
             # 1. Report RSI Anticipation Zones
             if signals.rsi_state != "neutral":
-                icon = "📈" if signals.rsi_state == "overbought" else "📉"
-                message = f"{icon} {html.bold('Anticipation Zone ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)} - RSI is {signals.rsi_state}!"  # noqa: E501
-                await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+                await self._notify_rsi_state_alert(
+                    signals.rsi_state, base_symbol, telegram_chat_ids, timeframe, tickers
+                )
             # 2. Report Confirmation Signals (now identical for both timeframes)
             if signals.is_choppy:
                 message = (
@@ -233,6 +233,32 @@ class BuySellSignalsTaskService(AbstractTaskService):
             else self._configuration_properties.buy_sell_signals_1h_volatility_threshold
         )
         return proximity_threshold, volatility_threshold
+
+    async def _notify_rsi_state_alert(
+        self,
+        rsi_state: Literal["overbought", "oversold"],
+        base_symbol: str,
+        telegram_chat_ids: list[str],
+        timeframe: Literal["4h", "1h"],
+        tickers: Bit2MeTickersDto,
+    ) -> None:
+        if rsi_state == "overbought":
+            icon = "📈"
+            rsi_warning_type = "SELL"
+            description = (
+                "🥵 Market is Overbought (RSI &gt; 70). Trend may be exhausted 🥵."
+                + f" {html.bold('Watch for a confirmation SELL signal')}."
+            )
+        else:
+            icon = "📉"
+            rsi_warning_type = "BUY"
+            description = (
+                "🥶 Market is Oversold (RSI &lt; 30). Selling may be exhausted 🥶."
+                + f" {html.bold('Get ready for a potential BUY signal')}."
+            )
+        message_title = f"Pre-{rsi_warning_type} ⚠️ Warning ⚠️ "
+        message = f"{icon} {html.bold(message_title + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}\n{description}"  # noqa: E501
+        await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
 
     async def _notify_alert(
         self, telegram_chat_ids: list[str], body_message: str, *, tickers: Bit2MeTickersDto
