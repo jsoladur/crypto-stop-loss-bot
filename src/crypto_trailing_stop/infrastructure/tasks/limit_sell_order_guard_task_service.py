@@ -39,11 +39,11 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = await self._fetch_tickers_for_open_sell_orders(
             opened_limit_sell_orders, client=client
         )
-        previous_used_buy_order_ids: set[str] = set()
+        previous_used_buy_trade_ids: set[str] = set()
         for sell_order in opened_limit_sell_orders:
             try:
-                previous_used_buy_order_ids, *_ = await self._handle_single_sell_order(
-                    sell_order, current_tickers_by_symbol, previous_used_buy_order_ids, client=client
+                previous_used_buy_trade_ids, *_ = await self._handle_single_sell_order(
+                    sell_order, current_tickers_by_symbol, previous_used_buy_trade_ids, client=client
                 )
             except Exception as e:
                 logger.error(str(e), exc_info=True)
@@ -53,16 +53,16 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         self,
         sell_order: Bit2MeOrderDto,
         current_tickers_by_symbol: dict[str, Bit2MeTickersDto],
-        previous_used_buy_order_ids: set[str],
+        previous_used_buy_trade_ids: set[str],
         *,
         client: AsyncClient,
     ) -> set[str]:
         *_, fiat_currency = sell_order.symbol.split("/")
         (
             avg_buy_price,
-            previous_used_buy_order_ids,
+            previous_used_buy_trade_ids,
         ) = await self._orders_analytics_service.calculate_correlated_avg_buy_price(
-            sell_order, previous_used_buy_order_ids, client=client
+            sell_order, previous_used_buy_trade_ids, client=client
         )
         (safeguard_stop_price, *_) = await self._orders_analytics_service.calculate_safeguard_stop_price(
             sell_order, avg_buy_price
@@ -89,7 +89,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             await self._notify_new_market_order_created_via_telegram(
                 new_market_order, current_symbol_price=tickers.close, safeguard_stop_price=safeguard_stop_price
             )
-        return (previous_used_buy_order_ids,)
+        return (previous_used_buy_trade_ids,)
 
     async def _notify_new_market_order_created_via_telegram(
         self, new_market_order: Bit2MeOrderDto, *, current_symbol_price: float | int, safeguard_stop_price: float | int
