@@ -2,9 +2,11 @@ import asyncio
 import importlib
 import logging
 import sys
+import tomllib
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from os import listdir, path
+from os import getcwd, listdir, path
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,12 +42,20 @@ def _load_telegram_layer(layer_name: str) -> None:
                     logging.warning(f"Module {module_name} not found. Skipping dynamic import.")
 
 
+def _get_project_version() -> str:
+    pyproject_path = Path(getcwd()) / "pyproject.toml"
+    with pyproject_path.open("rb") as f:
+        pyproject = tomllib.load(f)
+    ret = pyproject["project"]["version"]
+    return ret
+
+
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # Initialize database
     await init_database()
     # Background task manager initialization
-    task_manager = get_task_manager_instance()
+    task_manager = await get_task_manager_instance().load_tasks()
     logger.info(f"{len(task_manager.get_tasks())} jobs have been loaded!")
     # Telegram bot initialization
     # Initialize Bot instance with default bot properties which will be passed to all API calls
@@ -81,13 +91,14 @@ def _boostrap_app() -> None:
     # to initialize TaskManager
     # and clean up resources on shutdown
     # (if needed)
+    version = _get_project_version()
     app = FastAPI(
         title="Crypto Trailing Stop API",
         description="API for Crypto Trailing Stop Bot",
-        version="0.9.1",
+        version=version,
         contact={"name": "jmsoladev", "url": "https://www.jmsoladev.com", "email": "josemaria.sola.duran@gmail.com"},
         license_info={"name": "MIT License", "url": "https://opensource.org/license/mit/"},
-        lifespan=lifespan,
+        lifespan=_lifespan,
     )
     app.add_middleware(SessionMiddleware, secret_key=configuration_properties.session_secret_key)
     configuration_properties = get_configuration_properties()

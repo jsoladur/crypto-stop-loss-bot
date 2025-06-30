@@ -39,11 +39,12 @@ class ConfigurationProperties(BaseSettings):
     bit2me_api_key: str
     bit2me_api_secret: str
     # Buy Sell Signals configuration
+    buy_sell_signals_run_via_cron_pattern: bool = True
     buy_sell_signals_proximity_threshold: float = 0.002
-    # Better after backtesting in TradingView to 0.018
-    buy_sell_signals_4h_volatility_threshold: float = 0.018
-    # Better after backtesting in TradingView to 0.007
-    buy_sell_signals_1h_volatility_threshold: float = 0.007
+    # XXX: Better after backtesting in TradingView to 0.017
+    buy_sell_signals_4h_volatility_threshold: float = 0.017
+    # XXX: Better after backtesting in TradingView to 0.005
+    buy_sell_signals_1h_volatility_threshold: float = 0.005
     buy_sell_signals_rsi_overbought: int = 70
     buy_sell_signals_rsi_oversold: int = 30
     # Google OAuth configuration

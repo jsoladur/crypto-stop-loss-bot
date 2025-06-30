@@ -4,6 +4,8 @@ from os import listdir, path
 from pathlib import Path
 from types import ModuleType
 
+from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
+from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService, AbstractTradingTaskService
 
 logger = logging.getLogger(__name__)
@@ -11,13 +13,35 @@ logger = logging.getLogger(__name__)
 
 class _TaskManager:
     def __init__(self):
-        self._load_tasks()
+        self._global_flag_service = GlobalFlagService()
+        self._tasks: dict[GlobalFlagTypeEnum, AbstractTaskService] = {}
+
+    async def load_tasks(self) -> "_TaskManager":
+        self._tasks.update(self._import_task_modules())
+        logger.info("Task classes imported and instantiated! Starting what are needed!")
+        for global_flag_type in GlobalFlagTypeEnum:
+            is_global_flag_type_enabled = await self._global_flag_service.is_enabled_for(global_flag_type)
+            if is_global_flag_type_enabled:
+                await self.start(global_flag_type)
+            else:
+                await self.stop(global_flag_type)
+        return self
+
+    async def start(self, global_flag_type: GlobalFlagTypeEnum) -> None:
+        if global_flag_type in self._tasks:
+            await self._tasks[global_flag_type].start()
+            logger.info(f"Task {global_flag_type.value} STARTED!")
+
+    async def stop(self, global_flag_type: GlobalFlagTypeEnum) -> None:
+        if global_flag_type in self._tasks:
+            await self._tasks[global_flag_type].stop()
+            logger.info(f"Task {global_flag_type.value} STOPPED!")
 
     def get_tasks(self) -> list[AbstractTaskService]:
-        return list(self._tasks.values())
+        return dict(self._tasks)
 
-    def _load_tasks(self, *, deeply: bool = True) -> None:
-        self._tasks = {}
+    def _import_task_modules(self, *, deeply: bool = True) -> dict[GlobalFlagTypeEnum, AbstractTaskService]:
+        tasks = {}
         modules = self._import_modules_by_dir(
             dir_to_imported=path.dirname(__file__), package=__package__, deeply=deeply
         )
@@ -30,8 +54,13 @@ class _TaskManager:
                     and attr not in [AbstractTaskService, AbstractTradingTaskService]
                 ):
                     logger.info(f"Loading {attr.__name__}...")
-                    self._tasks[id(attr)] = attr()
+                    task_clazz_instance = attr()
+                    global_flag_type = task_clazz_instance.get_global_flag_type()
+                    if global_flag_type in tasks:
+                        raise ValueError("Duplicated task type!")
+                    tasks[global_flag_type] = task_clazz_instance
                     logger.info(f"{attr.__name__} has been loaded successfully...")
+        return tasks
 
     def _import_modules_by_dir(self, dir_to_imported: str, package: str, *, deeply: bool = False) -> list[ModuleType]:
         """

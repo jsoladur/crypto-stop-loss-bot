@@ -349,7 +349,7 @@ wheels = [
 
 [[package]]
 name = "crypto-trailing-stop"
-version = "0.9.1"
+version = "0.10.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiogram" },
@@ -367,6 +367,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "pydash" },
     { name = "ta" },
+    { name = "tomli" },
     { name = "uvicorn" },
 ]
 
@@ -401,6 +402,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.8.1" },
     { name = "pydash", specifier = ">=8.0.5" },
     { name = "ta", specifier = ">=0.11.0" },
+    { name = "tomli", specifier = ">=2.2.1" },
     { name = "uvicorn", specifier = ">=0.34.0" },
 ]
 
