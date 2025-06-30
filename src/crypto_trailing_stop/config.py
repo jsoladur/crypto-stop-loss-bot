@@ -41,9 +41,9 @@ class ConfigurationProperties(BaseSettings):
     # Buy Sell Signals configuration
     buy_sell_signals_run_via_cron_pattern: bool = True
     buy_sell_signals_proximity_threshold: float = 0.002
-    # XXX: Better after backtesting in TradingView to 0.017
-    buy_sell_signals_4h_volatility_threshold: float = 0.017
-    # XXX: Better after backtesting in TradingView to 0.005
+    # XXX: Better after backtesting in TradingView
+    buy_sell_signals_4h_volatility_threshold: float = 0.01302
+    # XXX: Better after backtesting in TradingView
     buy_sell_signals_1h_volatility_threshold: float = 0.005
     buy_sell_signals_rsi_overbought: int = 70
     buy_sell_signals_rsi_oversold: int = 30
