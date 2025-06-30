@@ -20,8 +20,10 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     Bit2MeOrderType,
     CreateNewBit2MeOrderDto,
 )
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_dto import Bit2MePortfolioBalanceDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto, Bit2MeTradeSide
 from crypto_trailing_stop.infrastructure.adapters.remote.base import AbstractHttpRemoteAsyncService
 
 
@@ -106,6 +108,19 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         response = await self._perform_http_request(url="/v1/trading/order", params=params, client=client)
         orders: list[Bit2MeOrderDto] = RootModel[list[Bit2MeOrderDto]].model_validate_json(response.content).root
         return orders
+
+    async def get_trades(
+        self, *, side: Bit2MeTradeSide | None = None, symbol: str | None = None, client: AsyncClient | None = None
+    ) -> list[Bit2MeTradeDto]:
+        params = {"direction": "desc"}
+        if side:
+            params["side"] = side
+        if symbol:
+            params["symbol"] = symbol
+        response = await self._perform_http_request(url="/v1/trading/trade", params=params, client=client)
+        pagination_result = Bit2MePaginationResultDto[Bit2MeTradeDto].model_validate_json(response.content)
+        ret = pagination_result.data or []
+        return ret
 
     async def create_order(
         self, order: CreateNewBit2MeOrderDto, *, client: AsyncClient | None = None
