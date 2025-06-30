@@ -91,7 +91,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         # Use the default, wider threshold for 4H signals
         # Use a threshold of 0 for 1H signals to disable the proximity check
         signals = self._check_signals(symbol, timeframe, df_with_indicators)
-        if self._is_new_signals(signals):
+        if self._are_new_signals(signals):
             base_symbol = symbol.split("/")[0].strip().upper()
             # 1. Report RSI Anticipation Zones
             if signals.rsi_state != "neutral":
@@ -117,11 +117,12 @@ class BuySellSignalsTaskService(AbstractTaskService):
         else:
             logger.info("Calculated signals were already notified previously!")
 
-    def _is_new_signals(self, current_signals: SignalsEvaluationResult) -> bool:
+    def _are_new_signals(self, current_signals: SignalsEvaluationResult) -> bool:
         is_new_signals = current_signals.cache_key not in self._last_signal_evalutation_result_cache
         if not is_new_signals:
             previous_signals = self._last_signal_evalutation_result_cache[current_signals.cache_key]
             is_new_signals = previous_signals != current_signals
+            logger.info(f"Previous ({repr(previous_signals)}) != Current ({repr(current_signals)}) ? {is_new_signals}")
         self._last_signal_evalutation_result_cache[current_signals.cache_key] = current_signals
         return is_new_signals
 
@@ -158,7 +159,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             rsi_state = self._get_rsi_for_anticipation_zone(last)
             proximity_threshold, volatility_threshold = self._get_proximity_and_volatility_thresholds(timeframe)
             min_volatility_threshold = last["close"] * volatility_threshold
-            is_choppy = last["atr"] < min_volatility_threshold
+            is_choppy = bool(last["atr"] < min_volatility_threshold)
             if is_choppy:
                 logger.info(
                     f"{symbol} - ({timeframe.upper()}) :: "
@@ -195,7 +196,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         )
         buy_signal = (ema_bullish_cross or ema_bullish_proximity) and last["macd_hist"] > 0
 
-        return buy_signal
+        return bool(buy_signal)
 
     def _calculate_sell_signal(self, prev: pd.Series, last: pd.Series, proximity_threshold: float) -> bool:
         use_proximity = proximity_threshold > 0
@@ -205,7 +206,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         )
         sell_signal = (ema_bearish_cross or ema_bearish_proximity) and last["macd_hist"] < 0
 
-        return sell_signal
+        return bool(sell_signal)
 
     def _get_rsi_for_anticipation_zone(self, last: pd.Series) -> Literal["neutral", "overbought", "oversold"]:
         if last["rsi"] > self._configuration_properties.buy_sell_signals_rsi_overbought:
