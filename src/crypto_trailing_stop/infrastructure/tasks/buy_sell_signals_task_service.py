@@ -150,13 +150,14 @@ class BuySellSignalsTaskService(AbstractTaskService):
         timestamp = datetime.now(tz=UTC).timestamp()
         buy_signal, sell_signal, is_choppy = False, False, False
         rsi_state = "neutral"
-        if len(df) >= 2:
-            last = df.iloc[-1]
-            prev = df.iloc[-2]
+        if len(df) >= 3:
+            prev = df.iloc[-3]  # Prev confirmed candle
+            last = df.iloc[-2]  # Last confirmed candle
+            current = df.iloc[-1]  # Current uncompleted candle
             # Update timestamp
             timestamp = last["timestamp"].timestamp()
             # Calculate RSI Anticipation Zone (RSI)
-            rsi_state = self._get_rsi_for_anticipation_zone(last)
+            rsi_state = self._get_rsi_for_anticipation_zone(current)
             proximity_threshold, volatility_threshold = self._get_proximity_and_volatility_thresholds(timeframe)
             min_volatility_threshold = last["close"] * volatility_threshold
             is_choppy = bool(last["atr"] < min_volatility_threshold)
