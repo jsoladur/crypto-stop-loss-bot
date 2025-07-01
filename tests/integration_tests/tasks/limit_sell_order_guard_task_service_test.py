@@ -108,6 +108,17 @@ def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_ke
             ),
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.ONESHOT,
+    ).respond_with_response(Response(status=403))
+
+    httpserver.expect(
+        Bit2MeAPIRequestMacher(
+            "/bit2me-api/v1/trading/trade",
+            method="GET",
+            query_string=urlencode(
+                {"direction": "desc", "side": "buy", "symbol": opened_sell_bit2me_order.symbol}, doseq=False
+            ),
+        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        handler_type=HandlerType.ONESHOT,
     ).respond_with_json(
         Bit2MePaginationResultDto[Bit2MeTradeDto](
             data=buy_trades, total=faker.pyint(min_value=len(buy_trades), max_value=len(buy_trades) * 10)

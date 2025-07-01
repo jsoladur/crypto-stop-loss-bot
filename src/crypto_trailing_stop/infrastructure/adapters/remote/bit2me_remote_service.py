@@ -2,12 +2,14 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import time
 from enum import Enum
 from typing import Any
 from urllib.parse import urlencode
 
-from httpx import AsyncClient, Response, Timeout
+import backoff
+from httpx import URL, AsyncClient, HTTPStatusError, Response, Timeout
 from pydantic import RootModel
 
 from crypto_trailing_stop.commons.patterns import SingletonMeta
@@ -26,6 +28,8 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto, Bit2MeTradeSide
 from crypto_trailing_stop.infrastructure.adapters.remote.base import AbstractHttpRemoteAsyncService
 
+logger = logging.getLogger(__name__)
+
 
 class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     __metaclass__ = SingletonMeta
@@ -38,13 +42,11 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
 
     async def get_favourite_crypto_currencies(self, *, client: AsyncClient | None = None) -> list[str]:
         response = await self._perform_http_request(url="/v1/currency-favorites/favorites", client=client)
-        response.raise_for_status()
         favourite_crypto_currencies = [favourite_currency["currency"] for favourite_currency in response.json()]
         return favourite_crypto_currencies
 
     async def get_account_info(self, *, client: AsyncClient | None = None) -> Bit2MeAccountInfoDto:
         response = await self._perform_http_request(url="/v1/account", client=client)
-        response.raise_for_status()
         ret = Bit2MeAccountInfoDto.model_validate_json(response.content)
         return ret
 
@@ -54,7 +56,6 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         response = await self._perform_http_request(
             url="/v1/portfolio/balance", params={"userCurrency": user_currency.strip().upper()}, client=client
         )
-        response.raise_for_status()  # Ensure we raise an error for bad responses
         ret = RootModel[list[Bit2MePortfolioBalanceDto]].model_validate_json(response.content).root
         return ret
 
@@ -64,7 +65,6 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             params={"timeZone": "Europe/Madrid", "langCode": "en", "documentType": "xlsx"},
             client=client,
         )
-        response.raise_for_status()  # Ensure we raise an error for bad responses
         return response.content
 
     async def get_tickers_by_symbol(self, symbol: str, *, client: AsyncClient | None = None) -> Bit2MeTickersDto | None:
@@ -135,6 +135,40 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     async def cancel_order_by_id(self, id: str, *, client: AsyncClient | None = None) -> None:
         await self._perform_http_request(method="DELETE", url=f"/v1/trading/order/{id}", client=client)
 
+    async def get_http_client(self) -> AsyncClient:
+        return AsyncClient(
+            base_url=self._base_url, headers={"X-API-KEY": self._api_key}, timeout=Timeout(10, connect=5, read=60)
+        )
+
+    # XXX: [JMSOLA] Add backoff to retry when 403 (Invalid signature Bit2Me API error)
+    @backoff.on_exception(
+        backoff.constant,
+        exception=ValueError,
+        interval=3,
+        max_tries=5,
+        jitter=backoff.full_jitter,
+        giveup=lambda e: not isinstance(e.__cause__, HTTPStatusError)
+        or not getattr(e.__cause__.response, "status_code", None) == 403,
+        on_backoff=lambda details: logger.warning(
+            f"[Retry {details['tries']}] " + f"Waiting {details['wait']:.2f}s due to {str(details['exception'])}"
+        ),
+    )
+    async def _perform_http_request(
+        self,
+        *,
+        method: str = "GET",
+        url: URL | str = "/",
+        params: dict[str, Any] | None = {},
+        headers: dict[str, Any] | None = {},
+        body: Any | None = None,
+        client: AsyncClient = None,
+        **kwargs,
+    ) -> Response:
+        response = await super()._perform_http_request(
+            method=method, url=url, params=params, headers=headers, body=body, client=client, **kwargs
+        )
+        return response
+
     async def _apply_request_interceptor(
         self,
         *,
@@ -161,19 +195,17 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         body: Any | None = None,
         response: Response,
     ) -> Response:
-        if not response.is_success:  # pragma: no cover
+        try:
+            response.raise_for_status()
+            return await super()._apply_response_interceptor(
+                method=method, url=url, params=params, headers=headers, body=body, response=response
+            )
+        except HTTPStatusError as e:
             raise ValueError(
                 f"Bit2Me API error: HTTP {method} {self._build_full_url(url, params)} "
-                + f"- Status code: {response.status_code} - {response.text}"
-            )
-        return await super()._apply_response_interceptor(
-            method=method, url=url, params=params, headers=headers, body=body, response=response
-        )
-
-    async def get_http_client(self) -> AsyncClient:
-        return AsyncClient(
-            base_url=self._base_url, headers={"X-API-KEY": self._api_key}, timeout=Timeout(10, connect=5, read=60)
-        )
+                + f"- Status code: {response.status_code} - {response.text}",
+                response,
+            ) from e
 
     async def _generate_api_signature(self, nonce: str, url: str, params: dict[str, Any] | None, body: Any) -> str:
         url = self._build_full_url(url, params)
