@@ -11,7 +11,10 @@ from ta.momentum import RSIIndicator
 from ta.trend import MACD, EMAIndicator
 from ta.volatility import AverageTrueRange  # Import ATR indicator
 
-from crypto_trailing_stop.commons.constants import BUY_SELL_ALERTS_TIMEFRAMES
+from crypto_trailing_stop.commons.constants import (
+    BUY_SELL_ALERTS_TIMEFRAMES,
+    BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN,
+)
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
@@ -48,8 +51,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
     @override
     def _get_job_trigger(self) -> CronTrigger | IntervalTrigger:  # pragma: no cover
         if self._configuration_properties.buy_sell_signals_run_via_cron_pattern:
-            # Running every minute!
-            trigger = CronTrigger(minute="*")
+            trigger = CronTrigger(
+                minute=",".join([str(minute) for minute in BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN]), hour="*"
+            )
         else:
             trigger = IntervalTrigger(seconds=self._configuration_properties.job_interval_seconds)
         return trigger

@@ -144,7 +144,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     @backoff.on_exception(
         backoff.constant,
         exception=ValueError,
-        interval=3,
+        interval=2,
         max_tries=5,
         jitter=backoff.full_jitter,
         giveup=lambda e: not isinstance(e.__cause__, HTTPStatusError)
