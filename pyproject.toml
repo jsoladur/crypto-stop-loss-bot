@@ -1,6 +1,6 @@
 [project]
 name = "crypto-trailing-stop"
-version = "0.10.5"
+version = "0.10.6"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -11,6 +11,7 @@ dependencies = [
     "aiogram>=3.20.0.post0",
     "apscheduler>=3.11.0",
     "authlib>=1.6.0",
+    "backoff>=2.2.1",
     "cachebox>=5.0.1",
     "ccxt>=4.4.91",
     "fastapi>=0.115.12",
@@ -94,4 +95,4 @@ concurrency = ["thread", "multiprocessing"]
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 70
+fail_under = 80

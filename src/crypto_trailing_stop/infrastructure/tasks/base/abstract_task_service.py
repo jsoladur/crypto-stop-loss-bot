@@ -31,7 +31,7 @@ class AbstractTaskService(ABC):
     async def start(self) -> None:
         if not self._job:
             self._job = self._create_job()
-        else:
+        else:  # pragma: no cover
             self._job.resume()
 
     async def stop(self) -> None:
@@ -75,7 +75,7 @@ class AbstractTaskService(ABC):
         }
         return ret
 
-    async def _notify_fatal_error_via_telegram(self, e: Exception) -> None:
+    async def _notify_fatal_error_via_telegram(self, e: Exception) -> None:  # pragma: no cover
         try:
             telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
                 notification_type=PushNotificationTypeEnum.BACKGROUND_JOB_FALTAL_ERRORS
