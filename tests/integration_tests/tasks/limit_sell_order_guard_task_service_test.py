@@ -35,7 +35,7 @@ async def should_create_market_sell_order_when_price_goes_down_applying_guard(
     """
     # Mock the Bit2Me API
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
-    # Disable other background jobs to not interact with the tests
+
     task_manager = get_task_manager_instance()
 
     _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
