@@ -29,7 +29,7 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
     """
     # Mock the Bit2Me API
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
-    # Disable other background jobs to not interact with the tests
+
     task_manager = get_task_manager_instance()
 
     _prepare_httpserver_mock(

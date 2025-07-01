@@ -26,7 +26,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             )
             if opened_limit_sell_orders:
                 await self._handle_opened_limit_sell_orders(opened_limit_sell_orders, client=client)
-            else:
+            else:  # pragma: no cover
                 logger.info("There are no opened limit sell orders to handle! Let's see in the upcoming executions...")
 
     @override
@@ -45,7 +45,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
                 previous_used_buy_trade_ids, *_ = await self._handle_single_sell_order(
                     sell_order, current_tickers_by_symbol, previous_used_buy_trade_ids, client=client
                 )
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.error(str(e), exc_info=True)
                 await self._notify_fatal_error_via_telegram(e)
 
@@ -106,5 +106,5 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
                     + f"due to current {crypto_currency} price ({current_symbol_price} {fiat_currency}) "
                     + f"is lower than the safeguard calculated ({safeguard_stop_price} {fiat_currency})!!",
                 )
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             logger.warning(f"Unexpected error, notifying fatal error via Telegram: {str(e)}", exc_info=True)

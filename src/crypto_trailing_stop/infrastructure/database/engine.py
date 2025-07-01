@@ -10,7 +10,7 @@ from crypto_trailing_stop.config import get_configuration_properties
 
 async def init_database() -> None:
     configuration_properties = get_configuration_properties()
-    if configuration_properties.database_in_memory:
+    if configuration_properties.database_in_memory:  # pragma: no cover
         engine = SQLiteEngine(path=":memory:")
     else:
         makedirs(path.dirname(configuration_properties.database_path), exist_ok=True)

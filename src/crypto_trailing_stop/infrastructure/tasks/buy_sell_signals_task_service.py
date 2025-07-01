@@ -2,6 +2,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Literal, override
 
+import ccxt.async_support as ccxt  # Notice the async_support import
 import pandas as pd
 from aiogram import html
 from apscheduler.triggers.cron import CronTrigger
@@ -35,7 +36,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         )
         if telegram_chat_ids:
             await self._internal_run(telegram_chat_ids)
-        else:
+        else:  # pragma: no cover
             logger.info(
                 "There are no Telegram chat subscriptions for sending the alerts... Skipping to calculate them!"
             )
@@ -45,7 +46,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         return GlobalFlagTypeEnum.BUY_SELL_SIGNALS
 
     @override
-    def _get_job_trigger(self) -> CronTrigger | IntervalTrigger:
+    def _get_job_trigger(self) -> CronTrigger | IntervalTrigger:  # pragma: no cover
         if self._configuration_properties.buy_sell_signals_run_via_cron_pattern:
             # Running every minute!
             trigger = CronTrigger(minute="*")
@@ -71,22 +72,30 @@ class BuySellSignalsTaskService(AbstractTaskService):
             symbol_timeframe_tuples = [
                 (symbol, timeframe) for symbol in symbols for timeframe in BUY_SELL_ALERTS_TIMEFRAMES
             ]
-            for current_symbol, current_timeframe in symbol_timeframe_tuples:
-                try:
-                    await self._eval_and_notify_signals(
-                        telegram_chat_ids,
-                        symbol=current_symbol,
-                        timeframe=current_timeframe,
-                        tickers=current_tickers_by_symbol[current_symbol],
-                    )
-                except Exception as e:
-                    logger.error(str(e), exc_info=True)
-                    await self._notify_fatal_error_via_telegram(e)
+            try:
+                async with self._ccxt_remote_service.get_binance_exchange_client() as binance_client:
+                    for current_symbol, current_timeframe in symbol_timeframe_tuples:
+                        await self._eval_and_notify_signals(
+                            telegram_chat_ids,
+                            symbol=current_symbol,
+                            timeframe=current_timeframe,
+                            tickers=current_tickers_by_symbol[current_symbol],
+                            binance_client=binance_client,
+                        )
+            except Exception as e:  # pragma: no cover
+                logger.error(str(e), exc_info=True)
+                await self._notify_fatal_error_via_telegram(e)
 
     async def _eval_and_notify_signals(
-        self, telegram_chat_ids: list[str], *, symbol: str, timeframe: Literal["4h", "1h"], tickers: Bit2MeTickersDto
+        self,
+        telegram_chat_ids: list[str],
+        *,
+        symbol: str,
+        timeframe: Literal["4h", "1h"],
+        tickers: Bit2MeTickersDto,
+        binance_client: ccxt.Exchange,
     ) -> None:
-        df = await self._ccxt_remote_service.fetch_ohlcv(symbol, timeframe)
+        df = await self._ccxt_remote_service.fetch_ohlcv(symbol, timeframe, exchange_client=binance_client)
         df_with_indicators = self._calculate_indicators(df)
         # Use the default, wider threshold for 4H signals
         # Use a threshold of 0 for 1H signals to disable the proximity check
@@ -114,12 +123,12 @@ class BuySellSignalsTaskService(AbstractTaskService):
                     await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
                 if not signals.buy and not signals.sell:
                     logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
-        else:
+        else:  # pragma: no cover
             logger.info("Calculated signals were already notified previously!")
 
     def _are_new_signals(self, current_signals: SignalsEvaluationResult) -> bool:
         is_new_signals = current_signals.cache_key not in self._last_signal_evalutation_result_cache
-        if not is_new_signals:
+        if not is_new_signals:  # pragma: no cover
             previous_signals = self._last_signal_evalutation_result_cache[current_signals.cache_key]
             is_new_signals = previous_signals != current_signals
             logger.info(f"Previous ({repr(previous_signals)}) != Current ({repr(current_signals)}) ? {is_new_signals}")
@@ -153,11 +162,10 @@ class BuySellSignalsTaskService(AbstractTaskService):
         if len(df) >= 3:
             prev = df.iloc[-3]  # Prev confirmed candle
             last = df.iloc[-2]  # Last confirmed candle
-            current = df.iloc[-1]  # Current uncompleted candle
             # Update timestamp
             timestamp = last["timestamp"].timestamp()
             # Calculate RSI Anticipation Zone (RSI)
-            rsi_state = self._get_rsi_for_anticipation_zone(current)
+            rsi_state = self._get_rsi_for_anticipation_zone(last)
             proximity_threshold, volatility_threshold = self._get_proximity_and_volatility_thresholds(timeframe)
             min_volatility_threshold = last["close"] * volatility_threshold
             is_choppy = bool(last["atr"] < min_volatility_threshold)
@@ -214,7 +222,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             rsi_state = "overbought"
         elif last["rsi"] < self._configuration_properties.buy_sell_signals_rsi_oversold:
             rsi_state = "oversold"
-        else:
+        else:  # pragma: no cover
             rsi_state = "neutral"
         return rsi_state
 

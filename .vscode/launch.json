@@ -34,7 +34,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["-x", "--log-cli-level=INFO", "-k", "should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss"],
+      "args": ["-x", "--log-cli-level=INFO", "-k", "should_send_via_telegram_notifications_after_detecting_buy_sell_signals[mock_sell_signal.json]"],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false
     }
