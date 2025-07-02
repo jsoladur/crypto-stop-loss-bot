@@ -1,12 +1,14 @@
 from dataclasses import dataclass
 from typing import Literal
 
+from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
+
 
 @dataclass(frozen=True)
 class SignalsEvaluationResult:
     timestamp: float | int
     symbol: str
-    timeframe: Literal["4h", "1h"]
+    timeframe: Timeframe
     buy: bool
     sell: bool
     rsi_state: Literal["neutral", "overbought", "oversold"]

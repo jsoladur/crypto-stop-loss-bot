@@ -4,12 +4,14 @@ import backoff
 import ccxt.async_support as ccxt  # Notice the async_support import
 import pandas as pd
 
+from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
+
 logger = logging.getLogger(__name__)
 
 
 class CcxtRemoteService:
     async def fetch_ohlcv(
-        self, symbol: str, timeframe: str, limit: int = 251, exchange_client: ccxt.Exchange | None = None
+        self, symbol: str, timeframe: Timeframe, limit: int = 251, exchange_client: ccxt.Exchange | None = None
     ) -> pd.DataFrame:
         """
         Fetches OHLCV data.
@@ -38,7 +40,7 @@ class CcxtRemoteService:
         ),
     )
     async def _internal_fetch_ohlcv(
-        self, symbol: str, timeframe: str, limit: int = 251, *, exchange_client: ccxt.Exchange
+        self, symbol: str, timeframe: Timeframe, limit: int = 251, *, exchange_client: ccxt.Exchange
     ) -> pd.DataFrame:
         logger.info(f"Fetching {limit} {timeframe} bars for {symbol}...")
         # Fetch N+1 candles to account for the live one.
