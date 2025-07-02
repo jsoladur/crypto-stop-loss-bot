@@ -110,6 +110,8 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 await self._notify_rsi_state_alert(
                     signals.rsi_state, base_symbol, telegram_chat_ids, timeframe, tickers
                 )
+            else:
+                logger.info(f"Neutral market for {base_symbol} on {timeframe}.")
             # 2. Report Confirmation Signals (now identical for both timeframes)
             if timeframe in BUY_SELL_RELIABLE_TIMEFRAMES:
                 if signals.is_choppy:
