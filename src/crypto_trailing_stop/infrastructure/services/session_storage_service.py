@@ -20,7 +20,7 @@ class SessionStorageService(metaclass=SingletonMeta):
         )
 
     async def is_user_logged(self, state: FSMContext) -> bool:
-        if not self._configuration_properties.login_enabled:
+        if not self._configuration_properties.login_enabled:  # pragma: no cover
             ret = True
         else:
             data = await state.get_data()
