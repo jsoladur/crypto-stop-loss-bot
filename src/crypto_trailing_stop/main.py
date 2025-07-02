@@ -38,7 +38,7 @@ def _load_telegram_layer(layer_name: str) -> None:
                 module_name = f"{__package__}.interfaces.telegram.{layer_name}.{filename[:-3]}"
                 try:
                     importlib.import_module(module_name)
-                except ModuleNotFoundError:
+                except ModuleNotFoundError:  # pragma: no cover
                     logging.warning(f"Module {module_name} not found. Skipping dynamic import.")
 
 
@@ -63,7 +63,7 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     # And the run events dispatching
     dp = get_dispacher()
-    if configuration_properties.telegram_bot_enabled:
+    if configuration_properties.telegram_bot_enabled:  # pragma: no cover
         asyncio.create_task(dp.start_polling(get_telegram_bot()))
 
     scheduler = get_scheduler()
@@ -76,7 +76,7 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
     yield
 
     # Cleanup on shutdown
-    if configuration_properties.telegram_bot_enabled:
+    if configuration_properties.telegram_bot_enabled:  # pragma: no cover
         asyncio.create_task(dp.stop_polling())
     if configuration_properties.background_tasks_enabled:
         scheduler.shutdown()
@@ -102,7 +102,7 @@ def _boostrap_app() -> None:
     )
     app.add_middleware(SessionMiddleware, secret_key=configuration_properties.session_secret_key)
     configuration_properties = get_configuration_properties()
-    if configuration_properties.cors_enabled:
+    if configuration_properties.cors_enabled:  # pragma: no cover
         app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],

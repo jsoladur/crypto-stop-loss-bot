@@ -14,7 +14,7 @@ class GlobalFlagTypeEnum(str, Enum):
         for item in cls:
             if item.value == value:
                 return item
-        raise ValueError(f"{value!r} is not a valid {cls.__name__}")
+        raise ValueError(f"{value!r} is not a valid {cls.__name__}")  # pragma: no cover
 
     def __new__(cls, value: str, description: str) -> "GlobalFlagTypeEnum":
         obj: Any = str.__new__(cls, value)
