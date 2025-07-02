@@ -51,12 +51,21 @@ async def handle_persist_stop_loss_callback(callback_query: CallbackQuery, state
                 await orders_analytics_service.calculate_limit_sell_order_guard_metrics(symbol=symbol)
             )
             if limit_sell_order_guard_metrics_list:
-                answer_text += f"\n\n🔨🔨{html.bold('Limit Sell Order Guard Metrics')} 🔨🔨\n\n"
+                answer_text += f"\n\n🔨🔨{html.bold('Order Guard Metrics')} 🔨🔨\n\n"
                 for idx, metrics in enumerate(limit_sell_order_guard_metrics_list):
-                    crypto_currency, fiat_currency = metrics.limit_sell_order.symbol.split("/")
+                    crypto_currency, fiat_currency = metrics.sell_order.symbol.split("/")
                     answer_text += (
-                        f"- 🚀 {html.bold('Sell Limit Order')} :: 💰 {metrics.limit_sell_order.order_amount} {crypto_currency}, "  # noqa: E501
-                        + f"further sell at {metrics.limit_sell_order.price} {fiat_currency}:\n"
+                        f"- 🚀 {html.bold(metrics.sell_order.order_type.upper() + ' Sell Order')} :: "
+                        + f"💰 {metrics.sell_order.order_amount} {crypto_currency}, "  # noqa: E501
+                        + f"further sell at {html.bold(str(metrics.sell_order.price) + ' ' + fiat_currency)}"
+                    )
+                    if metrics.sell_order.order_type == "stop-limit":
+                        answer_text += (
+                            " (when price reaches stop limit price at"
+                            + f" {html.bold(str(metrics.sell_order.stop_price) + ' ' + fiat_currency)})"
+                        )
+                    answer_text += (
+                        ":\n"
                         + f"    * 📈 {html.bold('Avg. Costs')} = {metrics.avg_buy_price} {fiat_currency}\n"
                         + f"    * 🚏 {html.bold('Stop Loss')} = {metrics.stop_loss_percent_value}%\n"
                         + f"    * 🛡️ {html.bold('Safeguard Stop Price: ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}"  # noqa: E501

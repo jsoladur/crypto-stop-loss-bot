@@ -5,7 +5,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import B
 
 @dataclass
 class LimitSellOrderGuardMetrics:
-    limit_sell_order: Bit2MeOrderDto
+    sell_order: Bit2MeOrderDto
     stop_loss_percent_value: float
     avg_buy_price: float | int
     safeguard_stop_price: float | int

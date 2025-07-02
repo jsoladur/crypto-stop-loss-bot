@@ -21,11 +21,9 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
     @override
     async def _run(self) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:
-            opened_limit_sell_orders = await self._bit2me_remote_service.get_pending_sell_orders(
-                order_type="limit", client=client
-            )
-            if opened_limit_sell_orders:
-                await self._handle_opened_limit_sell_orders(opened_limit_sell_orders, client=client)
+            sell_orders = await self._bit2me_remote_service.get_pending_sell_orders(client=client)
+            if sell_orders:
+                await self._handle_opened_sell_orders(sell_orders, client=client)
             else:  # pragma: no cover
                 logger.info("There are no opened limit sell orders to handle! Let's see in the upcoming executions...")
 
@@ -33,14 +31,14 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
     def _get_job_trigger(self) -> IntervalTrigger:
         return IntervalTrigger(seconds=self._configuration_properties.job_interval_seconds)
 
-    async def _handle_opened_limit_sell_orders(
-        self, opened_limit_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
+    async def _handle_opened_sell_orders(
+        self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
     ) -> None:
         current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = await self._fetch_tickers_for_open_sell_orders(
-            opened_limit_sell_orders, client=client
+            opened_sell_orders, client=client
         )
         previous_used_buy_trade_ids: set[str] = set()
-        for sell_order in opened_limit_sell_orders:
+        for sell_order in opened_sell_orders:
             try:
                 previous_used_buy_trade_ids, *_ = await self._handle_single_sell_order(
                     sell_order, current_tickers_by_symbol, previous_used_buy_trade_ids, client=client
@@ -68,7 +66,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             sell_order, avg_buy_price
         )
         logger.info(
-            f"Supervising LIMIT SELL order {repr(sell_order)}: "
+            f"Supervising {sell_order.order_type.upper()} SELL order {repr(sell_order)}: "
             + f"Avg Buy Price = {avg_buy_price} {fiat_currency} / "
             + f"Safeguard Stop Price = {safeguard_stop_price} {fiat_currency}"
         )
