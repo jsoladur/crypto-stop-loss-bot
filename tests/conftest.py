@@ -24,6 +24,8 @@ def faker() -> Faker:
 
 @pytest.fixture(scope="session", autouse=True)
 def defaults_env(faker: Faker) -> Generator[None]:
+    # App configuration
+    environ["LOGIN_ENABLED"] = "true"
     # Background jobs configuration
     environ["BUY_SELL_SIGNALS_RUN_VIA_CRON_PATTERN"] = "false"
     # Database configuration

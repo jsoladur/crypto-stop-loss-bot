@@ -62,7 +62,7 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
                 await self._handle_single_sell_order(
                     sell_order, current_tickers_by_symbol, max_and_min_buy_order_amount_by_symbol, client=client
                 )
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.error(str(e), exc_info=True)
                 await self._notify_fatal_error_via_telegram(e)
 

@@ -35,6 +35,8 @@ async def should_calculate_global_summary_properly(
 
     assert global_summary is not None
 
+    httpserver.check_assertions()
+
 
 def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str) -> None:
     registration_year = datetime.now(UTC).year - 1
