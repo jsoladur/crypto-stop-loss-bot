@@ -25,7 +25,7 @@ async def should_save_or_update_global_flag_properly(
 
     assert (await global_flag_service.is_enabled_for(global_flag_type)) is True
 
-    await global_flag_service.toggle_by_name(global_flag_type)
+    await global_flag_service.force_disable_by_name(global_flag_type)
 
     assert (await global_flag_service.is_enabled_for(global_flag_type)) is False
 
