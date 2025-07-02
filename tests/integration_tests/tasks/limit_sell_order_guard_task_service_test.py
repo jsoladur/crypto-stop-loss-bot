@@ -19,11 +19,8 @@ from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_e
 from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.limit_sell_order_guard_task_service import LimitSellOrderGuardTaskService
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
-from tests.helpers.object_mothers import (
-    Bit2MeOrderDtoObjectMother,
-    Bit2MeTickersDtoObjectMother,
-    Bit2MeTradeDtoObjectMother,
-)
+from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, Bit2MeTickersDtoObjectMother
+from tests.helpers.sell_orders_test_utils import generate_trades
 
 
 @pytest.mark.asyncio
@@ -78,7 +75,7 @@ def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_ke
         ),
     ]
     tickers = Bit2MeTickersDtoObjectMother.create(symbol=symbol, close=orders_price * 0.2)
-    buy_trades = _generate_trades(faker, opened_sell_bit2me_orders)
+    buy_trades = generate_trades(faker, opened_sell_bit2me_orders)
     # Mock call to /v1/trading/order to get opened sell orders
     httpserver.expect(
         Bit2MeAPIRequestMacher(
@@ -140,20 +137,3 @@ def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_ke
                 side="sell", order_type="market", status=faker.random_element(["open", "inactive"])
             ).model_dump(by_alias=True, mode="json")
         )
-
-
-def _generate_trades(faker: Faker, opened_sell_bit2me_orders: list[Bit2MeOrderDto]) -> list[Bit2MeTradeDto]:
-    buy_trades = []
-    for sell_order in opened_sell_bit2me_orders:
-        number_of_trades = faker.random_element([2, 4])
-        for _ in range(number_of_trades):
-            buy_trades.append(
-                Bit2MeTradeDtoObjectMother.create(
-                    side="buy",
-                    symbol=sell_order.symbol,
-                    price=sell_order.price * 0.5,
-                    amount=sell_order.order_amount / number_of_trades,
-                )
-            )
-
-    return buy_trades
