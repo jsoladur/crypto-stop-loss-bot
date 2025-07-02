@@ -30,11 +30,29 @@
       "justMyCode": false
     },
     {
+      "name": "Pytest: Integration tests",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-x", "--log-cli-level=INFO", "tests/integration_tests"],
+      "envFile": "${workspaceFolder}/.env.pytest",
+      "justMyCode": false
+    },
+    {
+      "name": "Pytest: Unit Tests",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-x", "--log-cli-level=INFO", "tests/unit_tests"],
+      "envFile": "${workspaceFolder}/.env.pytest",
+      "justMyCode": false
+    },
+    {
       "name": "Pytest: Specific test",
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["-x", "--log-cli-level=INFO", "-k", "should_create_market_sell_order_when_price_goes_down_applying_guard"],
+      "args": ["-x", "--log-cli-level=INFO", "-k", "should_set_stop_loss_percent_service_properly"],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false
     }
