@@ -40,7 +40,7 @@ class Bit2MeOrderDtoObjectMother:
         return Bit2MeOrderDto(
             id=cls._faker.uuid4(),
             side=side or cls._faker.random_element(["buy", "sell"]),
-            symbol=symbol or cls._faker.random_element(["BTC/EUR", "ETH/EUR"]),
+            symbol=symbol or cls._faker.random_element(["ETH/EUR", "SOL/EUR"]),
             order_type=order_type,
             status=status or cls._faker.random_element(["open", "filled", "cancelled", "inactive"]),
             order_amount=cls._faker.pyfloat(positive=True, min_value=1_000, max_value=10_000),

@@ -27,12 +27,10 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         self, *, symbol: str | None = None
     ) -> list[LimitSellOrderGuardMetrics]:
         async with await self._bit2me_remote_service.get_http_client() as client:
-            opened_limit_sell_orders = await self._bit2me_remote_service.get_pending_sell_orders(
-                order_type="limit", client=client
-            )
+            opened_sell_orders = await self._bit2me_remote_service.get_pending_sell_orders(client=client)
             previous_used_buy_trade_ids: set[str] = set()
             ret = []
-            for sell_order in opened_limit_sell_orders:
+            for sell_order in opened_sell_orders:
                 if symbol is None or len(symbol) <= 0 or sell_order.symbol.lower().startswith(symbol.lower()):
                     (avg_buy_price, previous_used_buy_trade_ids) = await self.calculate_correlated_avg_buy_price(
                         sell_order, previous_used_buy_trade_ids, client=client
@@ -42,7 +40,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
                     )
                     ret.append(
                         LimitSellOrderGuardMetrics(
-                            limit_sell_order=sell_order,
+                            sell_order=sell_order,
                             avg_buy_price=avg_buy_price,
                             stop_loss_percent_value=stop_loss_percent_item.value,
                             safeguard_stop_price=safeguard_stop_price,

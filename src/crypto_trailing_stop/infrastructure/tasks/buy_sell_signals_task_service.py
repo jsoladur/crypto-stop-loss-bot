@@ -1,6 +1,6 @@
 import logging
 from datetime import UTC, datetime
-from typing import Literal, override
+from typing import Literal, get_args, override
 
 import ccxt.async_support as ccxt  # Notice the async_support import
 import pandas as pd
@@ -12,8 +12,8 @@ from ta.trend import MACD, EMAIndicator
 from ta.volatility import AverageTrueRange  # Import ATR indicator
 
 from crypto_trailing_stop.commons.constants import (
-    BUY_SELL_ALERTS_TIMEFRAMES,
     BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN,
+    BUY_SELL_RELIABLE_TIMEFRAMES,
 )
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
@@ -21,6 +21,7 @@ from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnu
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import SignalsEvaluationResult
+from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
 
 logger = logging.getLogger(__name__)
 
@@ -73,9 +74,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 symbols, client=client
             )
 
-            symbol_timeframe_tuples = [
-                (symbol, timeframe) for symbol in symbols for timeframe in BUY_SELL_ALERTS_TIMEFRAMES
-            ]
+            symbol_timeframe_tuples = [(symbol, timeframe) for symbol in symbols for timeframe in get_args(Timeframe)]
             try:
                 async with self._ccxt_remote_service.get_binance_exchange_client() as binance_client:
                     for current_symbol, current_timeframe in symbol_timeframe_tuples:
@@ -95,7 +94,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         telegram_chat_ids: list[str],
         *,
         symbol: str,
-        timeframe: Literal["4h", "1h"],
+        timeframe: Timeframe,
         tickers: Bit2MeTickersDto,
         binance_client: ccxt.Exchange,
     ) -> None:
@@ -112,21 +111,22 @@ class BuySellSignalsTaskService(AbstractTaskService):
                     signals.rsi_state, base_symbol, telegram_chat_ids, timeframe, tickers
                 )
             # 2. Report Confirmation Signals (now identical for both timeframes)
-            if signals.is_choppy:
-                message = (
-                    f"🟡 - 🫥 {html.bold('CHOPPY MARKET ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}.\n"  # noqa: E501
-                    + "🤫 Volatility is low. DO NOT ACT! 🤫"
-                )
-                await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
-            elif not signals.buy or not signals.sell:
-                if signals.buy:
-                    message = f"🟢 - 🛒 {html.bold('BUY SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"  # noqa: E501
+            if timeframe in BUY_SELL_RELIABLE_TIMEFRAMES:
+                if signals.is_choppy:
+                    message = (
+                        f"🟡 - 🫥 {html.bold('CHOPPY MARKET ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}.\n"  # noqa: E501
+                        + "🤫 Volatility is low. DO NOT ACT! 🤫"
+                    )
                     await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
-                if signals.sell:
-                    message = f"🔴 - 🔚 {html.bold('SELL SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"  # noqa: E501
-                    await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
-                if not signals.buy and not signals.sell:
-                    logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
+                else:
+                    if signals.buy:
+                        message = f"🟢 - 🛒 {html.bold('BUY SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"  # noqa: E501
+                        await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+                    elif signals.sell:
+                        message = f"🔴 - 🔚 {html.bold('SELL SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"  # noqa: E501
+                        await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+                    if not signals.buy and not signals.sell:
+                        logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
         else:  # pragma: no cover
             logger.info("Calculated signals were already notified previously!")
 
@@ -159,7 +159,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         logger.info("Indicator calculation complete.")
         return df
 
-    def _check_signals(self, symbol: str, timeframe: Literal["4h", "1h"], df: pd.DataFrame) -> SignalsEvaluationResult:
+    def _check_signals(self, symbol: str, timeframe: Timeframe, df: pd.DataFrame) -> SignalsEvaluationResult:
         timestamp = datetime.now(tz=UTC).timestamp()
         buy_signal, sell_signal, is_choppy = False, False, False
         rsi_state = "neutral"
@@ -230,7 +230,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             rsi_state = "neutral"
         return rsi_state
 
-    def _get_proximity_and_volatility_thresholds(self, timeframe: Literal["4h", "1h"]) -> tuple[float, float]:
+    def _get_proximity_and_volatility_thresholds(self, timeframe: Timeframe) -> tuple[float, float]:
         # EMA Proximity threshold
         proximity_threshold = (
             self._configuration_properties.buy_sell_signals_proximity_threshold if timeframe == "4h" else 0
@@ -251,7 +251,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         rsi_state: Literal["overbought", "oversold"],
         base_symbol: str,
         telegram_chat_ids: list[str],
-        timeframe: Literal["4h", "1h"],
+        timeframe: Timeframe,
         tickers: Bit2MeTickersDto,
     ) -> None:
         if rsi_state == "overbought":
