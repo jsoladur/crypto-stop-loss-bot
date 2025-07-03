@@ -5,7 +5,7 @@ from faker import Faker
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
-from crypto_trailing_stop.commons.constants import TRAILING_STOP_LOSS_DEFAULT_PERCENT
+from crypto_trailing_stop.commons.constants import DEFAULT_TRAILING_STOP_LOSS_PERCENT
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
@@ -33,7 +33,7 @@ async def should_set_stop_loss_percent_service_properly(
     returned_stop_loss_percent_item = await stop_loss_percent_service.find_stop_loss_percent_by_symbol(crypto_currency)
     assert returned_stop_loss_percent_item is not None
     assert returned_stop_loss_percent_item.symbol == crypto_currency
-    assert returned_stop_loss_percent_item.value == TRAILING_STOP_LOSS_DEFAULT_PERCENT
+    assert returned_stop_loss_percent_item.value == DEFAULT_TRAILING_STOP_LOSS_PERCENT
 
     expected_stop_loss_percent_item = StopLossPercentItem(
         symbol=crypto_currency, value=faker.pyfloat(min_value=1, max_value=5)
