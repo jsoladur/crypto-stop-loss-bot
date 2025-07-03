@@ -12,6 +12,7 @@ from ta.trend import MACD, EMAIndicator
 from ta.volatility import AverageTrueRange  # Import ATR indicator
 
 from crypto_trailing_stop.commons.constants import (
+    ANTICIPATION_ZONE_TIMEFRAMES,
     BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN,
     BUY_SELL_RELIABLE_TIMEFRAMES,
 )
@@ -104,31 +105,26 @@ class BuySellSignalsTaskService(AbstractTaskService):
         # Use a threshold of 0 for 1H signals to disable the proximity check
         signals = self._check_signals(symbol, timeframe, df_with_indicators)
         if self._are_new_signals(signals):
+            logger.info("Notifying new signals!!")
             base_symbol = symbol.split("/")[0].strip().upper()
             # 1. Report RSI Anticipation Zones
-            if signals.rsi_state != "neutral":
-                await self._notify_rsi_state_alert(
-                    signals.rsi_state, base_symbol, telegram_chat_ids, timeframe, tickers
+            if timeframe in ANTICIPATION_ZONE_TIMEFRAMES:
+                await self._notify_anticipation_zone_alerts(
+                    signals,
+                    telegram_chat_ids=telegram_chat_ids,
+                    timeframe=timeframe,
+                    tickers=tickers,
+                    base_symbol=base_symbol,
                 )
-            else:
-                logger.info(f"Neutral market for {base_symbol} on {timeframe}.")
             # 2. Report Confirmation Signals (now identical for both timeframes)
-            if timeframe in BUY_SELL_RELIABLE_TIMEFRAMES:
-                if signals.is_choppy:
-                    message = (
-                        f"🟡 - 🫥 {html.bold('CHOPPY MARKET ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}.\n"  # noqa: E501
-                        + "🤫 Volatility is low. DO NOT ACT! 🤫"
-                    )
-                    await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
-                else:
-                    if signals.buy:
-                        message = f"🟢 - 🛒 {html.bold('BUY SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"  # noqa: E501
-                        await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
-                    elif signals.sell:
-                        message = f"🔴 - 🔚 {html.bold('SELL SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"  # noqa: E501
-                        await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
-                    if not signals.buy and not signals.sell:
-                        logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
+            elif timeframe in BUY_SELL_RELIABLE_TIMEFRAMES:
+                await self._notify_reliable_alerts(
+                    signals,
+                    telegram_chat_ids=telegram_chat_ids,
+                    timeframe=timeframe,
+                    tickers=tickers,
+                    base_symbol=base_symbol,
+                )
         else:  # pragma: no cover
             logger.info("Calculated signals were already notified previously!")
 
@@ -247,6 +243,48 @@ class BuySellSignalsTaskService(AbstractTaskService):
             else self._configuration_properties.buy_sell_signals_1h_volatility_threshold
         )
         return proximity_threshold, volatility_threshold
+
+    async def _notify_anticipation_zone_alerts(
+        self,
+        signals: SignalsEvaluationResult,
+        *,
+        telegram_chat_ids: list[str],
+        timeframe: Timeframe,
+        tickers: Bit2MeTickersDto,
+        base_symbol: str,
+    ) -> None:
+        if signals.rsi_state != "neutral":
+            await self._notify_rsi_state_alert(signals.rsi_state, base_symbol, telegram_chat_ids, timeframe, tickers)
+        else:
+            logger.info(f"Neutral market for {base_symbol} on {timeframe}.")
+
+    async def _notify_reliable_alerts(
+        self,
+        signals: SignalsEvaluationResult,
+        *,
+        telegram_chat_ids: list[str],
+        timeframe: Timeframe,
+        tickers: Bit2MeTickersDto,
+        base_symbol: str,
+    ) -> None:
+        if signals.is_choppy:
+            message = (
+                f"🟡 - 🫥 {html.bold('CHOPPY MARKET ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}.\n"  # noqa: E501
+                + "🤫 Volatility is low. DO NOT ACT! 🤫"
+            )
+            await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+        elif signals.buy:
+            message = (
+                f"🟢 - 🛒 {html.bold('BUY SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"  # noqa: E501
+            )
+            await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+        elif signals.sell:
+            message = (
+                f"🔴 - 🔚 {html.bold('SELL SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"  # noqa: E501
+            )
+            await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+        else:
+            logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
 
     async def _notify_rsi_state_alert(
         self,
