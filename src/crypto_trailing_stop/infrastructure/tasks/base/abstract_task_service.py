@@ -38,6 +38,13 @@ class AbstractTaskService(ABC):
         if self._job:
             self._job.pause()
 
+    async def run(self) -> None:
+        try:
+            await self._run()
+        except Exception as e:  # pragma: no cover
+            logger.error(str(e), exc_info=True)
+            await self._notify_fatal_error_via_telegram(e)
+
     @abstractmethod
     def get_global_flag_type(self) -> GlobalFlagTypeEnum:
         """
@@ -45,7 +52,7 @@ class AbstractTaskService(ABC):
         """
 
     @abstractmethod
-    async def _run(self, *args, **kwargs) -> None:
+    async def _run(self) -> None:
         """
         Run the task
         """
@@ -60,7 +67,7 @@ class AbstractTaskService(ABC):
         trigger = self._get_job_trigger()
         job = get_scheduler().add_job(
             id=self.__class__.__name__,
-            func=self._run,
+            func=self.run,
             trigger=trigger,
             max_instances=1,  # Prevent overlapping
             coalesce=True,  # Skip intermediate runs if one was missed

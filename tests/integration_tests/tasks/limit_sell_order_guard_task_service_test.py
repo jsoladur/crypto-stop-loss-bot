@@ -23,9 +23,10 @@ from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, Bit2MeTicke
 from tests.helpers.sell_orders_test_utils import generate_trades
 
 
+@pytest.mark.parametrize("bit2me_error_status_code", [403, 502])
 @pytest.mark.asyncio
 async def should_create_market_sell_order_when_price_goes_down_applying_guard(
-    faker: Faker, integration_test_env: tuple[HTTPServer, str]
+    faker: Faker, bit2me_error_status_code: int, integration_test_env: tuple[HTTPServer, str]
 ) -> None:
     """
     Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
@@ -35,7 +36,7 @@ async def should_create_market_sell_order_when_price_goes_down_applying_guard(
 
     task_manager = get_task_manager_instance()
 
-    _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
+    _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret, bit2me_error_status_code)
 
     # Provoke send a notification via Telegram
     push_notification = PushNotification(
@@ -50,12 +51,14 @@ async def should_create_market_sell_order_when_price_goes_down_applying_guard(
         GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
     ]
     with patch.object(Bot, "send_message"):
-        await limit_sell_order_guard_task_service._run()
+        await limit_sell_order_guard_task_service.run()
 
     httpserver.check_assertions()
 
 
-def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str) -> None:
+def _prepare_httpserver_mock(
+    faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str, bit2me_error_status_code: int
+) -> None:
     orders_price = faker.pyfloat(positive=True, min_value=500, max_value=1_000)
     symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
     opened_sell_bit2me_orders = [
@@ -104,7 +107,7 @@ def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_ke
                 query_string=urlencode({"direction": "desc", "side": "buy", "symbol": symbol}, doseq=False),
             ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
             handler_type=HandlerType.ONESHOT,
-        ).respond_with_response(Response(status=403))
+        ).respond_with_response(Response(status=bit2me_error_status_code))
         # Mock trades /v1/trading/trade
         httpserver.expect(
             Bit2MeAPIRequestMacher(
