@@ -9,7 +9,7 @@ from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 from werkzeug import Response
 
-from crypto_trailing_stop.commons.constants import TRAILING_STOP_LOSS_DEFAULT_PERCENT
+from crypto_trailing_stop.commons.constants import DEFAULT_TRAILING_STOP_LOSS_PERCENT
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
@@ -138,7 +138,7 @@ def _prepare_httpserver_mock(
 
     if not simulate_pending_buy_orders_to_filled or (
         tickers.close > highest_buy_price
-        and ((1 - (lowest_buy_price / tickers.close)) * 100) > TRAILING_STOP_LOSS_DEFAULT_PERCENT
+        and ((1 - (lowest_buy_price / tickers.close)) * 100) > DEFAULT_TRAILING_STOP_LOSS_PERCENT
     ):
         # Mock call to DELETE /v1/trading/order/{id}
         httpserver.expect(
