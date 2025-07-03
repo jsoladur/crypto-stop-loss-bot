@@ -76,9 +76,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
             )
 
             symbol_timeframe_tuples = [(symbol, timeframe) for symbol in symbols for timeframe in get_args(Timeframe)]
-            try:
-                async with self._ccxt_remote_service.get_binance_exchange_client() as binance_client:
-                    for current_symbol, current_timeframe in symbol_timeframe_tuples:
+            async with self._ccxt_remote_service.get_binance_exchange_client() as binance_client:
+                for current_symbol, current_timeframe in symbol_timeframe_tuples:
+                    try:
                         await self._eval_and_notify_signals(
                             telegram_chat_ids,
                             symbol=current_symbol,
@@ -86,9 +86,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
                             tickers=current_tickers_by_symbol[current_symbol],
                             binance_client=binance_client,
                         )
-            except Exception as e:  # pragma: no cover
-                logger.error(str(e), exc_info=True)
-                await self._notify_fatal_error_via_telegram(e)
+                    except Exception as e:  # pragma: no cover
+                        logger.error(str(e), exc_info=True)
+                        await self._notify_fatal_error_via_telegram(e)
 
     async def _eval_and_notify_signals(
         self,

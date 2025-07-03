@@ -38,7 +38,7 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
     trailing_stop_loss_task_service: TrailingStopLossTaskService = task_manager.get_tasks()[
         GlobalFlagTypeEnum.TRAILING_STOP_LOSS
     ]
-    await trailing_stop_loss_task_service._run()
+    await trailing_stop_loss_task_service.run()
 
     httpserver.check_assertions()
 
