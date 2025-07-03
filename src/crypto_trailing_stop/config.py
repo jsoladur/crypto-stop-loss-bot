@@ -11,7 +11,7 @@ from authlib.integrations.starlette_client import OAuth
 from pydantic import AnyUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from crypto_trailing_stop.commons.constants import TRAILING_STOP_LOSS_DEFAULT_PERCENT
+from crypto_trailing_stop.commons.constants import DEFAULT_JOB_INTERVAL_SECONDS, DEFAULT_TRAILING_STOP_LOSS_PERCENT
 
 _configuration_properties: ConfigurationProperties | None = None
 _scheduler: AsyncIOScheduler | None = None
@@ -51,9 +51,9 @@ class ConfigurationProperties(BaseSettings):
     google_oauth_client_id: str
     google_oauth_client_secret: str
     # Trailing stop loss configuration
-    trailing_stop_loss_percent: float | int = TRAILING_STOP_LOSS_DEFAULT_PERCENT
+    trailing_stop_loss_percent: float | int = DEFAULT_TRAILING_STOP_LOSS_PERCENT
     # Jobs configuration
-    job_interval_seconds: int = 10  # 10 seconds
+    job_interval_seconds: int = DEFAULT_JOB_INTERVAL_SECONDS
 
 
 def get_configuration_properties() -> ConfigurationProperties:
