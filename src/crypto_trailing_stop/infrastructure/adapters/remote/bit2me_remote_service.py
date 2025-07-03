@@ -140,7 +140,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             base_url=self._base_url, headers={"X-API-KEY": self._api_key}, timeout=Timeout(10, connect=5, read=60)
         )
 
-    # XXX: [JMSOLA] Add backoff to retry when 403 (Invalid signature Bit2Me API error)
+    # XXX: [JMSOLA] Add backoff to retry when 403 (Invalid signature Bit2Me API error) or 502 Bad Gateway
     @backoff.on_exception(
         backoff.constant,
         exception=ValueError,
@@ -148,7 +148,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         max_tries=5,
         jitter=backoff.full_jitter,
         giveup=lambda e: not isinstance(e.__cause__, HTTPStatusError)
-        or not getattr(e.__cause__.response, "status_code", None) == 403,
+        or getattr(e.__cause__.response, "status_code", None) not in [403, 502],
         on_backoff=lambda details: logger.warning(
             f"[Retry {details['tries']}] " + f"Waiting {details['wait']:.2f}s due to {str(details['exception'])}"
         ),

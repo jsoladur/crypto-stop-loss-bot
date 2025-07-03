@@ -72,7 +72,7 @@ async def _run_task_service(fetch_ohlcv_return_value: dict[str, Any]) -> None:
     ]
     with patch.object(ccxt.binance, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
         with patch.object(Bot, "send_message"):
-            await buy_sell_signals_task_service._run()
+            await buy_sell_signals_task_service.run()
 
 
 def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str) -> None:
