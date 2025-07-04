@@ -2,6 +2,7 @@ import logging
 
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.infrastructure.database.decorators import transactional
 from crypto_trailing_stop.infrastructure.database.models import PushNotification
 from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.vo.push_notification_item import PushNotificationItem
@@ -34,6 +35,7 @@ class PushNotificationService(metaclass=SingletonMeta):
             )
         return ret
 
+    @transactional
     async def toggle_push_notification_by_type(
         self, telegram_chat_id: int, notification_type: PushNotificationTypeEnum
     ) -> PushNotificationItem:
