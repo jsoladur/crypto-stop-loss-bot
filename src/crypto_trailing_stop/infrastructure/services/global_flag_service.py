@@ -2,6 +2,7 @@ import logging
 
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.infrastructure.database.decorators import transactional
 from crypto_trailing_stop.infrastructure.database.models import GlobalFlag
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.vo.global_flag_item import GlobalFlagItem
@@ -21,6 +22,7 @@ class GlobalFlagService(metaclass=SingletonMeta):
             ret.append(GlobalFlagItem(name=current, value=persisted is None or persisted.value is True))
         return ret
 
+    @transactional
     async def toggle_by_name(self, name: GlobalFlagTypeEnum) -> GlobalFlagItem:
         global_flag = await GlobalFlag.objects().where(GlobalFlag.name == name.value).first()
         if global_flag:
@@ -32,6 +34,7 @@ class GlobalFlagService(metaclass=SingletonMeta):
         ret = GlobalFlagItem(name=GlobalFlagTypeEnum.from_value(global_flag.name), value=global_flag.value)
         return ret
 
+    @transactional
     async def force_disable_by_name(self, name: GlobalFlagTypeEnum) -> None:
         # Immediately stop the task!
         await self._toggle_task(name, value=False)
