@@ -3,7 +3,7 @@ from typing import Any
 from aiogram.types import ReplyMarkupUnion
 
 from crypto_trailing_stop.config import get_telegram_bot
-from crypto_trailing_stop.infrastructure.services import SessionStorageService
+from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.dtos.login_dto import LoginDto
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 

@@ -1,6 +1,6 @@
 [project]
 name = "crypto-trailing-stop"
-version = "0.11.6"
+version = "0.12.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -23,6 +23,7 @@ dependencies = [
     "piccolo[sqlite]>=1.27.1",
     "pydantic-settings>=2.8.1",
     "pydash>=8.0.5",
+    "pyee>=13.0.0",
     "ta>=0.11.0",
     "tomli>=2.2.1",
     "uvicorn>=0.34.0",

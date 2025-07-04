@@ -10,11 +10,13 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from authlib.integrations.starlette_client import OAuth
 from pydantic import AnyUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pyee.asyncio import AsyncIOEventEmitter
 
 from crypto_trailing_stop.commons.constants import DEFAULT_JOB_INTERVAL_SECONDS, DEFAULT_TRAILING_STOP_LOSS_PERCENT
 
 _configuration_properties: ConfigurationProperties | None = None
 _scheduler: AsyncIOScheduler | None = None
+_event_emitter: AsyncIOEventEmitter | None = None
 _telegram_bot: Bot | None = None
 _dispacher: Dispatcher | None = None
 
@@ -68,6 +70,13 @@ def get_scheduler() -> AsyncIOScheduler:
     if _scheduler is None:
         _scheduler = AsyncIOScheduler()
     return _scheduler
+
+
+def get_event_emitter() -> AsyncIOEventEmitter:
+    global _event_emitter
+    if _event_emitter is None:
+        _event_emitter = AsyncIOEventEmitter()
+    return _event_emitter
 
 
 def get_telegram_bot() -> Bot:
