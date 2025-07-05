@@ -3,7 +3,6 @@ import logging
 from crypto_trailing_stop.commons.constants import SIGNALS_EVALUATION_RESULT_EVENT_NAME
 from crypto_trailing_stop.commons.patterns import SingletonABCMeta
 from crypto_trailing_stop.config import get_configuration_properties, get_event_emitter
-from crypto_trailing_stop.infrastructure.database.decorators import transactional
 from crypto_trailing_stop.infrastructure.database.models import MarketSignal
 from crypto_trailing_stop.infrastructure.services.base import AbstractService
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
@@ -54,7 +53,6 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
             logger.error(str(e), exc_info=True)
             await self._notify_fatal_error_via_telegram(e)
 
-    @transactional
     async def _store_signals(self, signals: SignalsEvaluationResult) -> None:
         match signals.timeframe:
             case "4h":
