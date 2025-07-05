@@ -3,11 +3,8 @@ from abc import ABCMeta, abstractmethod
 
 from apscheduler.job import Job
 from apscheduler.triggers.base import BaseTrigger
-from httpx import AsyncClient
 
 from crypto_trailing_stop.config import get_configuration_properties, get_scheduler
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.base import AbstractService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 
@@ -18,7 +15,6 @@ class AbstractTaskService(AbstractService, metaclass=ABCMeta):
     def __init__(self) -> None:
         super().__init__()
         self._configuration_properties = get_configuration_properties()
-        self._bit2me_remote_service = Bit2MeRemoteService()
         self._job: Job | None = None
 
     async def start(self) -> None:
@@ -66,11 +62,3 @@ class AbstractTaskService(AbstractService, metaclass=ABCMeta):
             coalesce=True,  # Skip intermediate runs if one was missed
         )
         return job
-
-    async def _fetch_tickers_by_simbols(
-        self, symbols: list[str], *, client: AsyncClient
-    ) -> dict[str, Bit2MeTickersDto]:
-        ret = {
-            symbol: await self._bit2me_remote_service.get_tickers_by_symbol(symbol, client=client) for symbol in symbols
-        }
-        return ret

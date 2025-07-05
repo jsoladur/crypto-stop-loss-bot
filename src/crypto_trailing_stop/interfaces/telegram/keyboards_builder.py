@@ -43,7 +43,7 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
             InlineKeyboardButton(text="💵 Get Current Prices", callback_data="get_current_prices"),
         )
         builder.row(InlineKeyboardButton(text="🚏 Set Stop Loss Percent (%)", callback_data="stop_loss_percent_home"))
-        builder.row(InlineKeyboardButton(text="🚥 Last market signals", callback_data="last_market_signals"))
+        builder.row(InlineKeyboardButton(text="🚥 Last market signals", callback_data="last_market_signals_home"))
         builder.row(
             InlineKeyboardButton(text="🚩 Global Flags (Jobs)", callback_data="global_flags_home"),
             InlineKeyboardButton(text="🔔 Notifications", callback_data="push_notificacions_home"),
@@ -104,5 +104,12 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
                     callback_data=f"toggle_global_flag$${item.name.value}",
                 )
             )
+        builder.row(InlineKeyboardButton(text="<< Back", callback_data="go_back_home"))
+        return builder.as_markup()
+
+    def get_last_market_signals_symbols_keyboard(self, symbols: str) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        for symbol in symbols:
+            builder.row(InlineKeyboardButton(text=f"🔥 {symbol}", callback_data=f"show_last_market_signals$${symbol}"))
         builder.row(InlineKeyboardButton(text="<< Back", callback_data="go_back_home"))
         return builder.as_markup()

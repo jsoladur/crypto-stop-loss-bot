@@ -22,7 +22,7 @@ async def get_current_prices_callback_handler(callback_query: CallbackQuery, sta
     is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:
-            tickers_list = await crypto_analytics_service.get_tickers_for_favourite_crypto_currencies()
+            tickers_list = await crypto_analytics_service.get_favourite_tickers()
             message_lines = ["===========================", "💵 CURRENT PRICES 💵", "==========================="]
             for tickers in tickers_list:
                 crypto_currency, fiat_currency = tickers.symbol.split("/")
