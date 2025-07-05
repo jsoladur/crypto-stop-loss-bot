@@ -8,7 +8,6 @@ from crypto_trailing_stop.commons.constants import DEFAULT_IN_MEMORY_CACHE_TTL_I
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
-from crypto_trailing_stop.infrastructure.database.decorators import transactional
 from crypto_trailing_stop.infrastructure.database.models import StopLossPercent
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
@@ -54,7 +53,6 @@ class StopLossPercentService(metaclass=SingletonMeta):
                 )
             return ret
 
-    @transactional
     async def save_or_update(self, item: StopLossPercentItem) -> None:
         async with self._lock:
             # XXX: [JMSOLA] Disable Limit Sell Order Guard job for as a precaution,
