@@ -18,18 +18,51 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def should_get_tickers_for_favourite_crypto_currencies_properly(
+async def should_get_favourite_symbols_properly(
     faker: Faker, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
 ) -> None:
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
-    _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
+    _prepare_httpserver_mock_for_favourite_symbols(faker, httpserver, bit2me_api_key, bit2me_api_secret)
     crypto_analytics_service = CryptoAnalyticsService(bit2me_remote_service=Bit2MeRemoteService())
-    tickers_list = await crypto_analytics_service.get_tickers_for_favourite_crypto_currencies()
+    favourite_symbols = await crypto_analytics_service.get_favourite_symbols()
+    assert favourite_symbols is not None and len(favourite_symbols) > 0
+    httpserver.check_assertions()
+
+
+@pytest.mark.asyncio
+async def should_get_favourite_tickers_properly(
+    faker: Faker, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
+) -> None:
+    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
+    _prepare_httpserver_mock_for_get_favourite_tickers(faker, httpserver, bit2me_api_key, bit2me_api_secret)
+    crypto_analytics_service = CryptoAnalyticsService(bit2me_remote_service=Bit2MeRemoteService())
+    tickers_list = await crypto_analytics_service.get_favourite_tickers()
     assert tickers_list is not None and len(tickers_list) > 0
     httpserver.check_assertions()
 
 
-def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str) -> None:
+def _prepare_httpserver_mock_for_get_favourite_tickers(
+    faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str
+) -> None:
+    favourite_crypto_currency, account_info = _prepare_httpserver_mock_for_favourite_symbols(
+        faker, httpserver, bit2me_api_key, bik2me_api_secret
+    )
+
+    tickers = Bit2MeTickersDtoObjectMother.create(
+        symbol=f"{favourite_crypto_currency}/{account_info.profile.currency_code}"
+    )
+    # Mock call to /v2/trading/tickers
+    httpserver.expect(
+        Bit2MeAPIRequestMacher(
+            "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": tickers.symbol}
+        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        handler_type=HandlerType.ONESHOT,
+    ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
+
+
+def _prepare_httpserver_mock_for_favourite_symbols(
+    faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str
+) -> None:
     registration_year = datetime.now(UTC).year - 1
     # Mock call /v1/currency-favorites/favorites
     favourite_crypto_currency = faker.random_element(["BTC", "ETH", "SOL"])
@@ -54,13 +87,4 @@ def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_ke
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(account_info.model_dump(mode="json", by_alias=True))
 
-    tickers = Bit2MeTickersDtoObjectMother.create(
-        symbol=f"{favourite_crypto_currency}/{account_info.profile.currency_code}"
-    )
-    # Mock call to /v2/trading/tickers
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": tickers.symbol}
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
+    return favourite_crypto_currency, account_info
