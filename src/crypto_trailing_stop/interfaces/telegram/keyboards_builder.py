@@ -42,8 +42,8 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
             InlineKeyboardButton(text="📈 Get Global Summary", callback_data="get_global_summary"),
             InlineKeyboardButton(text="💵 Get Current Prices", callback_data="get_current_prices"),
         )
-        builder.row(InlineKeyboardButton(text="🚥 Last market signals", callback_data="last_market_signals"))
         builder.row(InlineKeyboardButton(text="🚏 Set Stop Loss Percent (%)", callback_data="stop_loss_percent_home"))
+        builder.row(InlineKeyboardButton(text="🚥 Last market signals", callback_data="last_market_signals"))
         builder.row(
             InlineKeyboardButton(text="🚩 Global Flags (Jobs)", callback_data="global_flags_home"),
             InlineKeyboardButton(text="🔔 Notifications", callback_data="push_notificacions_home"),

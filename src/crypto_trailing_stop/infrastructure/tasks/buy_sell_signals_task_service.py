@@ -15,6 +15,7 @@ from crypto_trailing_stop.commons.constants import (
     ANTICIPATION_ZONE_TIMEFRAMES,
     BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN,
     BUY_SELL_RELIABLE_TIMEFRAMES,
+    SIGNALS_EVALUATION_RESULT_EVENT_NAME,
 )
 from crypto_trailing_stop.config import get_event_emitter
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -287,7 +288,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             else:
                 logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
         finally:
-            self._event_emitter.emit("signals_evaluation_result", signals)
+            self._event_emitter.emit(SIGNALS_EVALUATION_RESULT_EVENT_NAME, signals)
 
     async def _notify_rsi_state_alert(
         self,

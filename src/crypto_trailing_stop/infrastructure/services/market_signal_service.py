@@ -1,11 +1,14 @@
 import logging
 
+from crypto_trailing_stop.commons.constants import SIGNALS_EVALUATION_RESULT_EVENT_NAME
 from crypto_trailing_stop.commons.patterns import SingletonABCMeta
 from crypto_trailing_stop.config import get_configuration_properties, get_event_emitter
 from crypto_trailing_stop.infrastructure.database.decorators import transactional
 from crypto_trailing_stop.infrastructure.database.models import MarketSignal
 from crypto_trailing_stop.infrastructure.services.base import AbstractService
+from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import SignalsEvaluationResult
+from crypto_trailing_stop.infrastructure.tasks.vo.types import ReliableTimeframe
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +19,30 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
         self._configuration_properties = get_configuration_properties()
 
     def configure(self) -> None:
-        get_event_emitter().add_listener("signals_evaluation_result", self.on_signals_evaluation_result)
+        get_event_emitter().add_listener(SIGNALS_EVALUATION_RESULT_EVENT_NAME, self.on_signals_evaluation_result)
+
+    async def find_by_symbol(
+        self, symbol: str, *, timeframe: ReliableTimeframe | None = None
+    ) -> list[MarketSignalItem]:
+        query = MarketSignal.objects().where(MarketSignal.symbol == symbol)
+        if timeframe:
+            query = query.where(MarketSignal.timeframe == timeframe)
+        market_signals = await query.order_by(MarketSignal.timestamp, ascending=True)
+        ret = [
+            MarketSignalItem(
+                timestamp=market_signal.timestamp,
+                symbol=market_signal.symbol,
+                timeframe=market_signal.timeframe,
+                signal_type=market_signal.signal_type,
+            )
+            for market_signal in market_signals
+        ]
+        return ret
+
+    async def find_all_symbols(self) -> list[str]:
+        query_result = await MarketSignal.select(MarketSignal.symbol).distinct()
+        ret = [current["symbol"] for current in query_result]
+        return ret
 
     async def on_signals_evaluation_result(self, signals: SignalsEvaluationResult) -> None:
         try:

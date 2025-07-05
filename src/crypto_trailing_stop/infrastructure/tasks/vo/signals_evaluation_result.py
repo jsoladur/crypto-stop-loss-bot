@@ -16,7 +16,7 @@ class SignalsEvaluationResult:
 
     @property
     def is_positive(self) -> bool:
-        return self.buy or self.sell
+        return not self.is_choppy and (self.buy or self.sell)
 
     @property
     def cache_key(self) -> str:
