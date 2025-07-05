@@ -37,7 +37,6 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
                 await self._store_1h_signals(signals)
             case _:
                 logger.info(f"There is no enough reability to store the timeframe {signals.timeframe}")
-        raise NotImplementedError("To be implemented!")
 
     async def _store_4h_signals(self, signals: SignalsEvaluationResult) -> None:
         # 1.) Delete all signals for the symbol,
