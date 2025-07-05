@@ -286,7 +286,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 else:
                     logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
             finally:
-                self._event_emitter.emit("signals_evaluation_result", signals)
+                await self._event_emitter.emit("signals_evaluation_result", signals)
 
     async def _notify_rsi_state_alert(
         self,

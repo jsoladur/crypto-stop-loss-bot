@@ -1,4 +1,4 @@
-import threading
+from abc import ABCMeta
 
 
 class SingletonMeta(type):
@@ -7,11 +7,14 @@ class SingletonMeta(type):
     """
 
     _instances = {}
-    _lock: threading.Lock = threading.Lock()
 
     def __call__(cls, *args, **kwargs):
-        with cls._lock:
-            if cls not in cls._instances:
-                instance = super().__call__(*args, **kwargs)
-                cls._instances[cls] = instance
+        if cls not in cls._instances:
+            instance = super().__call__(*args, **kwargs)
+            cls._instances[cls] = instance
         return cls._instances[cls]
+
+
+# Combined metaclass
+class SingletonABCMeta(SingletonMeta, ABCMeta):
+    pass
