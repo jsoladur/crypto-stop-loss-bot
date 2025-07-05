@@ -17,8 +17,8 @@ keyboards_builder = KeyboardsBuilder()
 market_signal_service = MarketSignalService()
 
 
-@dp.callback_query(lambda c: c.data == "last_market_signals")
-async def last_market_signals_callback_handler(callback_query: CallbackQuery, state: FSMContext) -> None:
+@dp.callback_query(lambda c: c.data == "last_market_signals_home")
+async def last_market_signals_home_callback_handler(callback_query: CallbackQuery, state: FSMContext) -> None:
     is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:

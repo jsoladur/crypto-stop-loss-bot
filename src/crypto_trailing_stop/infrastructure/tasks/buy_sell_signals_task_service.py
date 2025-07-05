@@ -19,7 +19,9 @@ from crypto_trailing_stop.commons.constants import (
 )
 from crypto_trailing_stop.config import get_event_emitter
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
@@ -33,8 +35,10 @@ class BuySellSignalsTaskService(AbstractTaskService):
     def __init__(self):
         super().__init__()
         self._event_emitter = get_event_emitter()
-        self._push_notification_service = PushNotificationService()
+        self._bit2me_remote_service = Bit2MeRemoteService()
         self._ccxt_remote_service = CcxtRemoteService()
+        self._push_notification_service = PushNotificationService()
+        self._crypto_analytics_service = CryptoAnalyticsService(bit2me_remote_service=self._bit2me_remote_service)
         self._last_signal_evalutation_result_cache: dict[str, SignalsEvaluationResult] = {}
 
     @override
@@ -64,34 +68,28 @@ class BuySellSignalsTaskService(AbstractTaskService):
         return trigger
 
     async def _internal_run(self, telegram_chat_ids: list[int]) -> None:
-        async with await self._bit2me_remote_service.get_http_client() as client:
-            favourite_crypto_currencies = await self._bit2me_remote_service.get_favourite_crypto_currencies(
-                client=client
-            )
-            bit2me_account_info = await self._bit2me_remote_service.get_account_info(client=client)
-            symbols = [
-                f"{crypto_currency}/{bit2me_account_info.profile.currency_code}"
-                for crypto_currency in favourite_crypto_currencies
-            ]
-
-            current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = await self._fetch_tickers_by_simbols(
-                symbols, client=client
-            )
-
-            symbol_timeframe_tuples = [(symbol, timeframe) for symbol in symbols for timeframe in get_args(Timeframe)]
-            async with self._ccxt_remote_service.get_binance_exchange_client() as binance_client:
-                for current_symbol, current_timeframe in symbol_timeframe_tuples:
-                    try:
-                        await self._eval_and_notify_signals(
-                            telegram_chat_ids,
-                            symbol=current_symbol,
-                            timeframe=current_timeframe,
-                            tickers=current_tickers_by_symbol[current_symbol],
-                            binance_client=binance_client,
-                        )
-                    except Exception as e:  # pragma: no cover
-                        logger.error(str(e), exc_info=True)
-                        await self._notify_fatal_error_via_telegram(e)
+        favourite_tickers_list = await self._crypto_analytics_service.get_favourite_tickers()
+        current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = {
+            tickers.symbol: tickers for tickers in favourite_tickers_list
+        }
+        symbol_timeframe_tuples = [
+            (symbol, timeframe)
+            for symbol in list(current_tickers_by_symbol.keys())
+            for timeframe in get_args(Timeframe)
+        ]
+        async with self._ccxt_remote_service.get_binance_exchange_client() as binance_client:
+            for current_symbol, current_timeframe in symbol_timeframe_tuples:
+                try:
+                    await self._eval_and_notify_signals(
+                        telegram_chat_ids,
+                        symbol=current_symbol,
+                        timeframe=current_timeframe,
+                        tickers=current_tickers_by_symbol[current_symbol],
+                        binance_client=binance_client,
+                    )
+                except Exception as e:  # pragma: no cover
+                    logger.error(str(e), exc_info=True)
+                    await self._notify_fatal_error_via_telegram(e)
 
     async def _eval_and_notify_signals(
         self,
