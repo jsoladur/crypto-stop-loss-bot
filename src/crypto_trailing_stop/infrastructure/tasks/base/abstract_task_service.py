@@ -8,6 +8,7 @@ from httpx import AsyncClient
 from crypto_trailing_stop.config import get_configuration_properties, get_scheduler
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.database.decorators import transactional
 from crypto_trailing_stop.infrastructure.services.base import AbstractService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 
@@ -31,6 +32,7 @@ class AbstractTaskService(AbstractService, metaclass=ABCMeta):
         if self._job:
             self._job.pause()
 
+    @transactional
     async def run(self) -> None:
         try:
             await self._run()
