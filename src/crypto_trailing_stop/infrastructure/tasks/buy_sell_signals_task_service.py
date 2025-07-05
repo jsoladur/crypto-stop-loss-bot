@@ -269,32 +269,25 @@ class BuySellSignalsTaskService(AbstractTaskService):
         tickers: Bit2MeTickersDto,
         base_symbol: str,
     ) -> None:
-        if signals.is_choppy:
-            message = (
-                f"🟡 - 🫥 {html.bold('CHOPPY MARKET ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}.\n"  # noqa: E501
-                + "🤫 Volatility is low. DO NOT ACT! 🤫"
-            )
-            await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
-        else:
-            try:
-                if signals.buy:
-                    await self._notify_buy_alert(
-                        telegram_chat_ids=telegram_chat_ids,
-                        timeframe=timeframe,
-                        tickers=tickers,
-                        base_symbol=base_symbol,
-                    )
-                elif signals.sell:
-                    await self._notify_sell_alert(
-                        telegram_chat_ids=telegram_chat_ids,
-                        timeframe=timeframe,
-                        tickers=tickers,
-                        base_symbol=base_symbol,
-                    )
-                else:
-                    logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
-            finally:
-                await self._event_emitter.emit("signals_evaluation_result", signals)
+        try:
+            if signals.is_choppy:
+                message = (
+                    f"🟡 - 🫥 {html.bold('CHOPPY MARKET ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}.\n"  # noqa: E501
+                    + "🤫 Volatility is low. DO NOT ACT! 🤫"
+                )
+                await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+            elif signals.buy:
+                await self._notify_buy_alert(
+                    telegram_chat_ids=telegram_chat_ids, timeframe=timeframe, tickers=tickers, base_symbol=base_symbol
+                )
+            elif signals.sell:
+                await self._notify_sell_alert(
+                    telegram_chat_ids=telegram_chat_ids, timeframe=timeframe, tickers=tickers, base_symbol=base_symbol
+                )
+            else:
+                logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
+        finally:
+            await self._event_emitter.emit("signals_evaluation_result", signals)
 
     async def _notify_rsi_state_alert(
         self,
