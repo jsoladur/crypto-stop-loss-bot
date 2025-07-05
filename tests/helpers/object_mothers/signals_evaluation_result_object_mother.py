@@ -14,16 +14,13 @@ class SignalsEvaluationResultObjectMother:
     def list(
         cls, symbol: str | None = None, timeframe: ReliableTimeframe | None = None
     ) -> list[SignalsEvaluationResult]:
-        ret = []
         now = datetime.now(UTC)
-        for delta in range(-2, 0):
-            ret.append(
-                cls.create(
-                    timestamp=now + timedelta(days=delta),
-                    symbol=symbol or cls._faker.random_element(["ETH/EUR", "SOL/EUR"]),
-                    timeframe=timeframe or cls._faker.random_element(list(get_args(ReliableTimeframe))),
-                )
-            )
+        symbol = symbol or cls._faker.random_element(["ETH/EUR", "SOL/EUR"])
+        timeframe = timeframe or cls._faker.random_element(list(get_args(ReliableTimeframe)))
+        ret = [
+            cls.create(timestamp=now + timedelta(days=delta), symbol=symbol, timeframe=timeframe)
+            for delta in range(-2, 0)
+        ]
         return ret
 
     @classmethod
