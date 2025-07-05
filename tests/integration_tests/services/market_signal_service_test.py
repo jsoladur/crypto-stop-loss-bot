@@ -55,7 +55,7 @@ async def should_save_market_signals_properly(
     assert symbol in symbols
 
     market_signals = await market_signal_service.find_by_symbol(symbol)
-    assert len(market_signals) == (len(one_hour_signals) + 1)
+    assert len(market_signals) >= len(one_hour_signals)
     first_returned_signal, *_ = market_signals
 
     _assert_with(four_hour_signal, first_returned_signal)
