@@ -358,7 +358,7 @@ wheels = [
 
 [[package]]
 name = "crypto-trailing-stop"
-version = "0.11.7"
+version = "0.12.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiogram" },
@@ -376,6 +376,7 @@ dependencies = [
     { name = "piccolo", extra = ["sqlite"] },
     { name = "pydantic-settings" },
     { name = "pydash" },
+    { name = "pyee" },
     { name = "ta" },
     { name = "tomli" },
     { name = "uvicorn" },
@@ -412,6 +413,7 @@ requires-dist = [
     { name = "piccolo", extras = ["sqlite"], specifier = ">=1.27.1" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },
     { name = "pydash", specifier = ">=8.0.5" },
+    { name = "pyee", specifier = ">=13.0.0" },
     { name = "ta", specifier = ">=0.11.0" },
     { name = "tomli", specifier = ">=2.2.1" },
     { name = "uvicorn", specifier = ">=0.34.0" },
@@ -1164,6 +1166,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/2f/24/91c037f47e434172c2112d65c00c84d475a6715425e3315ba2cbb7a87e66/pydash-8.0.5.tar.gz", hash = "sha256:7cc44ebfe5d362f4f5f06c74c8684143c5ac481376b059ff02570705523f9e2e", size = 164861, upload-time = "2025-01-17T16:08:50.562Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2c/86/e74c978800131c657fc5145f2c1c63e0cea01a49b6216f729cf77a2e1edf/pydash-8.0.5-py3-none-any.whl", hash = "sha256:b2625f8981862e19911daa07f80ed47b315ce20d9b5eb57aaf97aaf570c3892f", size = 102077, upload-time = "2025-01-17T16:08:47.91Z" },
+]
+
+[[package]]
+name = "pyee"
+version = "13.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/95/03/1fd98d5841cd7964a27d729ccf2199602fe05eb7a405c1462eb7277945ed/pyee-13.0.0.tar.gz", hash = "sha256:b391e3c5a434d1f5118a25615001dbc8f669cf410ab67d04c4d4e07c55481c37", size = 31250, upload-time = "2025-03-17T18:53:15.955Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/4d/b9add7c84060d4c1906abe9a7e5359f2a60f7a9a4f67268b2766673427d8/pyee-13.0.0-py3-none-any.whl", hash = "sha256:48195a3cddb3b1515ce0695ed76036b5ccc2ef3a9f963ff9f77aec0139845498", size = 15730, upload-time = "2025-03-17T18:53:14.532Z" },
 ]
 
 [[package]]

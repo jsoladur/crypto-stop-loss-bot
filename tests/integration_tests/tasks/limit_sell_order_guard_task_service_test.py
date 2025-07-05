@@ -23,7 +23,7 @@ from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, Bit2MeTicke
 from tests.helpers.sell_orders_test_utils import generate_trades
 
 
-@pytest.mark.parametrize("bit2me_error_status_code", [403, 502])
+@pytest.mark.parametrize("bit2me_error_status_code", [403, 500, 502])
 @pytest.mark.asyncio
 async def should_create_market_sell_order_when_price_goes_down_applying_guard(
     faker: Faker, bit2me_error_status_code: int, integration_test_env: tuple[HTTPServer, str]
@@ -39,13 +39,15 @@ async def should_create_market_sell_order_when_price_goes_down_applying_guard(
     _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret, bit2me_error_status_code)
 
     # Provoke send a notification via Telegram
-    push_notification = PushNotification(
-        {
-            PushNotification.telegram_chat_id: faker.random_number(digits=9, fix_len=True),
-            PushNotification.notification_type: PushNotificationTypeEnum.LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT,
-        }
-    )
-    await push_notification.save()
+    telegram_chat_id = faker.random_number(digits=9, fix_len=True)
+    for push_notification_type in PushNotificationTypeEnum:
+        push_notification = PushNotification(
+            {
+                PushNotification.telegram_chat_id: telegram_chat_id,
+                PushNotification.notification_type: push_notification_type,
+            }
+        )
+        await push_notification.save()
 
     limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
         GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD

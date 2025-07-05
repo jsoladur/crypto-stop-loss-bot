@@ -43,7 +43,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
                 previous_used_buy_trade_ids, *_ = await self._handle_single_sell_order(
                     sell_order, current_tickers_by_symbol, previous_used_buy_trade_ids, client=client
                 )
-            except Exception as e:  # pragma: no cover
+            except Exception as e:
                 logger.error(str(e), exc_info=True)
                 await self._notify_fatal_error_via_telegram(e)
 
