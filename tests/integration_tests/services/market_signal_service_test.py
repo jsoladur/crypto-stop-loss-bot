@@ -16,22 +16,19 @@ from tests.helpers.object_mothers import SignalsEvaluationResultObjectMother
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.parametrize("use_event_emitter", [False, True])
 @pytest.mark.asyncio
-async def should_save_market_signals_properly(
-    faker: Faker, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
+async def should_save_market_signals_properly_when_invoke_to_service(
+    faker: Faker, use_event_emitter: bool, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
 ) -> None:
     _ = integration_test_jobs_disabled_env
     market_signal_service = MarketSignalService()
-    event_emitter = get_event_emitter()
 
+    symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
+    one_hour_signals = SignalsEvaluationResultObjectMother.list(timeframe="1h", symbol=symbol)
     # 1. Saving 1h before any 4h signal are ignored!
-    one_hour_signals = SignalsEvaluationResultObjectMother.list(timeframe="1h")
-    signal, *_ = one_hour_signals
-    symbol = signal.symbol
-
     for current in one_hour_signals:
-        event_emitter.emit(SIGNALS_EVALUATION_RESULT_EVENT_NAME, current)
-        await asyncio.sleep(delay=2.0)
+        await _invoke_on_signals_evaluation_result(market_signal_service, current, use_event_emitter=use_event_emitter)
 
     symbols = await market_signal_service.find_all_symbols()
     assert len(symbols) <= 0
@@ -42,13 +39,11 @@ async def should_save_market_signals_properly(
     four_hour_signal = SignalsEvaluationResultObjectMother.create(
         timestamp=datetime.now(UTC) + timedelta(days=-10), timeframe="4h", symbol=symbol
     )
-    event_emitter.emit(SIGNALS_EVALUATION_RESULT_EVENT_NAME, four_hour_signal)
-    await asyncio.sleep(delay=2.0)
+    await _invoke_on_signals_evaluation_result(
+        market_signal_service, four_hour_signal, use_event_emitter=use_event_emitter
+    )
     for current in one_hour_signals:
-        event_emitter.emit(SIGNALS_EVALUATION_RESULT_EVENT_NAME, current)
-        await asyncio.sleep(delay=2.0)
-
-    await asyncio.sleep(delay=5.0)
+        await _invoke_on_signals_evaluation_result(market_signal_service, current, use_event_emitter=use_event_emitter)
 
     symbols = await market_signal_service.find_all_symbols()
     assert len(symbols) >= 1
@@ -67,14 +62,26 @@ async def should_save_market_signals_properly(
     new_four_hour_signal = SignalsEvaluationResultObjectMother.create(
         timestamp=datetime.now(UTC) + timedelta(days=-10), timeframe="4h", symbol=symbol
     )
-    event_emitter.emit(SIGNALS_EVALUATION_RESULT_EVENT_NAME, new_four_hour_signal)
-    await asyncio.sleep(delay=5.0)
+    await _invoke_on_signals_evaluation_result(
+        market_signal_service, new_four_hour_signal, use_event_emitter=use_event_emitter
+    )
 
     market_signals = await market_signal_service.find_by_symbol(symbol)
     assert len(market_signals) >= 1
 
     market_signals_for_1h = await market_signal_service.find_by_symbol(symbol, timeframe="1h")
     assert len(market_signals_for_1h) <= 0
+
+
+async def _invoke_on_signals_evaluation_result(
+    market_signal_service: MarketSignalService, signals: SignalsEvaluationResult, *, use_event_emitter: bool
+) -> None:
+    if use_event_emitter:
+        event_emitter = get_event_emitter()
+        event_emitter.emit(SIGNALS_EVALUATION_RESULT_EVENT_NAME, signals)
+        await asyncio.sleep(delay=1.0)
+    else:
+        await market_signal_service.on_signals_evaluation_result(signals)
 
 
 def _assert_with(expected: SignalsEvaluationResult, returned: MarketSignalItem) -> None:
