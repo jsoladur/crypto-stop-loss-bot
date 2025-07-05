@@ -278,11 +278,19 @@ class BuySellSignalsTaskService(AbstractTaskService):
         else:
             try:
                 if signals.buy:
-                    message = f"🟢 - 🛒 {html.bold('BUY SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"  # noqa: E501
-                    await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+                    await self._notify_buy_alert(
+                        telegram_chat_ids=telegram_chat_ids,
+                        timeframe=timeframe,
+                        tickers=tickers,
+                        base_symbol=base_symbol,
+                    )
                 elif signals.sell:
-                    message = f"🔴 - 🔚 {html.bold('SELL SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"  # noqa: E501
-                    await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+                    await self._notify_sell_alert(
+                        telegram_chat_ids=telegram_chat_ids,
+                        timeframe=timeframe,
+                        tickers=tickers,
+                        base_symbol=base_symbol,
+                    )
                 else:
                     logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
             finally:
@@ -314,11 +322,41 @@ class BuySellSignalsTaskService(AbstractTaskService):
         message = f"{icon} {html.bold(message_title + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}\n{description}"  # noqa: E501
         await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
 
+    async def _notify_buy_alert(
+        self, *, telegram_chat_ids: list[str], timeframe: Timeframe, tickers: Bit2MeTickersDto, base_symbol: str
+    ) -> None:
+        if timeframe == "4h":
+            message = (
+                f"🚀🚀 - 🟢 - {html.bold('STRATEGIC BUY ALERT (4H)')} for {html.bold(base_symbol)}\n"
+                f"A BULLISH TREND is forming. {html.bold('DO NOT BUY YET!')}\n"
+                f"Wait for a pullback and the next {html.bold('BUY 1H signal')} to find a good entry!"
+            )
+        else:
+            message = (
+                f"🟢 - 🛒 {html.bold('BUY SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"  # noqa: E501
+            )
+        await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+
+    async def _notify_sell_alert(
+        self, *, telegram_chat_ids: list[str], timeframe: Timeframe, tickers: Bit2MeTickersDto, base_symbol: str
+    ) -> None:
+        if timeframe == "4h":
+            message = (
+                f"⏬⏬ - 🔴 - {html.bold('STRATEGIC SELL ALERT (4H)')} for {html.bold(base_symbol)}\n"
+                f"A BEARISH TREND is forming. {html.bold('DO NOT SELL YET!')}\n"
+                f"Wait for a bounce and the next {html.bold('SELL 1H signal')} to find a good exit!"
+            )
+        else:
+            message = (
+                f"🔴 - 🔚 {html.bold('SELL SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}!"  # noqa: E501
+            )
+        await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+
     async def _notify_alert(
         self, telegram_chat_ids: list[str], body_message: str, *, tickers: Bit2MeTickersDto
     ) -> None:
         crypto_currency, fiat_currency = tickers.symbol.split("/")
-        message = "⚡⚡ ATTENTION ⚡⚡\n\n"
+        message = f"⚡⚡ {html.bold('ATTENTION')} ⚡⚡\n\n"
         message += f"{body_message}\n"
         message += html.bold(f"🔥 {crypto_currency} current price is {tickers.close} {fiat_currency}")
         for tg_chat_id in telegram_chat_ids:
