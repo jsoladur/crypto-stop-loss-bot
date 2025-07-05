@@ -106,3 +106,10 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
             )
         builder.row(InlineKeyboardButton(text="<< Back", callback_data="go_back_home"))
         return builder.as_markup()
+
+    def get_last_market_signals_symbols_keyboard(self, symbols: str) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        for symbol in symbols:
+            builder.row(InlineKeyboardButton(text=f"🔥 {symbol}", callback_data=f"show_last_market_signals$${symbol}"))
+        builder.row(InlineKeyboardButton(text="<< Back", callback_data="go_back_home"))
+        return builder.as_markup()
