@@ -43,10 +43,7 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
         # 1.) Delete all signals for the symbol,
         # since a new 4h market sentiment switcher has appeared
         await MarketSignal.delete().where(MarketSignal.symbol == signals.symbol)
-        new_market_signal = MarketSignal(
-            symbol=signals.symbol, timeframe=signals.timeframe, signal_type="buy" if signals.buy else "sell"
-        )
-        await new_market_signal.save()
+        await self._save_new_market_signal(signals)
 
     async def _store_1h_signals(self, signals: SignalsEvaluationResult) -> None:
         count = (
@@ -57,4 +54,11 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
         # If there is no 4h signal previously stored,
         # any 1h signal is ignored, since we do not know what the market sentiment is!
         if count > 0:
-            raise NotImplementedError("To be implemented!")
+            await self._save_new_market_signal(signals)
+
+    async def _save_new_market_signal(self, signals: SignalsEvaluationResult) -> MarketSignal:
+        new_market_signal = MarketSignal(
+            symbol=signals.symbol, timeframe=signals.timeframe, signal_type="buy" if signals.buy else "sell"
+        )
+        await new_market_signal.save()
+        return new_market_signal
