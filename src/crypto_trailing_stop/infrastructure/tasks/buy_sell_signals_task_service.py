@@ -185,7 +185,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             # Calculate RSI Anticipation Zone (RSI)
             rsi_state = self._get_rsi_for_anticipation_zone(last)
             # Use a threshold of 0 for 1H signals to disable the proximity check
-            proximity_threshold, volatility_threshold = self._get_proximity_and_volatility_thresholds(timeframe)
+            volatility_threshold = self._get_volatility_threshold(timeframe)
             min_volatility_threshold = last["close"] * volatility_threshold
             is_choppy = bool(last["atr"] < min_volatility_threshold)
             if is_choppy:
@@ -198,12 +198,12 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 logger.info(
                     f"{symbol} - ({timeframe.upper()}) :: "
                     + f"Market is trending (ATR {last['atr']:.2f} >= Threshold {min_volatility_threshold:.2f}). "
-                    + f"Checking for signals with proximity threshold: {proximity_threshold:.2f}"
+                    + "Checking for signals..."
                 )
                 # A proximity_threshold of 0 effectively disables the proximity check
-                buy_signal = self._calculate_buy_signal(prev, last, proximity_threshold)
+                buy_signal = self._calculate_buy_signal(prev, last)
                 # Sell Signal Logic
-                sell_signal = self._calculate_sell_signal(prev, last, proximity_threshold)
+                sell_signal = self._calculate_sell_signal(prev, last)
         ret = SignalsEvaluationResult(
             timestamp=timestamp,
             symbol=symbol,
@@ -215,26 +215,15 @@ class BuySellSignalsTaskService(AbstractTaskService):
         )
         return ret
 
-    def _calculate_buy_signal(self, prev: pd.Series, last: pd.Series, proximity_threshold: float) -> bool:
-        use_proximity = proximity_threshold > 0
+    def _calculate_buy_signal(self, prev: pd.Series, last: pd.Series) -> bool:
         # Buy Signal Logic
         ema_bullish_cross = prev["ema_short"] <= prev["ema_mid"] and last["ema_short"] > last["ema_mid"]
-        ema_bullish_proximity = use_proximity and (
-            last["ema_short"] > last["ema_mid"]
-            and abs(last["ema_short"] - last["ema_mid"]) / last["ema_mid"] < proximity_threshold
-        )
-        buy_signal = (ema_bullish_cross or ema_bullish_proximity) and last["macd_hist"] > 0
-
+        buy_signal = ema_bullish_cross and last["macd_hist"] > 0
         return bool(buy_signal)
 
-    def _calculate_sell_signal(self, prev: pd.Series, last: pd.Series, proximity_threshold: float) -> bool:
-        use_proximity = proximity_threshold > 0
+    def _calculate_sell_signal(self, prev: pd.Series, last: pd.Series) -> bool:
         ema_bearish_cross = prev["ema_short"] >= prev["ema_mid"] and last["ema_short"] < last["ema_mid"]
-        ema_bearish_proximity = use_proximity and (
-            last["ema_short"] < last["ema_mid"]
-            and abs(last["ema_short"] - last["ema_mid"]) / last["ema_mid"] < proximity_threshold
-        )
-        sell_signal = (ema_bearish_cross or ema_bearish_proximity) and last["macd_hist"] < 0
+        sell_signal = ema_bearish_cross and last["macd_hist"] < 0
 
         return bool(sell_signal)
 
@@ -247,11 +236,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             rsi_state = "neutral"
         return rsi_state
 
-    def _get_proximity_and_volatility_thresholds(self, timeframe: Timeframe) -> tuple[float, float]:
-        # EMA Proximity threshold
-        proximity_threshold = (
-            self._configuration_properties.buy_sell_signals_proximity_threshold if timeframe == "4h" else 0
-        )
+    def _get_volatility_threshold(self, timeframe: Timeframe) -> float:
         # XXX: [JMSOLA] Volatility Filter Logic
         # Only proceed if the market has meaningful volatility.
         # Here, we define "meaningful" as an ATR value that is at least 0.5% of the closing price
@@ -261,7 +246,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             if timeframe == "4h"
             else self._configuration_properties.buy_sell_signals_1h_volatility_threshold
         )
-        return proximity_threshold, volatility_threshold
+        return volatility_threshold
 
     async def _notify_anticipation_zone_alerts(
         self,
