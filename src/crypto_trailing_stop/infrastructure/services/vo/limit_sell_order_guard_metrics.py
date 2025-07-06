@@ -6,6 +6,10 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import B
 @dataclass
 class LimitSellOrderGuardMetrics:
     sell_order: Bit2MeOrderDto
-    stop_loss_percent_value: float
     avg_buy_price: float | int
+    # Fixed by myself
+    stop_loss_percent_value: float
     safeguard_stop_price: float | int
+    # Suggested and dinamically calculated based on current volatility
+    suggested_stop_loss_percent_value: float
+    suggested_safeguard_stop_price: float
