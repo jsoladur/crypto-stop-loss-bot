@@ -5,6 +5,10 @@ from aiogram import html
 from apscheduler.triggers.interval import IntervalTrigger
 from httpx import AsyncClient
 
+from crypto_trailing_stop.commons.constants import (
+    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
+    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
+)
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
@@ -65,12 +69,17 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         (safeguard_stop_price, *_) = await self._orders_analytics_service.calculate_safeguard_stop_price(
             sell_order, avg_buy_price
         )
+        tickers = current_tickers_by_symbol[sell_order.symbol]
+        tickers_close_formatted = round(
+            tickers.close,
+            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+        )
         logger.info(
             f"Supervising {sell_order.order_type.upper()} SELL order {repr(sell_order)}: "
             + f"Avg Buy Price = {avg_buy_price} {fiat_currency} / "
-            + f"Safeguard Stop Price = {safeguard_stop_price} {fiat_currency}"
+            + f"Safeguard Stop Price = {safeguard_stop_price} {fiat_currency} / "
+            + f"Current Price = {tickers_close_formatted} {fiat_currency}"
         )
-        tickers = current_tickers_by_symbol[sell_order.symbol]
         if self._is_moment_to_exit(tickers, safeguard_stop_price):
             # Cancel current take-profit sell limit order
             await self._bit2me_remote_service.cancel_order_by_id(sell_order.id, client=client)
