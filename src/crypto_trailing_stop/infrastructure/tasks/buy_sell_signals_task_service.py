@@ -150,11 +150,17 @@ class BuySellSignalsTaskService(AbstractTaskService):
     def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         logger.info("Calculating indicators...")
         # Exponential Moving Average (EMA) 9
-        df["ema9"] = EMAIndicator(df["close"], window=9).ema_indicator()
+        df["ema_short"] = EMAIndicator(
+            df["close"], window=self._configuration_properties.buy_sell_signals_ema_short_value
+        ).ema_indicator()
         # Exponential Moving Average (EMA) 21
-        df["ema21"] = EMAIndicator(df["close"], window=21).ema_indicator()
+        df["ema_mid"] = EMAIndicator(
+            df["close"], window=self._configuration_properties.buy_sell_signals_ema_mid_value
+        ).ema_indicator()
         # Exponential Moving Average (EMA) 200
-        df["ema200"] = EMAIndicator(df["close"], window=200).ema_indicator()
+        df["ema_long"] = EMAIndicator(
+            df["close"], window=self._configuration_properties.buy_sell_signals_ema_long_value
+        ).ema_indicator()
         # Moving Average Convergence Divergence (MACD)
         macd = MACD(df["close"], window_slow=26, window_fast=12, window_sign=9)
         df["macd_hist"] = macd.macd_diff()
@@ -212,9 +218,10 @@ class BuySellSignalsTaskService(AbstractTaskService):
     def _calculate_buy_signal(self, prev: pd.Series, last: pd.Series, proximity_threshold: float) -> bool:
         use_proximity = proximity_threshold > 0
         # Buy Signal Logic
-        ema_bullish_cross = prev["ema9"] <= prev["ema21"] and last["ema9"] > last["ema21"]
+        ema_bullish_cross = prev["ema_short"] <= prev["ema_mid"] and last["ema_short"] > last["ema_mid"]
         ema_bullish_proximity = use_proximity and (
-            last["ema9"] > last["ema21"] and abs(last["ema9"] - last["ema21"]) / last["ema21"] < proximity_threshold
+            last["ema_short"] > last["ema_mid"]
+            and abs(last["ema_short"] - last["ema_mid"]) / last["ema_mid"] < proximity_threshold
         )
         buy_signal = (ema_bullish_cross or ema_bullish_proximity) and last["macd_hist"] > 0
 
@@ -222,9 +229,10 @@ class BuySellSignalsTaskService(AbstractTaskService):
 
     def _calculate_sell_signal(self, prev: pd.Series, last: pd.Series, proximity_threshold: float) -> bool:
         use_proximity = proximity_threshold > 0
-        ema_bearish_cross = prev["ema9"] >= prev["ema21"] and last["ema9"] < last["ema21"]
+        ema_bearish_cross = prev["ema_short"] >= prev["ema_mid"] and last["ema_short"] < last["ema_mid"]
         ema_bearish_proximity = use_proximity and (
-            last["ema9"] < last["ema21"] and abs(last["ema9"] - last["ema21"]) / last["ema21"] < proximity_threshold
+            last["ema_short"] < last["ema_mid"]
+            and abs(last["ema_short"] - last["ema_mid"]) / last["ema_mid"] < proximity_threshold
         )
         sell_signal = (ema_bearish_cross or ema_bearish_proximity) and last["macd_hist"] < 0
 
