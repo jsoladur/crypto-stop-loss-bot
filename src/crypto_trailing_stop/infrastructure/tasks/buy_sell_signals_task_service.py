@@ -23,6 +23,7 @@ from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service i
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
+from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import SignalsEvaluationResult
@@ -37,21 +38,49 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self._event_emitter = get_event_emitter()
         self._bit2me_remote_service = Bit2MeRemoteService()
         self._ccxt_remote_service = CcxtRemoteService()
+        self._global_flag_service = GlobalFlagService()
         self._push_notification_service = PushNotificationService()
         self._crypto_analytics_service = CryptoAnalyticsService(bit2me_remote_service=self._bit2me_remote_service)
         self._last_signal_evalutation_result_cache: dict[str, SignalsEvaluationResult] = {}
+        self._job = self._create_job()
+
+    @override
+    async def start(self) -> None:
+        """
+        Start method does not do anything,
+        this job will be running every time to collect buy/sell signals
+        """
+
+    @override
+    async def stop(self) -> None:
+        """
+        Start method does not do anything,
+        this job will be running every time to collect buy/sell signals
+        """
 
     @override
     async def _run(self) -> None:
-        telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
-            notification_type=PushNotificationTypeEnum.BUY_SELL_STRATEGY_ALERT
-        )
-        if telegram_chat_ids:
-            await self._internal_run(telegram_chat_ids)
-        else:  # pragma: no cover
-            logger.info(
-                "There are no Telegram chat subscriptions for sending the alerts... Skipping to calculate them!"
-            )
+        favourite_tickers_list = await self._crypto_analytics_service.get_favourite_tickers()
+        current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = {
+            tickers.symbol: tickers for tickers in favourite_tickers_list
+        }
+        symbol_timeframe_tuples = [
+            (symbol, timeframe)
+            for symbol in list(current_tickers_by_symbol.keys())
+            for timeframe in get_args(Timeframe)
+        ]
+        async with self._ccxt_remote_service.get_binance_exchange_client() as binance_client:
+            for current_symbol, current_timeframe in symbol_timeframe_tuples:
+                try:
+                    await self._eval_and_notify_signals(
+                        symbol=current_symbol,
+                        timeframe=current_timeframe,
+                        tickers=current_tickers_by_symbol[current_symbol],
+                        binance_client=binance_client,
+                    )
+                except Exception as e:  # pragma: no cover
+                    logger.error(str(e), exc_info=True)
+                    await self._notify_fatal_error_via_telegram(e)
 
     @override
     def get_global_flag_type(self) -> GlobalFlagTypeEnum:
@@ -67,65 +96,45 @@ class BuySellSignalsTaskService(AbstractTaskService):
             trigger = IntervalTrigger(seconds=self._configuration_properties.job_interval_seconds)
         return trigger
 
-    async def _internal_run(self, telegram_chat_ids: list[int]) -> None:
-        favourite_tickers_list = await self._crypto_analytics_service.get_favourite_tickers()
-        current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = {
-            tickers.symbol: tickers for tickers in favourite_tickers_list
-        }
-        symbol_timeframe_tuples = [
-            (symbol, timeframe)
-            for symbol in list(current_tickers_by_symbol.keys())
-            for timeframe in get_args(Timeframe)
-        ]
-        async with self._ccxt_remote_service.get_binance_exchange_client() as binance_client:
-            for current_symbol, current_timeframe in symbol_timeframe_tuples:
-                try:
-                    await self._eval_and_notify_signals(
-                        telegram_chat_ids,
-                        symbol=current_symbol,
-                        timeframe=current_timeframe,
-                        tickers=current_tickers_by_symbol[current_symbol],
-                        binance_client=binance_client,
-                    )
-                except Exception as e:  # pragma: no cover
-                    logger.error(str(e), exc_info=True)
-                    await self._notify_fatal_error_via_telegram(e)
-
     async def _eval_and_notify_signals(
-        self,
-        telegram_chat_ids: list[str],
-        *,
-        symbol: str,
-        timeframe: Timeframe,
-        tickers: Bit2MeTickersDto,
-        binance_client: ccxt.Exchange,
+        self, symbol: str, timeframe: Timeframe, tickers: Bit2MeTickersDto, binance_client: ccxt.Exchange
     ) -> None:
         df = await self._ccxt_remote_service.fetch_ohlcv(symbol, timeframe, exchange_client=binance_client)
         df_with_indicators = self._calculate_indicators(df)
         # Use the default, wider threshold for 4H signals
-        # Use a threshold of 0 for 1H signals to disable the proximity check
         signals = self._check_signals(symbol, timeframe, df_with_indicators)
         if self._are_new_signals(signals):
-            logger.info("Notifying new signals!!")
-            base_symbol = symbol.split("/")[0].strip().upper()
-            # 1. Report RSI Anticipation Zones
-            if timeframe in ANTICIPATION_ZONE_TIMEFRAMES:
-                await self._notify_anticipation_zone_alerts(
-                    signals,
-                    telegram_chat_ids=telegram_chat_ids,
-                    timeframe=timeframe,
-                    tickers=tickers,
-                    base_symbol=base_symbol,
-                )
-            # 2. Report Confirmation Signals (now identical for both timeframes)
-            elif timeframe in BUY_SELL_RELIABLE_TIMEFRAMES:
-                await self._notify_reliable_alerts(
-                    signals,
-                    telegram_chat_ids=telegram_chat_ids,
-                    timeframe=timeframe,
-                    tickers=tickers,
-                    base_symbol=base_symbol,
-                )
+            try:
+                is_enabled_for = await self._global_flag_service.is_enabled_for(self.get_global_flag_type())
+                if is_enabled_for:
+                    telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
+                        notification_type=PushNotificationTypeEnum.BUY_SELL_STRATEGY_ALERT
+                    )
+                    if telegram_chat_ids:
+                        logger.info(
+                            f"Notifying new signals to the Telegram Chat ids: {', '.join(map(lambda tci: str(tci), telegram_chat_ids))}!!"  # noqa: E501
+                        )
+                        base_symbol = symbol.split("/")[0].strip().upper()
+                        # 1. Report RSI Anticipation Zones
+                        if timeframe in ANTICIPATION_ZONE_TIMEFRAMES:
+                            await self._notify_anticipation_zone_alerts(
+                                signals,
+                                telegram_chat_ids=telegram_chat_ids,
+                                timeframe=timeframe,
+                                tickers=tickers,
+                                base_symbol=base_symbol,
+                            )
+                        # 2. Report Confirmation Signals (now identical for both timeframes)
+                        elif timeframe in BUY_SELL_RELIABLE_TIMEFRAMES:
+                            await self._notify_reliable_alerts(
+                                signals,
+                                telegram_chat_ids=telegram_chat_ids,
+                                timeframe=timeframe,
+                                tickers=tickers,
+                                base_symbol=base_symbol,
+                            )
+            finally:
+                self._event_emitter.emit(SIGNALS_EVALUATION_RESULT_EVENT_NAME, signals)
         else:  # pragma: no cover
             logger.info("Calculated signals were already notified previously!")
 
@@ -169,6 +178,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             timestamp = last["timestamp"].timestamp()
             # Calculate RSI Anticipation Zone (RSI)
             rsi_state = self._get_rsi_for_anticipation_zone(last)
+            # Use a threshold of 0 for 1H signals to disable the proximity check
             proximity_threshold, volatility_threshold = self._get_proximity_and_volatility_thresholds(timeframe)
             min_volatility_threshold = last["close"] * volatility_threshold
             is_choppy = bool(last["atr"] < min_volatility_threshold)
@@ -268,25 +278,22 @@ class BuySellSignalsTaskService(AbstractTaskService):
         tickers: Bit2MeTickersDto,
         base_symbol: str,
     ) -> None:
-        try:
-            if signals.is_choppy:
-                message = (
-                    f"🟡 - 🫥 {html.bold('CHOPPY MARKET ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}.\n"  # noqa: E501
-                    + "🤫 Volatility is low. DO NOT ACT! 🤫"
-                )
-                await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
-            elif signals.buy:
-                await self._notify_buy_alert(
-                    telegram_chat_ids=telegram_chat_ids, timeframe=timeframe, tickers=tickers, base_symbol=base_symbol
-                )
-            elif signals.sell:
-                await self._notify_sell_alert(
-                    telegram_chat_ids=telegram_chat_ids, timeframe=timeframe, tickers=tickers, base_symbol=base_symbol
-                )
-            else:
-                logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
-        finally:
-            self._event_emitter.emit(SIGNALS_EVALUATION_RESULT_EVENT_NAME, signals)
+        if signals.is_choppy:
+            message = (
+                f"🟡 - 🫥 {html.bold('CHOPPY MARKET ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}.\n"  # noqa: E501
+                + "🤫 Volatility is low. DO NOT ACT! 🤫"
+            )
+            await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+        elif signals.buy:
+            await self._notify_buy_alert(
+                telegram_chat_ids=telegram_chat_ids, timeframe=timeframe, tickers=tickers, base_symbol=base_symbol
+            )
+        elif signals.sell:
+            await self._notify_sell_alert(
+                telegram_chat_ids=telegram_chat_ids, timeframe=timeframe, tickers=tickers, base_symbol=base_symbol
+            )
+        else:
+            logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
 
     async def _notify_rsi_state_alert(
         self,

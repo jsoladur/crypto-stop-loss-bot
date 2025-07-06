@@ -15,6 +15,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.trailing_stop_loss_task_service import TrailingStopLossTaskService
+from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, Bit2MeTickersDtoObjectMother
 
@@ -29,6 +30,8 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
     """
     # Mock the Bit2Me API
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+    # Disable all jobs by default for test purposes!
+    await disable_all_background_jobs_except()
 
     task_manager = get_task_manager_instance()
 

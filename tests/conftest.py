@@ -12,7 +12,6 @@ from fastapi import FastAPI
 from pytest_httpserver import HTTPServer
 
 from crypto_trailing_stop import config
-from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 
 main_module: ModuleType | None = None
 
@@ -86,8 +85,6 @@ async def integration_test_env(httpserver_test_env: tuple[HTTPServer, str]) -> A
     else:
         main_module = import_module("crypto_trailing_stop.main")
     async with LifespanManager(main_module.app) as manager:
-        # Disable all jobs by default for test purposes!
-        await disable_all_background_jobs_except()
         yield (manager.app, httpserver, bit2me_api_key, bit2me_api_secret)
     # Cleanup
     httpserver.clear()
