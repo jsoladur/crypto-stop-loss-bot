@@ -11,10 +11,15 @@ from crypto_trailing_stop.commons.constants import (
     NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
     TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD,
 )
+from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.services import OrdersAnalyticsService
+from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
+from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
+from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
+from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTradingTaskService
 
@@ -24,7 +29,16 @@ logger = logging.getLogger(__name__)
 class TrailingStopLossTaskService(AbstractTradingTaskService):
     def __init__(self):
         super().__init__()
-        self._orders_analytics_service = OrdersAnalyticsService()
+        self._configuration_properties = get_configuration_properties()
+        self._orders_analytics_service = OrdersAnalyticsService(
+            bit2me_remote_service=self._bit2me_remote_service,
+            stop_loss_percent_service=StopLossPercentService(
+                bit2me_remote_service=self._bit2me_remote_service, global_flag_service=GlobalFlagService()
+            ),
+            crypto_analytics_service=CryptoAnalyticsService(
+                bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=CcxtRemoteService()
+            ),
+        )
         self._trailing_stop_loss_price_decrease_threshold = 1 - TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD
 
     @override

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Query, Request, Response, status
 
 from crypto_trailing_stop.commons.constants import AUTHORIZED_GOOGLE_USER_EMAILS
 from crypto_trailing_stop.config import get_configuration_properties, get_oauth_context
-from crypto_trailing_stop.infrastructure.services import SessionStorageService
+from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.dtos.login_dto import LoginDto
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from crypto_trailing_stop.interfaces.telegram.services import TelegramService
