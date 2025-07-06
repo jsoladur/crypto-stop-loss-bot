@@ -70,9 +70,18 @@ async def handle_persist_stop_loss_callback(callback_query: CallbackQuery, state
                         )
                     answer_text += (
                         ":\n"
-                        + f"    * 📈 {html.bold('Avg. Costs')} = {metrics.avg_buy_price} {fiat_currency}\n"
+                        + f"    * 💳 {html.bold('Avg. Costs')} = {metrics.avg_buy_price} {fiat_currency}\n"
                         + f"    * 🚏 {html.bold('Stop Loss')} = {metrics.stop_loss_percent_value}%\n"
-                        + f"    * 🛡️ {html.bold('Safeguard Stop Price: ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}"  # noqa: E501
+                        + f"    * 🛡️ {html.bold('Safeguard Stop Price = ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}"  # noqa: E501
+                    )
+                    answer_text += (
+                        "\n📏 "
+                        + html.bold("HINTS (ATR Volatility-based)")
+                        + " 📏\n"
+                        + f"    * 📏 {html.italic('Current ATR')} = ±{metrics.current_attr_value} {fiat_currency}\n"
+                        + f"    * 🚏 {html.bold('Suggested Stop Loss')} = {metrics.suggested_stop_loss_percent_value}%\n"  # noqa: E501
+                        + f"    * 💰 {html.bold('Suggested Safeguard Stop Price')} = {metrics.suggested_safeguard_stop_price} {fiat_currency}\n"  # noqa: E501
+                        + f"    * 🎯 {html.bold('Suggested Take Profit Price')} = {metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
                     )
                     if idx + 1 < len(limit_sell_order_guard_metrics_list):
                         answer_text += "\n\n"

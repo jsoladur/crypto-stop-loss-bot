@@ -71,7 +71,12 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
                         avg_buy_price=avg_buy_price,
                         stop_loss_percent_value=stop_loss_percent_item.value,
                         safeguard_stop_price=safeguard_stop_price,
-                        current_attr_value=atr_value,
+                        current_attr_value=round(
+                            atr_value,
+                            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
+                                sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
+                            ),
+                        ),
                         suggested_safeguard_stop_price=suggested_safeguard_stop_price,
                         suggested_stop_loss_percent_value=suggested_stop_loss_percent_value,
                         suggested_take_profit_limit_price=suggested_take_profit_limit_price,
@@ -137,7 +142,6 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
     def calculate_suggested_safeguard_stop_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float, technical_indicators: pd.DataFrame
     ) -> tuple[float, float]:
-        # Suggested Stop Loss Price=Buy Price−(ATR Multiplier×ATR)
         last = technical_indicators.iloc[-2]  # Last confirmed candle
         atr_value = last["atr"]
         suggested_safeguard_stop_price = round(
@@ -149,7 +153,6 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
     def calculate_suggested_take_profit_limit_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float, technical_indicators: pd.DataFrame
     ) -> tuple[float, float]:
-        # Suggested Stop Loss Price=Buy Price−(ATR Multiplier×ATR)
         last = technical_indicators.iloc[-2]  # Last confirmed candle
         atr_value = last["atr"]
         suggested_safeguard_stop_price = round(
