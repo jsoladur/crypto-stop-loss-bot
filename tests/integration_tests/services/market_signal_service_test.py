@@ -39,11 +39,11 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     assert len(market_signals) <= 0
 
     # 2. Saving 4h signal and then 1h later on, it works!
-    four_hour_signal = SignalsEvaluationResultObjectMother.create(
+    first_four_hour_signal = SignalsEvaluationResultObjectMother.create(
         timestamp=datetime.now(UTC) + timedelta(days=-10), timeframe="4h", symbol=symbol
     )
     await _invoke_on_signals_evaluation_result(
-        market_signal_service, four_hour_signal, use_event_emitter=use_event_emitter
+        market_signal_service, first_four_hour_signal, use_event_emitter=use_event_emitter
     )
     for current in one_hour_signals:
         await _invoke_on_signals_evaluation_result(market_signal_service, current, use_event_emitter=use_event_emitter)
@@ -58,7 +58,7 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     assert len(market_signals) == (len(one_hour_signals) + 1)
     first_returned_signal, *_ = market_signals
 
-    _assert_with(four_hour_signal, first_returned_signal)
+    _assert_with(first_four_hour_signal, first_returned_signal)
 
     market_signals_for_1h = await market_signal_service.find_by_symbol(symbol, timeframe="1h")
     assert len(market_signals_for_1h) == len(one_hour_signals)
@@ -66,12 +66,35 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     market_signals_for_30m = await market_signal_service.find_by_symbol(symbol, timeframe="30m")
     assert len(market_signals_for_30m) <= 0
 
-    # 3. Creating a new market signal for 4h, all 1h hour are deleted
-    new_four_hour_signal = SignalsEvaluationResultObjectMother.create(
-        timestamp=datetime.now(UTC) + timedelta(days=-10), timeframe="4h", symbol=symbol
+    # 3. 4h signals in the same trend is ignored
+    new_four_hour_signal_same_trend = SignalsEvaluationResultObjectMother.create(
+        timestamp=datetime.now(UTC) + timedelta(days=-10), timeframe="4h", symbol=symbol, buy=first_four_hour_signal.buy
     )
     await _invoke_on_signals_evaluation_result(
-        market_signal_service, new_four_hour_signal, use_event_emitter=use_event_emitter
+        market_signal_service, new_four_hour_signal_same_trend, use_event_emitter=use_event_emitter
+    )
+    market_signals = await market_signal_service.find_by_symbol(symbol)
+    assert len(market_signals) == (len(one_hour_signals) + 1)
+    first_returned_signal, *_ = market_signals
+
+    _assert_with(first_four_hour_signal, first_returned_signal)
+
+    market_signals_for_1h = await market_signal_service.find_by_symbol(symbol, timeframe="1h")
+    assert len(market_signals_for_1h) == len(one_hour_signals)
+
+    market_signals_for_30m = await market_signal_service.find_by_symbol(symbol, timeframe="30m")
+    assert len(market_signals_for_30m) <= 0
+
+    # 4. Creating a new market signal for 4h, which switches market in the against direction, so then
+    # all 1h hour should be deleted
+    new_four_hour_signal_against_trend = SignalsEvaluationResultObjectMother.create(
+        timestamp=datetime.now(UTC) + timedelta(days=-10),
+        timeframe="4h",
+        symbol=symbol,
+        buy=not first_four_hour_signal.buy,
+    )
+    await _invoke_on_signals_evaluation_result(
+        market_signal_service, new_four_hour_signal_against_trend, use_event_emitter=use_event_emitter
     )
 
     market_signals = await market_signal_service.find_by_symbol(symbol)
