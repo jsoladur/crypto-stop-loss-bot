@@ -14,9 +14,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
             message_lines.append(f"⚠️ No market signals found for {html.bold(symbol)}.")
         else:
             for signal in market_signals:
-                formatted_timestamp = signal.timestamp.astimezone(ZoneInfo("Europe/Madrid")).strftime(
-                    "%d-%m-%Y %H:%M:%S"
-                )
+                formatted_timestamp = signal.timestamp.astimezone(ZoneInfo("Europe/Madrid")).strftime("%d-%m-%Y %H:%M")
                 timeframe = signal.timeframe.lower()
                 signal_type = signal.signal_type.lower()
 
