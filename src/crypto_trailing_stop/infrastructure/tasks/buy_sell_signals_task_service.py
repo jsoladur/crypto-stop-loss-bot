@@ -7,9 +7,6 @@ import pandas as pd
 from aiogram import html
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from ta.momentum import RSIIndicator
-from ta.trend import MACD, EMAIndicator
-from ta.volatility import AverageTrueRange  # Import ATR indicator
 
 from crypto_trailing_stop.commons.constants import (
     ANTICIPATION_ZONE_TIMEFRAMES,
@@ -17,7 +14,7 @@ from crypto_trailing_stop.commons.constants import (
     BUY_SELL_RELIABLE_TIMEFRAMES,
     SIGNALS_EVALUATION_RESULT_EVENT_NAME,
 )
-from crypto_trailing_stop.config import get_event_emitter
+from crypto_trailing_stop.config import get_configuration_properties, get_event_emitter
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
@@ -35,12 +32,14 @@ logger = logging.getLogger(__name__)
 class BuySellSignalsTaskService(AbstractTaskService):
     def __init__(self):
         super().__init__()
+        self._configuration_properties = get_configuration_properties()
         self._event_emitter = get_event_emitter()
         self._bit2me_remote_service = Bit2MeRemoteService()
-        self._ccxt_remote_service = CcxtRemoteService()
         self._global_flag_service = GlobalFlagService()
         self._push_notification_service = PushNotificationService()
-        self._crypto_analytics_service = CryptoAnalyticsService(bit2me_remote_service=self._bit2me_remote_service)
+        self._crypto_analytics_service = CryptoAnalyticsService(
+            bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=CcxtRemoteService()
+        )
         self._last_signal_evalutation_result_cache: dict[str, SignalsEvaluationResult] = {}
         self._job = self._create_job()
 
@@ -69,14 +68,14 @@ class BuySellSignalsTaskService(AbstractTaskService):
             for symbol in list(current_tickers_by_symbol.keys())
             for timeframe in get_args(Timeframe)
         ]
-        async with self._ccxt_remote_service.get_binance_exchange_client() as binance_client:
+        async with self._crypto_analytics_service.get_exchange_client() as exchange_client:
             for current_symbol, current_timeframe in symbol_timeframe_tuples:
                 try:
                     await self._eval_and_notify_signals(
                         symbol=current_symbol,
                         timeframe=current_timeframe,
                         tickers=current_tickers_by_symbol[current_symbol],
-                        binance_client=binance_client,
+                        exchange_client=exchange_client,
                     )
                 except Exception as e:  # pragma: no cover
                     logger.error(str(e), exc_info=True)
@@ -97,10 +96,11 @@ class BuySellSignalsTaskService(AbstractTaskService):
         return trigger
 
     async def _eval_and_notify_signals(
-        self, symbol: str, timeframe: Timeframe, tickers: Bit2MeTickersDto, binance_client: ccxt.Exchange
+        self, symbol: str, timeframe: Timeframe, tickers: Bit2MeTickersDto, exchange_client: ccxt.Exchange
     ) -> None:
-        df = await self._ccxt_remote_service.fetch_ohlcv(symbol, timeframe, exchange_client=binance_client)
-        df_with_indicators = self._calculate_indicators(df)
+        df_with_indicators = await self._crypto_analytics_service.calculate_technical_indicators(
+            symbol, timeframe=timeframe, exchange_client=exchange_client
+        )
         # Use the default, wider threshold for 4H signals
         signals = self._check_signals(symbol, timeframe, df_with_indicators)
         if self._are_new_signals(signals):
@@ -146,32 +146,6 @@ class BuySellSignalsTaskService(AbstractTaskService):
             logger.info(f"Previous ({repr(previous_signals)}) != Current ({repr(current_signals)}) ? {is_new_signals}")
         self._last_signal_evalutation_result_cache[current_signals.cache_key] = current_signals
         return is_new_signals
-
-    def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
-        logger.info("Calculating indicators...")
-        # Exponential Moving Average (EMA) 9
-        df["ema_short"] = EMAIndicator(
-            df["close"], window=self._configuration_properties.buy_sell_signals_ema_short_value
-        ).ema_indicator()
-        # Exponential Moving Average (EMA) 21
-        df["ema_mid"] = EMAIndicator(
-            df["close"], window=self._configuration_properties.buy_sell_signals_ema_mid_value
-        ).ema_indicator()
-        # Exponential Moving Average (EMA) 200
-        df["ema_long"] = EMAIndicator(
-            df["close"], window=self._configuration_properties.buy_sell_signals_ema_long_value
-        ).ema_indicator()
-        # Moving Average Convergence Divergence (MACD)
-        macd = MACD(df["close"], window_slow=26, window_fast=12, window_sign=9)
-        df["macd_hist"] = macd.macd_diff()
-        # Relative Strength Index (RSI)
-        df["rsi"] = RSIIndicator(df["close"], window=14).rsi()
-        # Average True Range (ATR)
-        df["atr"] = AverageTrueRange(df["high"], df["low"], df["close"], window=14).average_true_range()
-        df.dropna(inplace=True)
-        df.reset_index(drop=True, inplace=True)
-        logger.info("Indicator calculation complete.")
-        return df
 
     def _check_signals(self, symbol: str, timeframe: Timeframe, df: pd.DataFrame) -> SignalsEvaluationResult:
         timestamp = datetime.now(tz=UTC).timestamp()

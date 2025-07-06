@@ -3,7 +3,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from crypto_trailing_stop.commons.patterns import SingletonMeta
-from crypto_trailing_stop.infrastructure.services import SessionStorageService
+from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 

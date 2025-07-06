@@ -6,7 +6,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from crypto_trailing_stop.config import get_dispacher
-from crypto_trailing_stop.infrastructure.services import MarketSignalService, SessionStorageService
+from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
+from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from crypto_trailing_stop.interfaces.telegram.messages_formatter import MessagesFormatter
 

@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 from apscheduler.job import Job
 from apscheduler.triggers.base import BaseTrigger
 
-from crypto_trailing_stop.config import get_configuration_properties, get_scheduler
+from crypto_trailing_stop.config import get_scheduler
 from crypto_trailing_stop.infrastructure.services.base import AbstractService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 
@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 class AbstractTaskService(AbstractService, metaclass=ABCMeta):
     def __init__(self) -> None:
         super().__init__()
-        self._configuration_properties = get_configuration_properties()
         self._job: Job | None = None
 
     async def start(self) -> None:

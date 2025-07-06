@@ -9,6 +9,7 @@ from crypto_trailing_stop.commons.constants import (
     DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
     NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
 )
+from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
@@ -18,6 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
+    def __init__(self):
+        super().__init__()
+        self._configuration_properties = get_configuration_properties()
+
     @override
     def get_global_flag_type(self) -> GlobalFlagTypeEnum:
         return GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
