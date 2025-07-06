@@ -1,3 +1,5 @@
+from zoneinfo import ZoneInfo
+
 from aiogram import html
 
 from crypto_trailing_stop.commons.patterns import SingletonMeta
@@ -12,7 +14,9 @@ class MessagesFormatter(metaclass=SingletonMeta):
             message_lines.append(f"⚠️ No market signals found for {html.bold(symbol)}.")
         else:
             for signal in market_signals:
-                formatted_timestamp = signal.timestamp.strftime("%d-%m-%Y %H:%M")
+                formatted_timestamp = signal.timestamp.astimezone(ZoneInfo("Europe/Madrid")).strftime(
+                    "%d-%m-%Y %H:%M:%S"
+                )
                 timeframe = signal.timeframe.lower()
                 signal_type = signal.signal_type.lower()
 
