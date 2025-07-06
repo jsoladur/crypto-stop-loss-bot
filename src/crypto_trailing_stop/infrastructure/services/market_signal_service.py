@@ -63,10 +63,21 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
                 logger.info(f"There is no enough reability to store the timeframe {signals.timeframe}")
 
     async def _store_4h_signals(self, signals: SignalsEvaluationResult) -> None:
-        # 1.) Delete all signals for the symbol,
-        # since a new 4h market sentiment switcher has appeared
-        await MarketSignal.delete().where(MarketSignal.symbol == signals.symbol)
-        await self._save_new_market_signal(signals)
+        new_signal_type = "buy" if signals.buy else "sell"
+        count = (
+            await MarketSignal.count()
+            .where(MarketSignal.symbol == signals.symbol)
+            .where(MarketSignal.timeframe == signals.timeframe)
+            .where(MarketSignal.signal_type == new_signal_type)
+        )
+        # Restart signals if the market switches from bullish to bearish or viceversa.
+        # Same trend does not restart and delete the previous signals
+        if count <= 0:
+            # 1.) Delete all signals for the symbol,
+            # since a new 4h market sentiment switcher has appeared
+            await MarketSignal.delete().where(MarketSignal.symbol == signals.symbol)
+            # 2.) Save the new one
+            await self._save_new_market_signal(signals)
 
     async def _store_1h_signals(self, signals: SignalsEvaluationResult) -> None:
         count = (
