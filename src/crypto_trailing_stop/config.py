@@ -49,6 +49,10 @@ class ConfigurationProperties(BaseSettings):
     buy_sell_signals_1h_volatility_threshold: float = 0.004
     buy_sell_signals_rsi_overbought: int = 70
     buy_sell_signals_rsi_oversold: int = 30
+    # XXX: EMA values
+    buy_sell_signals_ema_short_value: int = 7
+    buy_sell_signals_ema_mid_value: int = 18
+    buy_sell_signals_ema_long_value: int = 200
     # Google OAuth configuration
     google_oauth_client_id: str
     google_oauth_client_secret: str
