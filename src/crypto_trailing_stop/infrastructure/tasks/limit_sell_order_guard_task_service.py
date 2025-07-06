@@ -71,7 +71,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             + f"Safeguard Stop Price = {safeguard_stop_price} {fiat_currency}"
         )
         tickers = current_tickers_by_symbol[sell_order.symbol]
-        if tickers.close <= safeguard_stop_price:
+        if self._is_moment_to_exit(tickers, safeguard_stop_price):
             # Cancel current take-profit sell limit order
             await self._bit2me_remote_service.cancel_order_by_id(sell_order.id, client=client)
             new_market_order = await self._bit2me_remote_service.create_order(
@@ -88,6 +88,12 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
                 new_market_order, current_symbol_price=tickers.close, safeguard_stop_price=safeguard_stop_price
             )
         return (previous_used_buy_trade_ids,)
+
+    def _is_moment_to_exit(self, tickers: Bit2MeTickersDto, safeguard_stop_price: float) -> None:
+        # XXX: [JMSOLA] In this point we have to think over about how to make a good exit when
+        # our order has not been filled but suddlenly appear a SELL 1H signal, so we need to define
+        # a strategy to immediately exit because our high limit price won't be reached!
+        return tickers.close <= safeguard_stop_price
 
     async def _notify_new_market_order_created_via_telegram(
         self, new_market_order: Bit2MeOrderDto, *, current_symbol_price: float | int, safeguard_stop_price: float | int

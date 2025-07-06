@@ -18,6 +18,7 @@ from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import 
 from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_enum import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.limit_sell_order_guard_task_service import LimitSellOrderGuardTaskService
+from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, Bit2MeTickersDtoObjectMother
 from tests.helpers.sell_orders_test_utils import generate_trades
@@ -33,6 +34,8 @@ async def should_create_market_sell_order_when_price_goes_down_applying_guard(
     """
     # Mock the Bit2Me API
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+    # Disable all jobs by default for test purposes!
+    await disable_all_background_jobs_except()
 
     task_manager = get_task_manager_instance()
 
