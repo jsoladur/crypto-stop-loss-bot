@@ -26,8 +26,11 @@ async def should_save_market_signals_properly_when_invoke_to_service(
 
     symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
     one_hour_signals = SignalsEvaluationResultObjectMother.list(timeframe="1h", symbol=symbol)
+    half_hour_signals = SignalsEvaluationResultObjectMother.list(timeframe="30m", symbol=symbol)
     # 1. Saving 1h before any 4h signal are ignored!
     for current in one_hour_signals:
+        await _invoke_on_signals_evaluation_result(market_signal_service, current, use_event_emitter=use_event_emitter)
+    for current in half_hour_signals:
         await _invoke_on_signals_evaluation_result(market_signal_service, current, use_event_emitter=use_event_emitter)
 
     symbols = await market_signal_service.find_all_symbols()
@@ -44,19 +47,24 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     )
     for current in one_hour_signals:
         await _invoke_on_signals_evaluation_result(market_signal_service, current, use_event_emitter=use_event_emitter)
+    for current in half_hour_signals:
+        await _invoke_on_signals_evaluation_result(market_signal_service, current, use_event_emitter=use_event_emitter)
 
     symbols = await market_signal_service.find_all_symbols()
     assert len(symbols) >= 1
     assert symbol in symbols
 
     market_signals = await market_signal_service.find_by_symbol(symbol)
-    assert len(market_signals) >= len(one_hour_signals)
+    assert len(market_signals) == (len(one_hour_signals) + 1)
     first_returned_signal, *_ = market_signals
 
     _assert_with(four_hour_signal, first_returned_signal)
 
     market_signals_for_1h = await market_signal_service.find_by_symbol(symbol, timeframe="1h")
     assert len(market_signals_for_1h) == len(one_hour_signals)
+
+    market_signals_for_30m = await market_signal_service.find_by_symbol(symbol, timeframe="30m")
+    assert len(market_signals_for_30m) <= 0
 
     # 3. Creating a new market signal for 4h, all 1h hour are deleted
     new_four_hour_signal = SignalsEvaluationResultObjectMother.create(

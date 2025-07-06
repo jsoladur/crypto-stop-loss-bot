@@ -19,6 +19,7 @@ from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import 
 from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_enum import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.buy_sell_signals_task_service import BuySellSignalsTaskService
+from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import Bit2MeTickersDtoObjectMother
 
@@ -41,6 +42,14 @@ async def should_send_via_telegram_notifications_after_detecting_buy_sell_signal
     # Mock the Bit2Me API
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
     _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
+    disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.BUY_SELL_SIGNALS)
+
+    task_manager = get_task_manager_instance()
+    buy_sell_signals_task_service: BuySellSignalsTaskService = task_manager.get_tasks()[
+        GlobalFlagTypeEnum.BUY_SELL_SIGNALS
+    ]
+    # Pause job since won't be paused via start(..), stop(..)
+    buy_sell_signals_task_service._job.pause()
 
     # Provoke send a notification via Telegram
     push_notification = PushNotification(
@@ -55,21 +64,19 @@ async def should_send_via_telegram_notifications_after_detecting_buy_sell_signal
 
         if "buy_signal" in fetch_ohlcv_return_value_filename:
             with patch.object(BuySellSignalsTaskService, "_calculate_buy_signal", return_value=True):
-                await _run_task_service(fetch_ohlcv_return_value)
+                await _run_task_service(buy_sell_signals_task_service, fetch_ohlcv_return_value)
         elif "sell_signal" in fetch_ohlcv_return_value_filename:
             with patch.object(BuySellSignalsTaskService, "_calculate_sell_signal", return_value=True):
-                await _run_task_service(fetch_ohlcv_return_value)
+                await _run_task_service(buy_sell_signals_task_service, fetch_ohlcv_return_value)
         else:
-            await _run_task_service(fetch_ohlcv_return_value)
+            await _run_task_service(buy_sell_signals_task_service, fetch_ohlcv_return_value)
 
     httpserver.check_assertions()
 
 
-async def _run_task_service(fetch_ohlcv_return_value: dict[str, Any]) -> None:
-    task_manager = get_task_manager_instance()
-    buy_sell_signals_task_service: BuySellSignalsTaskService = task_manager.get_tasks()[
-        GlobalFlagTypeEnum.BUY_SELL_SIGNALS
-    ]
+async def _run_task_service(
+    buy_sell_signals_task_service: BuySellSignalsTaskService, fetch_ohlcv_return_value: dict[str, Any]
+) -> None:
     with patch.object(ccxt.binance, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
         with patch.object(Bot, "send_message"):
             await buy_sell_signals_task_service.run()
