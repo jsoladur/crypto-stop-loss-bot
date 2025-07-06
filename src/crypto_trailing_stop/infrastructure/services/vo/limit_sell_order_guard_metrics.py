@@ -11,5 +11,7 @@ class LimitSellOrderGuardMetrics:
     stop_loss_percent_value: float
     safeguard_stop_price: float | int
     # Suggested and dinamically calculated based on current volatility
+    current_attr_value: float | int
     suggested_stop_loss_percent_value: float
     suggested_safeguard_stop_price: float
+    suggested_take_profit_limit_price: float

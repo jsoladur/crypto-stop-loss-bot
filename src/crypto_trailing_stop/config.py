@@ -53,7 +53,8 @@ class ConfigurationProperties(BaseSettings):
     buy_sell_signals_ema_mid_value: int = 18
     buy_sell_signals_ema_long_value: int = 200
     # XXX: Other parameters
-    suggested_stop_loss_atr_multiplier: float = 2.0
+    suggested_stop_loss_atr_multiplier: float = 1.85
+    suggested_take_profit_atr_multiplier: float = 2.5
     # Google OAuth configuration
     google_oauth_client_id: str
     google_oauth_client_secret: str
