@@ -165,10 +165,8 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
     ) -> None:
         try:
             crypto_currency, fiat_currency = new_market_order.symbol.split("/")
-            text_message = (
-                f"🚨🚨 {html.bold('MARKET SELL FILLED!')} {new_market_order.order_amount} {crypto_currency} sold "
-                + "due to:\n"
-            )
+            text_message = f"🚨🚨 {html.bold('MARKET SELL ORDER CREATED')} 🚨🚨\n\n"
+            text_message += f"{new_market_order.order_amount} {crypto_currency} HAS BEEN SOLD due to:\n"
             details = self._get_notification_message_details(
                 current_symbol_price, safeguard_stop_price, auto_exit_reason, crypto_currency, fiat_currency
             )
@@ -192,12 +190,12 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         if auto_exit_reason.safeguard_stop_price_reached:
             details = (
                 f"Current {crypto_currency} price ({current_symbol_price} {fiat_currency}) "
-                + f"is lower than the safeguard calculated ({safeguard_stop_price} {fiat_currency})!!"
+                + f"is lower than the safeguard calculated ({safeguard_stop_price} {fiat_currency})."
             )
         elif auto_exit_reason.auto_exit_sell_1h:
             details = (
                 f"At current {crypto_currency} price ({current_symbol_price} {fiat_currency}), "
-                + "a SELL 1H signal has suddenly appeared!!"
+                + "a SELL 1H signal has suddenly appeared."
             )
         elif auto_exit_reason.atr_take_profit_limit_price_reached:
             raise NotImplementedError("To be implemented!")
