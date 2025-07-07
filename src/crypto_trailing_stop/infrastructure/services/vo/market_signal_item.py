@@ -2,6 +2,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
+from crypto_trailing_stop.commons.constants import (
+    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
+    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
+)
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderSide
 from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
 
@@ -16,3 +20,10 @@ class MarketSignalItem:
     atr: float
     closing_price: float
     ema_long_price: float
+
+    @property
+    def atr_percent(self) -> float:
+        return round(
+            (self.atr / self.closing_price) * 100,
+            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(self.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+        )
