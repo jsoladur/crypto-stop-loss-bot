@@ -81,7 +81,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
                 line += (
                     f"\n  * 🕒 {html.code(formatted_timestamp)}"
                     f"\n  * 📊 RSI: {html.italic(rsi_state)}"
-                    f"\n  * 🎢 ATR: ±{html.bold(f'{signal.atr:.2f} {fiat_currency}')}"
+                    f"\n  * 🎢 ATR: ±{html.bold(f'{signal.atr:.2f} {fiat_currency} (±{signal.atr_percent}%)')}"
                     f"\n  * 💰 Closing Price: {html.code(f'{signal.closing_price:.2f} {fiat_currency}')}"
                     f"\n  * 📐 EMA Long: {html.code(f'{signal.ema_long_price:.2f} {fiat_currency}')}"
                 )
