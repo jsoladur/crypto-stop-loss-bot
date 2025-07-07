@@ -12,6 +12,8 @@ from crypto_trailing_stop.commons.constants import (
     ANTICIPATION_ZONE_TIMEFRAMES,
     BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN,
     BUY_SELL_RELIABLE_TIMEFRAMES,
+    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
+    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
     SIGNALS_EVALUATION_RESULT_EVENT_NAME,
 )
 from crypto_trailing_stop.config import get_configuration_properties, get_event_emitter
@@ -186,6 +188,14 @@ class BuySellSignalsTaskService(AbstractTaskService):
             sell=sell_signal,
             rsi_state=rsi_state,
             is_choppy=is_choppy,
+            atr=round(
+                last["atr"],
+                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+            ),
+            closing_price=round(
+                last["close"],
+                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+            ),
         )
         return ret
 

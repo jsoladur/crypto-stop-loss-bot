@@ -92,7 +92,12 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
 
     async def _save_new_market_signal(self, signals: SignalsEvaluationResult) -> MarketSignal:
         new_market_signal = MarketSignal(
-            symbol=signals.symbol, timeframe=signals.timeframe, signal_type="buy" if signals.buy else "sell"
+            symbol=signals.symbol,
+            timeframe=signals.timeframe,
+            signal_type="buy" if signals.buy else "sell",
+            rsi_state=signals.rsi_state,
+            atr=signals.atr,
+            closing_price=signals.closing_price,
         )
         await new_market_signal.save()
         return new_market_signal
