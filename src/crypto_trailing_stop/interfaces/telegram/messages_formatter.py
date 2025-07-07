@@ -78,11 +78,11 @@ class MessagesFormatter(metaclass=SingletonMeta):
                         line = f"🔴 - 🔚 {html.bold('SELL SIGNAL (1H)')}"
                 # Append additional details
                 line += (
-                    f"\n🕒 {html.code(formatted_timestamp)}"
-                    f"\n📊 RSI: {html.italic(rsi_state)}"
-                    f"\n🎢 ATR: ±{html.bold(f'{signal.atr:.2f}')}"
-                    f"\n💰 Closing Price: {html.code(f'{signal.closing_price:.2f} {fiat_currency}')}"
-                    f"\n📐 EMA Long: {html.code(f'{signal.ema_long_price:.2f} {fiat_currency}')}"
+                    f"\n  * 🕒 {html.code(formatted_timestamp)}"
+                    f"\n  * 📊 RSI: {html.italic(rsi_state)}"
+                    f"\n  * 🎢 ATR: ±{html.bold(f'{signal.atr:.2f} {fiat_currency}')}"
+                    f"\n  * 💰 Closing Price: {html.code(f'{signal.closing_price:.2f} {fiat_currency}')}"
+                    f"\n  * 📐 EMA Long: {html.code(f'{signal.ema_long_price:.2f} {fiat_currency}')}"
                 )
                 message_lines.append(line)
         ret = header + "\n\n".join(message_lines)
