@@ -1,8 +1,11 @@
 import asyncio
+import json
 from datetime import UTC, datetime, timedelta
+from os import listdir, path
 from unittest.mock import patch
 from urllib.parse import urlencode
 
+import ccxt.async_support as ccxt
 import pytest
 from aiogram import Bot
 from faker import Faker
@@ -22,6 +25,7 @@ from crypto_trailing_stop.infrastructure.services.market_signal_service import M
 from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.limit_sell_order_guard_task_service import LimitSellOrderGuardTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
+from tests.helpers.constants import BUY_SELL_SIGNALS_MOCK_FILES_PATH
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
@@ -29,6 +33,54 @@ from tests.helpers.object_mothers import (
     SignalsEvaluationResultObjectMother,
 )
 from tests.helpers.sell_orders_test_utils import generate_trades
+
+
+@pytest.mark.asyncio
+async def should_create_market_sell_order_when_atr_take_profit_limit_price_reached(
+    faker: Faker, integration_test_env: tuple[HTTPServer, str]
+) -> None:
+    """
+    Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
+    """
+    # Mock the Bit2Me API
+    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+    # Disable all jobs by default for test purposes!
+    await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)
+
+    task_manager = get_task_manager_instance()
+
+    opened_sell_bit2me_orders = _prepare_httpserver_mock(
+        faker, httpserver, bit2me_api_key, bit2me_api_secret, closing_crypto_currency_price_multipler=1.5
+    )
+    first_order, *_ = opened_sell_bit2me_orders
+
+    # Create fake market signals to simulate the sudden SELL 1H market signal
+    await _create_fake_market_signals(first_order)
+
+    # Provoke send a notification via Telegram
+    telegram_chat_id = faker.random_number(digits=9, fix_len=True)
+    for push_notification_type in PushNotificationTypeEnum:
+        push_notification = PushNotification(
+            {
+                PushNotification.telegram_chat_id: telegram_chat_id,
+                PushNotification.notification_type: push_notification_type,
+            }
+        )
+        await push_notification.save()
+
+    limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
+        GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
+    ]
+    fetch_ohlcv_return_value_filename = faker.random_element(
+        [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
+    )
+    with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
+        fetch_ohlcv_return_value = json.loads(fd.read())
+        with patch.object(ccxt.binance, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
+            with patch.object(Bot, "send_message"):
+                await limit_sell_order_guard_task_service.run()
+
+    httpserver.check_assertions()
 
 
 @pytest.mark.parametrize("simulate_future_sell_orders", [False, True])
@@ -73,8 +125,14 @@ async def should_create_market_sell_order_when_auto_exit_sell_1h(
     limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
         GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
     ]
-    with patch.object(Bot, "send_message"):
-        await limit_sell_order_guard_task_service.run()
+    fetch_ohlcv_return_value_filename = faker.random_element(
+        [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
+    )
+    with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
+        fetch_ohlcv_return_value = json.loads(fd.read())
+        with patch.object(ccxt.binance, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
+            with patch.object(Bot, "send_message"):
+                await limit_sell_order_guard_task_service.run()
 
     httpserver.check_assertions()
 
@@ -117,8 +175,14 @@ async def should_create_market_sell_order_when_safeguard_stop_price_reached(
     limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
         GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
     ]
-    with patch.object(Bot, "send_message"):
-        await limit_sell_order_guard_task_service.run()
+    fetch_ohlcv_return_value_filename = faker.random_element(
+        [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
+    )
+    with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
+        fetch_ohlcv_return_value = json.loads(fd.read())
+        with patch.object(ccxt.binance, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
+            with patch.object(Bot, "send_message"):
+                await limit_sell_order_guard_task_service.run()
 
     httpserver.check_assertions()
 

@@ -36,6 +36,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
                 answer_text += (
                     ":\n"
                     + f"    * 💳 {html.bold('Avg. Costs')} = {metrics.avg_buy_price} {fiat_currency}\n"
+                    + f"    * ⚖️ {html.bold('Break-even Price')} = {metrics.break_even_price} {fiat_currency}\n"
                     + f"    * 🚏 {html.bold('Stop Loss')} = {metrics.stop_loss_percent_value}%\n"
                     + f"    * 🛡️ {html.bold('Safeguard Stop Price = ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}"  # noqa: E501
                 )

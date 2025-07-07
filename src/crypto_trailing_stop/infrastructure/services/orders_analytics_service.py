@@ -4,6 +4,7 @@ import pandas as pd
 from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import (
+    BIT2ME_MAKER_AND_TAKER_FEES_SUM,
     DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
     NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
 )
@@ -69,6 +70,12 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
                     LimitSellOrderGuardMetrics(
                         sell_order=sell_order,
                         avg_buy_price=avg_buy_price,
+                        break_even_price=round(
+                            self.calculate_break_even_price(sell_order, avg_buy_price),
+                            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
+                                sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
+                            ),
+                        ),
                         stop_loss_percent_value=stop_loss_percent_item.value,
                         safeguard_stop_price=safeguard_stop_price,
                         current_attr_value=round(
@@ -160,6 +167,13 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
         )
         return suggested_safeguard_stop_price, atr_value
+
+    def calculate_break_even_price(self, sell_order: Bit2MeOrderDto, avg_buy_price: float) -> float:
+        break_even_price = round(
+            avg_buy_price * (1.0 + BIT2ME_MAKER_AND_TAKER_FEES_SUM),
+            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+        )
+        return break_even_price
 
     async def find_stop_loss_percent_by_sell_order(
         self, sell_order: Bit2MeOrderDto

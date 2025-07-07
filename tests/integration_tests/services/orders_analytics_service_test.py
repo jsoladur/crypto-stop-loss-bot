@@ -68,6 +68,7 @@ async def should_calculate_limit_sell_order_guard_metrics_properly(
                 assert metrics.sell_order.order_type == sell_order.order_type
 
                 assert metrics.avg_buy_price is not None and metrics.avg_buy_price > 0
+                assert metrics.break_even_price is not None and metrics.break_even_price > metrics.avg_buy_price
                 assert metrics.safeguard_stop_price > 0 and metrics.safeguard_stop_price < metrics.avg_buy_price
                 assert metrics.stop_loss_percent_value > 0
                 assert metrics.current_attr_value > 0.0
