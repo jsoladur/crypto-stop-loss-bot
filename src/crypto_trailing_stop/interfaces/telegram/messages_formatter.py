@@ -59,9 +59,11 @@ class MessagesFormatter(metaclass=SingletonMeta):
             message_lines.append(f"⚠️ No market signals found for {html.bold(symbol)}.")
         else:
             for signal in market_signals:
+                *_, fiat_currency = symbol.split("/")
                 formatted_timestamp = signal.timestamp.astimezone(ZoneInfo("Europe/Madrid")).strftime("%d-%m-%Y %H:%M")
                 timeframe = signal.timeframe.lower()
                 signal_type = signal.signal_type.lower()
+                rsi_state = signal.rsi_state.replace("_", " ").capitalize().strip()
 
                 # Match background job alert style
                 if timeframe == "4h":
@@ -74,9 +76,14 @@ class MessagesFormatter(metaclass=SingletonMeta):
                         line = f"🟢 - 🛒 {html.bold('BUY SIGNAL (1H)')}"
                     else:  # sell
                         line = f"🔴 - 🔚 {html.bold('SELL SIGNAL (1H)')}"
-
-                # Append timestamp (always same for all cases)
-                line += f"\n🕒 {html.code(formatted_timestamp)}"
+                # Append additional details
+                line += (
+                    f"\n  * 🕒 {html.code(formatted_timestamp)}"
+                    f"\n  * 📊 RSI: {html.italic(rsi_state)}"
+                    f"\n  * 🎢 ATR: ±{html.bold(f'{signal.atr:.2f} {fiat_currency}')}"
+                    f"\n  * 💰 Closing Price: {html.code(f'{signal.closing_price:.2f} {fiat_currency}')}"
+                    f"\n  * 📐 EMA Long: {html.code(f'{signal.ema_long_price:.2f} {fiat_currency}')}"
+                )
                 message_lines.append(line)
         ret = header + "\n\n".join(message_lines)
         return ret
