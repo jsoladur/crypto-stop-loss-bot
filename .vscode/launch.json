@@ -52,7 +52,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["-x", "--log-cli-level=INFO", "-k", "should_create_market_sell_order_when_auto_exit_sell_1h[True]"],
+      "args": ["-x", "--log-cli-level=INFO", "-k", "should_create_market_sell_order_when_atr_take_profit_limit_price_reached"],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false
     }
