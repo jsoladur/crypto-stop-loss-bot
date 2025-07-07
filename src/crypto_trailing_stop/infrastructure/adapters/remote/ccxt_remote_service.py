@@ -46,7 +46,7 @@ class CcxtRemoteService:
         # Fetch N+1 candles to account for the live one.
         ohlcv = await exchange_client.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
         df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         return df
 
     def get_binance_exchange_client(self) -> ccxt.Exchange:

@@ -9,6 +9,7 @@ class GlobalFlagTypeEnum(str, Enum):
     LIMIT_SELL_ORDER_GUARD = ("LIMIT_SELL_ORDER_GUARD", "Limit Sell Order Guard")
     BUY_SELL_SIGNALS = ("BUY_SELL_SIGNALS", "Buy/Sell Signals")
     AUTO_EXIT_SELL_1H = ("AUTO_EXIT_SELL_1H", "Auto-exit on sudden SELL 1H signal")
+    AUTO_EXIT_ATR_TAKE_PROFIT = ("AUTO_EXIT_ATR_TAKE_PROFIT", "Auto-exit on ATR-based take profit")
 
     @classmethod
     def from_value(cls, value: str) -> "GlobalFlagTypeEnum":

@@ -1,7 +1,7 @@
 import io
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pandas as pd
 from faker import Faker
@@ -39,7 +39,7 @@ class Bit2MeSummaryXlsxObjectMother:
     def create(
         cls,
         num_rows: int = 50,  # Default num_rows changed to 50
-        year: int = datetime.now().year,  # New argument for the year, defaults to current year
+        year: int = datetime.now(UTC).year,  # New argument for the year, defaults to current year
     ) -> bytes:
         """
         Generates a fake Excel file with financial transaction data
