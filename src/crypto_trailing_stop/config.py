@@ -52,6 +52,8 @@ class ConfigurationProperties(BaseSettings):
     buy_sell_signals_ema_short_value: int = 7
     buy_sell_signals_ema_mid_value: int = 18
     buy_sell_signals_ema_long_value: int = 200
+    # Market Signals parameters
+    market_signal_retention_days: int = 9
     # XXX: Other parameters
     suggested_stop_loss_atr_multiplier: float = 1.85
     suggested_take_profit_atr_multiplier: float = 2.5

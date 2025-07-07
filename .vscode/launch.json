@@ -52,7 +52,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["-x", "--log-cli-level=INFO", "-k", "should_calculate_limit_sell_order_guard_metrics_properly"],
+      "args": ["-x", "--log-cli-level=INFO", "-k", "should_save_market_signals_properly_when_invoke_to_service"],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false
     }

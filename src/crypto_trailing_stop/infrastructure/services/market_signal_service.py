@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime, timedelta
 
 from crypto_trailing_stop.commons.constants import SIGNALS_EVALUATION_RESULT_EVENT_NAME
 from crypto_trailing_stop.commons.patterns import SingletonABCMeta
@@ -21,12 +22,12 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
         get_event_emitter().add_listener(SIGNALS_EVALUATION_RESULT_EVENT_NAME, self.on_signals_evaluation_result)
 
     async def find_by_symbol(
-        self, symbol: str, *, timeframe: ReliableTimeframe | None = None
+        self, symbol: str, *, timeframe: ReliableTimeframe | None = None, ascending: bool = True
     ) -> list[MarketSignalItem]:
         query = MarketSignal.objects().where(MarketSignal.symbol == symbol)
         if timeframe:
             query = query.where(MarketSignal.timeframe == timeframe)
-        market_signals = await query.order_by(MarketSignal.timestamp, ascending=True)
+        market_signals = await query.order_by(MarketSignal.timestamp, ascending=ascending)
         ret = [
             MarketSignalItem(
                 timestamp=market_signal.timestamp,
@@ -67,34 +68,31 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
                 logger.info(f"There is no enough reability to store the timeframe {signals.timeframe}")
 
     async def _store_4h_signals(self, signals: SignalsEvaluationResult) -> None:
-        new_signal_type = "buy" if signals.buy else "sell"
         count = (
             await MarketSignal.count()
             .where(MarketSignal.symbol == signals.symbol)
             .where(MarketSignal.timeframe == signals.timeframe)
-            .where(MarketSignal.signal_type == new_signal_type)
+            .where(MarketSignal.signal_type == ("buy" if signals.buy else "sell"))
         )
-        # Restart signals if the market switches from bullish to bearish or viceversa.
-        # Same trend does not restart and delete the previous signals
+        # Store new 4h signal if the market switches from bullish to bearish or viceversa.
+        # Same trend does not make any effect
         if count <= 0:
-            # 1.) Delete all signals for the symbol,
-            # since a new 4h market sentiment switcher has appeared
-            await MarketSignal.delete().where(MarketSignal.symbol == signals.symbol)
+            # 1.) Delete all 4h signals for the symbol, since we only need the last one
+            # if it is a market switcher
+            await (
+                MarketSignal.delete()
+                .where(MarketSignal.symbol == signals.symbol)
+                .where(MarketSignal.timeframe == signals.timeframe)
+            )
             # 2.) Save the new one
             await self._save_new_market_signal(signals)
 
     async def _store_1h_signals(self, signals: SignalsEvaluationResult) -> None:
-        count = (
-            await MarketSignal.count()
-            .where(MarketSignal.symbol == signals.symbol)
-            .where(MarketSignal.timeframe == "4h")
-        )
-        # If there is no 4h signal previously stored,
-        # any 1h signal is ignored, since we do not know what the market sentiment is!
-        if count > 0:
-            await self._save_new_market_signal(signals)
+        await self._save_new_market_signal(signals)
 
     async def _save_new_market_signal(self, signals: SignalsEvaluationResult) -> MarketSignal:
+        if signals.timeframe != "4h":
+            await self._apply_market_signal_retention_policy(signals)
         new_market_signal = MarketSignal(
             symbol=signals.symbol,
             timeframe=signals.timeframe,
@@ -106,3 +104,14 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
         )
         await new_market_signal.save()
         return new_market_signal
+
+    async def _apply_market_signal_retention_policy(self, signals: SignalsEvaluationResult) -> None:
+        expiration_date = datetime.now(tz=UTC) - timedelta(
+            days=self._configuration_properties.market_signal_retention_days
+        )
+        await (
+            MarketSignal.delete()
+            .where(MarketSignal.symbol == signals.symbol)
+            .where(MarketSignal.timeframe == signals.timeframe)
+            .where(MarketSignal.timestamp < expiration_date)
+        )
