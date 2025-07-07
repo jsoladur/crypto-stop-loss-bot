@@ -33,6 +33,10 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
                 symbol=market_signal.symbol,
                 timeframe=market_signal.timeframe,
                 signal_type=market_signal.signal_type,
+                rsi_state=market_signal.rsi_state,
+                atr=market_signal.atr,
+                closing_price=market_signal.closing_price,
+                ema_long_price=market_signal.ema_long_price,
             )
             for market_signal in market_signals
         ]
@@ -98,6 +102,7 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
             rsi_state=signals.rsi_state,
             atr=signals.atr,
             closing_price=signals.closing_price,
+            ema_long_price=signals.ema_long_price,
         )
         await new_market_signal.save()
         return new_market_signal

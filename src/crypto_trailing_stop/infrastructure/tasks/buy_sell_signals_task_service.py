@@ -196,6 +196,10 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 last["close"],
                 ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
             ),
+            ema_long_price=round(
+                last["ema_long"],
+                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+            ),
         )
         return ret
 

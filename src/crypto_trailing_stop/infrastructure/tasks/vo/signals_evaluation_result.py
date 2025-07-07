@@ -17,6 +17,7 @@ class SignalsEvaluationResult:
     # Additional info but no comparable
     atr: float = field(compare=False)
     closing_price: float = field(compare=False)
+    ema_long_price: float = field(compare=False)
 
     @property
     def is_reliable(self) -> bool:

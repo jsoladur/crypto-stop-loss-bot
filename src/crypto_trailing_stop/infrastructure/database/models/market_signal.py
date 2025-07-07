@@ -16,3 +16,4 @@ class MarketSignal(Table):
     rsi_state: Literal["neutral", "overbought", "oversold"] = Text(required=True)
     atr: float = Float(required=True)
     closing_price: float = Float(required=True)
+    ema_long_price: float = Float(required=True)
