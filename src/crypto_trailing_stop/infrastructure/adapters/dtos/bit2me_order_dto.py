@@ -1,4 +1,5 @@
 from abc import ABCMeta
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -25,6 +26,7 @@ class CreateNewBit2MeOrderDto(_AbstractBit2MeOrderDto):
 class Bit2MeOrderDto(_AbstractBit2MeOrderDto):
     model_config = ConfigDict(populate_by_name=True, use_enum_values=True, extra="ignore")
     id: str
+    created_at: datetime = Field(..., alias="createdAt")
     status: Bit2MeOrderStatus
     order_amount: float | int = Field(..., alias="orderAmount")
     stop_price: float | int | None = Field(None, alias="stopPrice")

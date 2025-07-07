@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from faker import Faker
 
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
@@ -15,6 +17,7 @@ class Bit2MeOrderDtoObjectMother:
     def create(
         cls,
         *,
+        created_at: datetime | None = None,
         side: Bit2MeOrderSide | None = None,
         symbol: str | None = None,
         order_type: Bit2MeOrderType | None = None,
@@ -39,6 +42,7 @@ class Bit2MeOrderDtoObjectMother:
         )
         return Bit2MeOrderDto(
             id=cls._faker.uuid4(),
+            created_at=created_at or cls._faker.past_datetime(tzinfo=UTC),
             side=side or cls._faker.random_element(["buy", "sell"]),
             symbol=symbol or cls._faker.random_element(["ETH/EUR", "SOL/EUR"]),
             order_type=order_type,
