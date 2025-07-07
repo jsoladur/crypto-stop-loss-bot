@@ -16,9 +16,11 @@ from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service imp
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
+from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTradingTaskService
+from crypto_trailing_stop.infrastructure.tasks.vo.auto_exit_reason import AutoExitReason
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +29,12 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
     def __init__(self):
         super().__init__()
         self._configuration_properties = get_configuration_properties()
+        self._market_signal_service = MarketSignalService()
+        self._global_flag_service = GlobalFlagService()
         self._orders_analytics_service = OrdersAnalyticsService(
             bit2me_remote_service=self._bit2me_remote_service,
             stop_loss_percent_service=StopLossPercentService(
-                bit2me_remote_service=self._bit2me_remote_service, global_flag_service=GlobalFlagService()
+                bit2me_remote_service=self._bit2me_remote_service, global_flag_service=self._global_flag_service
             ),
             crypto_analytics_service=CryptoAnalyticsService(
                 bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=CcxtRemoteService()
@@ -99,7 +103,8 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             + f"Safeguard Stop Price = {safeguard_stop_price} {fiat_currency} / "
             + f"Current Price = {tickers_close_formatted} {fiat_currency}"
         )
-        if self._is_moment_to_exit(tickers, safeguard_stop_price):
+        auto_exit_reason = await self._is_moment_to_exit(sell_order, tickers, safeguard_stop_price)
+        if auto_exit_reason.is_exit:
             # Cancel current take-profit sell limit order
             await self._bit2me_remote_service.cancel_order_by_id(sell_order.id, client=client)
             new_market_order = await self._bit2me_remote_service.create_order(
@@ -113,30 +118,87 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             )
             logger.info(f"[NEW MARKET ORDER] Id: '{new_market_order.id}', for selling everything immediately!")
             await self._notify_new_market_order_created_via_telegram(
-                new_market_order, current_symbol_price=tickers.close, safeguard_stop_price=safeguard_stop_price
+                new_market_order,
+                current_symbol_price=tickers.close,
+                safeguard_stop_price=safeguard_stop_price,
+                auto_exit_reason=auto_exit_reason,
             )
         return (previous_used_buy_trade_ids,)
 
-    def _is_moment_to_exit(self, tickers: Bit2MeTickersDto, safeguard_stop_price: float) -> None:
+    async def _is_moment_to_exit(
+        self, sell_order: Bit2MeOrderDto, tickers: Bit2MeTickersDto, safeguard_stop_price: float
+    ) -> AutoExitReason:
         # XXX: [JMSOLA] In this point we have to think over about how to make a good exit when
         # our order has not been filled but suddlenly appear a SELL 1H signal, so we need to define
         # a strategy to immediately exit because our high limit price won't be reached!
-        return tickers.close <= safeguard_stop_price
+        safeguard_stop_price_reached = tickers.close <= safeguard_stop_price
+        auto_exit_sell_1h, atr_take_profit_limit_price_reached = False, False
+        if not safeguard_stop_price_reached:
+            # Calculate auto_exit_sell_1h
+            auto_exit_sell_1h = await self._is_auto_exit_due_to_sell_1h(sell_order)
+        return AutoExitReason(
+            safeguard_stop_price_reached=safeguard_stop_price_reached,
+            auto_exit_sell_1h=auto_exit_sell_1h,
+            # TODO: Let's see how to implement here the ATR TAKE PROFIT LIMIT PRICE REACHED
+            atr_take_profit_limit_price_reached=atr_take_profit_limit_price_reached,
+        )
+
+    async def _is_auto_exit_due_to_sell_1h(self, sell_order: Bit2MeOrderDto) -> bool:
+        auto_exit_sell_1h = False
+        is_enabled_for = await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
+        if is_enabled_for:
+            last_market_1h_signal = await self._market_signal_service.find_last_market_signal(sell_order.symbol)
+            auto_exit_sell_1h = (
+                last_market_1h_signal is not None
+                and last_market_1h_signal.timestamp > sell_order.created_at
+                and last_market_1h_signal.signal_type == "sell"
+            )
+        return auto_exit_sell_1h
 
     async def _notify_new_market_order_created_via_telegram(
-        self, new_market_order: Bit2MeOrderDto, *, current_symbol_price: float | int, safeguard_stop_price: float | int
+        self,
+        new_market_order: Bit2MeOrderDto,
+        *,
+        current_symbol_price: float | int,
+        safeguard_stop_price: float | int,
+        auto_exit_reason: AutoExitReason,
     ) -> None:
         try:
             crypto_currency, fiat_currency = new_market_order.symbol.split("/")
+            text_message = (
+                f"🚨🚨 {html.bold('MARKET SELL FILLED!')} {new_market_order.order_amount} {crypto_currency} sold "
+                + "due to:\n"
+            )
+            details = self._get_notification_message_details(
+                current_symbol_price, safeguard_stop_price, auto_exit_reason, crypto_currency, fiat_currency
+            )
+            text_message += f"* {html.italic(details)}"
             telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
                 notification_type=PushNotificationTypeEnum.LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT
             )
             for tg_chat_id in telegram_chat_ids:
-                await self._telegram_service.send_message(
-                    chat_id=tg_chat_id,
-                    text=f"🚨🚨 {html.bold('Market sell FILLED!')} {new_market_order.order_amount} {crypto_currency} sold "  # noqa: E501
-                    + f"due to current {crypto_currency} price ({current_symbol_price} {fiat_currency}) "
-                    + f"is lower than the safeguard calculated ({safeguard_stop_price} {fiat_currency})!!",
-                )
+                await self._telegram_service.send_message(chat_id=tg_chat_id, text=text_message)
         except Exception as e:  # pragma: no cover
             logger.warning(f"Unexpected error, notifying fatal error via Telegram: {str(e)}", exc_info=True)
+
+    def _get_notification_message_details(
+        self,
+        current_symbol_price: float | int,
+        safeguard_stop_price: float | int,
+        auto_exit_reason: AutoExitReason,
+        crypto_currency: str,
+        fiat_currency: str,
+    ) -> str:
+        if auto_exit_reason.safeguard_stop_price_reached:
+            details = (
+                f"* Current {crypto_currency} price ({current_symbol_price} {fiat_currency}) "
+                + f"is lower than the safeguard calculated ({safeguard_stop_price} {fiat_currency})!!"
+            )
+        elif auto_exit_reason.auto_exit_sell_1h:
+            details = (
+                f"* At current {crypto_currency} price ({current_symbol_price} {fiat_currency}), "
+                + "a SELL 1H signal has suddenly appeared!!"
+            )
+        elif auto_exit_reason.atr_take_profit_limit_price_reached:
+            raise NotImplementedError("To be implemented!")
+        return details
