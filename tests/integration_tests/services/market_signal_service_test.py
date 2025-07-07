@@ -27,16 +27,18 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
     one_hour_signals = SignalsEvaluationResultObjectMother.list(timeframe="1h", symbol=symbol)
     half_hour_signals = SignalsEvaluationResultObjectMother.list(timeframe="30m", symbol=symbol)
-    # 1. Saving 1h before any 4h signal are ignored!
     for current in one_hour_signals:
         await _invoke_on_signals_evaluation_result(market_signal_service, current, use_event_emitter=use_event_emitter)
+    # 2. 30m signals are ignored
     for current in half_hour_signals:
         await _invoke_on_signals_evaluation_result(market_signal_service, current, use_event_emitter=use_event_emitter)
 
     symbols = await market_signal_service.find_all_symbols()
-    assert len(symbols) <= 0
+    assert len(symbols) >= 1
+    assert symbol in symbols
+
     market_signals = await market_signal_service.find_by_symbol(symbol)
-    assert len(market_signals) <= 0
+    assert len(market_signals) == len(one_hour_signals)
 
     # 2. Saving 4h signal and then 1h later on, it works!
     first_four_hour_signal = SignalsEvaluationResultObjectMother.create(
@@ -55,43 +57,52 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     assert symbol in symbols
 
     market_signals = await market_signal_service.find_by_symbol(symbol)
-    assert len(market_signals) == (len(one_hour_signals) + 1)
-    first_returned_signal, *_ = market_signals
+    assert len(market_signals) == ((len(one_hour_signals) * 2) + 1)
 
-    _assert_with(first_four_hour_signal, first_returned_signal)
+    all_four_hour_signals = [market_signal for market_signal in market_signals if market_signal.timeframe == "4h"]
+    assert len(all_four_hour_signals) == 1
+    first_4h_returned_signal, *_ = all_four_hour_signals
+    _assert_with(first_four_hour_signal, first_4h_returned_signal)
 
     market_signals_for_1h = await market_signal_service.find_by_symbol(symbol, timeframe="1h")
-    assert len(market_signals_for_1h) == len(one_hour_signals)
+    assert len(market_signals_for_1h) == (len(one_hour_signals) * 2)
+
+    market_signals_for_4h = await market_signal_service.find_by_symbol(symbol, timeframe="4h")
+    assert len(market_signals_for_4h) == 1
 
     market_signals_for_30m = await market_signal_service.find_by_symbol(symbol, timeframe="30m")
     assert len(market_signals_for_30m) <= 0
 
     # 3. 4h signals in the same trend is ignored
+    asyncio.sleep(delay=2.0)
+
     new_four_hour_signal_same_trend = SignalsEvaluationResultObjectMother.create(
         timestamp=datetime.now(UTC) + timedelta(days=-10), timeframe="4h", symbol=symbol, buy=first_four_hour_signal.buy
     )
     await _invoke_on_signals_evaluation_result(
         market_signal_service, new_four_hour_signal_same_trend, use_event_emitter=use_event_emitter
     )
-    market_signals = await market_signal_service.find_by_symbol(symbol)
-    assert len(market_signals) == (len(one_hour_signals) + 1)
-    first_returned_signal, *_ = market_signals
 
-    _assert_with(first_four_hour_signal, first_returned_signal)
+    market_signals_for_4h = await market_signal_service.find_by_symbol(symbol, timeframe="4h")
+
+    second_4h_returned_signal, *_ = market_signals_for_4h
+
+    assert first_4h_returned_signal.timestamp == second_4h_returned_signal.timestamp
+
+    _assert_with(first_four_hour_signal, first_4h_returned_signal)
 
     market_signals_for_1h = await market_signal_service.find_by_symbol(symbol, timeframe="1h")
-    assert len(market_signals_for_1h) == len(one_hour_signals)
+    assert len(market_signals_for_1h) == (len(one_hour_signals) * 2)
 
     market_signals_for_30m = await market_signal_service.find_by_symbol(symbol, timeframe="30m")
     assert len(market_signals_for_30m) <= 0
 
     # 4. Creating a new market signal for 4h, which switches market in the against direction, so then
     # all 1h hour should be deleted
+    asyncio.sleep(delay=2.0)
+
     new_four_hour_signal_against_trend = SignalsEvaluationResultObjectMother.create(
-        timestamp=datetime.now(UTC) + timedelta(days=-10),
-        timeframe="4h",
-        symbol=symbol,
-        buy=not first_four_hour_signal.buy,
+        timestamp=datetime.now(UTC), timeframe="4h", symbol=symbol, buy=not first_four_hour_signal.buy
     )
     await _invoke_on_signals_evaluation_result(
         market_signal_service, new_four_hour_signal_against_trend, use_event_emitter=use_event_emitter
@@ -101,7 +112,13 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     assert len(market_signals) >= 1
 
     market_signals_for_1h = await market_signal_service.find_by_symbol(symbol, timeframe="1h")
-    assert len(market_signals_for_1h) <= 0
+    assert len(market_signals_for_1h) <= (len(one_hour_signals) * 2)
+
+    market_signals_for_4h = await market_signal_service.find_by_symbol(symbol, timeframe="4h")
+
+    final_4h_returned_signal, *_ = market_signals_for_4h
+
+    assert first_4h_returned_signal.timestamp < final_4h_returned_signal.timestamp
 
 
 async def _invoke_on_signals_evaluation_result(
