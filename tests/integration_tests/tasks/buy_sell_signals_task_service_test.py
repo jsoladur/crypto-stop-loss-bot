@@ -20,12 +20,9 @@ from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_e
 from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.buy_sell_signals_task_service import BuySellSignalsTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
+from tests.helpers.constants import BUY_SELL_SIGNALS_MOCK_FILES_PATH
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import Bit2MeTickersDtoObjectMother
-
-BUY_SELL_SIGNALS_MOCK_FILES_PATH = path.realpath(
-    path.join(path.dirname(path.abspath(__file__)), "..", "..", "helpers", "resources", "buy_sell_signals_mock_files")
-)
 
 
 @pytest.mark.parametrize(

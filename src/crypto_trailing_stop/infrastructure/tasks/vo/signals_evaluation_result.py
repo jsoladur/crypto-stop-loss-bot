@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from crypto_trailing_stop.commons.constants import BUY_SELL_RELIABLE_TIMEFRAMES
@@ -14,6 +14,10 @@ class SignalsEvaluationResult:
     sell: bool
     rsi_state: Literal["neutral", "overbought", "oversold"]
     is_choppy: bool
+    # Additional info but no comparable
+    atr: float = field(compare=False)
+    closing_price: float = field(compare=False)
+    ema_long_price: float = field(compare=False)
 
     @property
     def is_reliable(self) -> bool:
