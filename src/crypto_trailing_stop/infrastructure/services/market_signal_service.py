@@ -28,19 +28,22 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
         if timeframe:
             query = query.where(MarketSignal.timeframe == timeframe)
         market_signals = await query.order_by(MarketSignal.timestamp, ascending=ascending)
-        ret = [
-            MarketSignalItem(
-                timestamp=market_signal.timestamp,
-                symbol=market_signal.symbol,
-                timeframe=market_signal.timeframe,
-                signal_type=market_signal.signal_type,
-                rsi_state=market_signal.rsi_state,
-                atr=market_signal.atr,
-                closing_price=market_signal.closing_price,
-                ema_long_price=market_signal.ema_long_price,
-            )
-            for market_signal in market_signals
-        ]
+        ret = [self._convert_model_to_vo(market_signal) for market_signal in market_signals]
+        return ret
+
+    async def find_last_market_signal(
+        self, symbol: str, *, timeframe: ReliableTimeframe = "1h"
+    ) -> MarketSignalItem | None:
+        last_market_signal: MarketSignal | None = (
+            await MarketSignal.objects()
+            .where(MarketSignal.symbol == symbol)
+            .where(MarketSignal.timeframe == timeframe)
+            .order_by(MarketSignal.timestamp, ascending=False)
+            .first()
+        )
+        ret: MarketSignalItem | None = None
+        if last_market_signal:
+            ret = self._convert_model_to_vo(last_market_signal)
         return ret
 
     async def find_all_symbols(self) -> list[str]:
@@ -115,3 +118,16 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
             .where(MarketSignal.timeframe == signals.timeframe)
             .where(MarketSignal.timestamp < expiration_date)
         )
+
+    def _convert_model_to_vo(self, market_signal: MarketSignal) -> MarketSignalItem:
+        ret = MarketSignalItem(
+            timestamp=market_signal.timestamp,
+            symbol=market_signal.symbol,
+            timeframe=market_signal.timeframe,
+            signal_type=market_signal.signal_type,
+            rsi_state=market_signal.rsi_state,
+            atr=market_signal.atr,
+            closing_price=market_signal.closing_price,
+            ema_long_price=market_signal.ema_long_price,
+        )
+        return ret

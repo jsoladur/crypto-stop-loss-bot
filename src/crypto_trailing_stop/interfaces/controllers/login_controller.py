@@ -31,7 +31,7 @@ async def login(login_query_params: Annotated[LoginDto, Query()], request: Reque
         response = Response(status_code=status.HTTP_200_OK)
     else:
         request.session["login_query_params"] = login_query_params.model_dump(mode="python")
-        # TODO: Refator this to use a more generic URL building method
+        # TODO: Refactor this to use a more generic URL building method
         parsed_public_domain = urlparse(configuration_properties.public_domain)
         parsed_login_callback_url = request.url_for("login_callback")
         redirect_uri = urlunparse(
