@@ -191,12 +191,12 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
     ) -> str:
         if auto_exit_reason.safeguard_stop_price_reached:
             details = (
-                f"* Current {crypto_currency} price ({current_symbol_price} {fiat_currency}) "
+                f"Current {crypto_currency} price ({current_symbol_price} {fiat_currency}) "
                 + f"is lower than the safeguard calculated ({safeguard_stop_price} {fiat_currency})!!"
             )
         elif auto_exit_reason.auto_exit_sell_1h:
             details = (
-                f"* At current {crypto_currency} price ({current_symbol_price} {fiat_currency}), "
+                f"At current {crypto_currency} price ({current_symbol_price} {fiat_currency}), "
                 + "a SELL 1H signal has suddenly appeared!!"
             )
         elif auto_exit_reason.atr_take_profit_limit_price_reached:
