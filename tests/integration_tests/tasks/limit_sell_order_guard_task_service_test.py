@@ -311,4 +311,4 @@ async def _create_fake_market_signals(first_order: Bit2MeOrderDto) -> None:
     ]
     for signal in one_hour_last_signals:
         await market_signal_service.on_signals_evaluation_result(signal)
-        asyncio.sleep(delay=2.0)
+        await asyncio.sleep(delay=2.0)
