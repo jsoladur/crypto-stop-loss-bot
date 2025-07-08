@@ -10,7 +10,9 @@ from httpx import AsyncClient
 from crypto_trailing_stop.commons.constants import (
     AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST,
     DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
+    DEFAULT_NUMBER_OF_DECIMALS_IN_QUANTITY,
     NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
+    NUMBER_OF_DECIMALS_IN_QUANTITY_BY_SYMBOL,
     TRIGGER_BUY_ACTION_EVENT_NAME,
 )
 from crypto_trailing_stop.commons.patterns import SingletonABCMeta
@@ -92,8 +94,8 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
 
                 buy_order_amount = self._floor_round(
                     initial_amount_to_invest / tickers.close,
-                    ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
-                        market_signal_item.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
+                    ndigits=NUMBER_OF_DECIMALS_IN_QUANTITY_BY_SYMBOL.get(
+                        market_signal_item.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_QUANTITY
                     ),
                 )
                 final_amount_to_invest = buy_order_amount * tickers.close
@@ -120,7 +122,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                     await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)
                 # Re-enable Limit Sell Order Guard, once stop loss is setup!
                 await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
-                # FIXME: Improve this!!!
+                # Notifying via Telegram
                 await self._notify_alert(new_buy_market_order, new_limit_sell_order, tickers, stop_loss_percent_value)
 
     async def _calculate_total_amount_to_invest(
