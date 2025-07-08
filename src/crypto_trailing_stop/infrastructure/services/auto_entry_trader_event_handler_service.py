@@ -126,7 +126,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                     ),
                     client=client,
                 )
-                guard_metrics = await self._orders_analytics_service.calculate_guard_metrics_by_sell_order(
+                guard_metrics, *_ = await self._orders_analytics_service.calculate_guard_metrics_by_sell_order(
                     new_limit_sell_order, client=client
                 )
                 # XXX [JMSOLA]: Calculate suggested stop loss and update it
