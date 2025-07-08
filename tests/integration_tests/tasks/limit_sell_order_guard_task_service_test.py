@@ -71,16 +71,20 @@ async def should_create_market_sell_order_when_atr_take_profit_limit_price_reach
     limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
         GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
     ]
-    fetch_ohlcv_return_value_filename = faker.random_element(
-        [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
-    )
-    with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
-        fetch_ohlcv_return_value = json.loads(fd.read())
-        with patch.object(ccxt.binance, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
-            with patch.object(Bot, "send_message"):
-                await limit_sell_order_guard_task_service.run()
+    with patch.object(
+        LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
+    ) as notify_fatal_error_via_telegram_mock:
+        fetch_ohlcv_return_value_filename = faker.random_element(
+            [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
+        )
+        with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
+            fetch_ohlcv_return_value = json.loads(fd.read())
+            with patch.object(ccxt.binance, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
+                with patch.object(Bot, "send_message"):
+                    await limit_sell_order_guard_task_service.run()
 
-    httpserver.check_assertions()
+                    notify_fatal_error_via_telegram_mock.assert_not_called()
+                    httpserver.check_assertions()
 
 
 @pytest.mark.parametrize("simulate_future_sell_orders", [False, True])
@@ -125,16 +129,19 @@ async def should_create_market_sell_order_when_auto_exit_sell_1h(
     limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
         GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
     ]
-    fetch_ohlcv_return_value_filename = faker.random_element(
-        [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
-    )
-    with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
-        fetch_ohlcv_return_value = json.loads(fd.read())
-        with patch.object(ccxt.binance, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
-            with patch.object(Bot, "send_message"):
-                await limit_sell_order_guard_task_service.run()
-
-    httpserver.check_assertions()
+    with patch.object(
+        LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
+    ) as notify_fatal_error_via_telegram_mock:
+        fetch_ohlcv_return_value_filename = faker.random_element(
+            [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
+        )
+        with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
+            fetch_ohlcv_return_value = json.loads(fd.read())
+            with patch.object(ccxt.binance, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
+                with patch.object(Bot, "send_message"):
+                    await limit_sell_order_guard_task_service.run()
+                    notify_fatal_error_via_telegram_mock.assert_not_called()
+                    httpserver.check_assertions()
 
 
 @pytest.mark.parametrize("bit2me_error_status_code", [403, 500, 502])
@@ -175,16 +182,23 @@ async def should_create_market_sell_order_when_safeguard_stop_price_reached(
     limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
         GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
     ]
-    fetch_ohlcv_return_value_filename = faker.random_element(
-        [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
-    )
-    with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
-        fetch_ohlcv_return_value = json.loads(fd.read())
-        with patch.object(ccxt.binance, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
-            with patch.object(Bot, "send_message"):
-                await limit_sell_order_guard_task_service.run()
+    with patch.object(
+        LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
+    ) as notify_fatal_error_via_telegram_mock:
+        fetch_ohlcv_return_value_filename = faker.random_element(
+            [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
+        )
+        with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
+            fetch_ohlcv_return_value = json.loads(fd.read())
+            with patch.object(ccxt.binance, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
+                with patch.object(Bot, "send_message"):
+                    await limit_sell_order_guard_task_service.run()
+                    if bit2me_error_status_code == 500:
+                        notify_fatal_error_via_telegram_mock.assert_called()
+                    else:
+                        notify_fatal_error_via_telegram_mock.assert_not_called()
 
-    httpserver.check_assertions()
+                    httpserver.check_assertions()
 
 
 def _prepare_httpserver_mock(
@@ -297,4 +311,4 @@ async def _create_fake_market_signals(first_order: Bit2MeOrderDto) -> None:
     ]
     for signal in one_hour_last_signals:
         await market_signal_service.on_signals_evaluation_result(signal)
-        asyncio.sleep(delay=2.0)
+        await asyncio.sleep(delay=2.0)

@@ -43,14 +43,18 @@ class GlobalSummaryService:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.info(f"Operation type found out are: {','.join(operation_types)}")
 
-            current_value = await self._calculate_current_value(client)
+            current_value = await self.calculate_portfolio_total_fiat_amount(
+                account_info.profile.currency_code, client=client
+            )
             global_summary = GlobalSummary(
                 total_deposits=total_deposits, withdrawls=withdrawls, current_value=current_value
             )
             return global_summary
 
-    async def _calculate_current_value(self, client: Client | None = None) -> float:
-        balances = await self._bit2me_remote_service.retrieve_porfolio_balance(user_currency="eur", client=client)
+    async def calculate_portfolio_total_fiat_amount(self, currency_code: str, *, client: Client | None = None) -> float:
+        balances = await self._bit2me_remote_service.retrieve_porfolio_balance(
+            user_currency=currency_code.lower(), client=client
+        )
         balances_by_service_name = pydash.group_by(balances, lambda b: b.service_name)
         current_value = round(
             pydash.sum_(
@@ -61,5 +65,4 @@ class GlobalSummaryService:
             ),
             ndigits=2,
         )
-
         return current_value

@@ -74,7 +74,7 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     assert len(market_signals_for_30m) <= 0
 
     # 3. 4h signals in the same trend is ignored
-    asyncio.sleep(delay=2.0)
+    await asyncio.sleep(delay=2.0)
 
     new_four_hour_signal_same_trend = SignalsEvaluationResultObjectMother.create(
         timestamp=datetime.now(UTC) + timedelta(days=-10), timeframe="4h", symbol=symbol, buy=first_four_hour_signal.buy
@@ -99,7 +99,7 @@ async def should_save_market_signals_properly_when_invoke_to_service(
 
     # 4. Creating a new market signal for 4h, which switches market in the against direction, so then
     # all 1h hour should be deleted
-    asyncio.sleep(delay=2.0)
+    await asyncio.sleep(delay=2.0)
 
     new_four_hour_signal_against_trend = SignalsEvaluationResultObjectMother.create(
         timestamp=datetime.now(UTC), timeframe="4h", symbol=symbol, buy=not first_four_hour_signal.buy

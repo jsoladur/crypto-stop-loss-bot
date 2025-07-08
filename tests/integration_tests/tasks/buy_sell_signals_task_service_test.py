@@ -56,19 +56,23 @@ async def should_send_via_telegram_notifications_after_detecting_buy_sell_signal
         }
     )
     await push_notification.save()
-    with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
-        fetch_ohlcv_return_value = json.loads(fd.read())
+    with patch.object(
+        BuySellSignalsTaskService, "_notify_fatal_error_via_telegram"
+    ) as notify_fatal_error_via_telegram_mock:
+        with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
+            fetch_ohlcv_return_value = json.loads(fd.read())
 
-        if "buy_signal" in fetch_ohlcv_return_value_filename:
-            with patch.object(BuySellSignalsTaskService, "_calculate_buy_signal", return_value=True):
+            if "buy_signal" in fetch_ohlcv_return_value_filename:
+                with patch.object(BuySellSignalsTaskService, "_calculate_buy_signal", return_value=True):
+                    await _run_task_service(buy_sell_signals_task_service, fetch_ohlcv_return_value)
+            elif "sell_signal" in fetch_ohlcv_return_value_filename:
+                with patch.object(BuySellSignalsTaskService, "_calculate_sell_signal", return_value=True):
+                    await _run_task_service(buy_sell_signals_task_service, fetch_ohlcv_return_value)
+            else:
                 await _run_task_service(buy_sell_signals_task_service, fetch_ohlcv_return_value)
-        elif "sell_signal" in fetch_ohlcv_return_value_filename:
-            with patch.object(BuySellSignalsTaskService, "_calculate_sell_signal", return_value=True):
-                await _run_task_service(buy_sell_signals_task_service, fetch_ohlcv_return_value)
-        else:
-            await _run_task_service(buy_sell_signals_task_service, fetch_ohlcv_return_value)
 
-    httpserver.check_assertions()
+            httpserver.check_assertions()
+            notify_fatal_error_via_telegram_mock.assert_not_called()
 
 
 async def _run_task_service(

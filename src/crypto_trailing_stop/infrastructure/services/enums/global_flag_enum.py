@@ -10,6 +10,7 @@ class GlobalFlagTypeEnum(str, Enum):
     AUTO_EXIT_SELL_1H = ("AUTO_EXIT_SELL_1H", "Auto-exit on sudden SELL 1H signal")
     AUTO_EXIT_ATR_TAKE_PROFIT = ("AUTO_EXIT_ATR_TAKE_PROFIT", "Auto-exit on ATR-based take profit")
     BUY_SELL_SIGNALS = ("BUY_SELL_SIGNALS", "Buy/Sell Signals")
+    AUTO_ENTRY_TRADER = ("AUTO_ENTRY_TRADER", "Auto-entry smart trader")
 
     @classmethod
     def from_value(cls, value: str) -> "GlobalFlagTypeEnum":

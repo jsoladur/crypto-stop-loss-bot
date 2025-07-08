@@ -8,6 +8,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.global_flag_item import GlobalFlagItem
 from crypto_trailing_stop.infrastructure.services.vo.push_notification_item import PushNotificationItem
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
@@ -42,12 +43,15 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
             InlineKeyboardButton(text="📈 Get Global Summary", callback_data="get_global_summary"),
             InlineKeyboardButton(text="💵 Get Current Prices", callback_data="get_current_prices"),
         )
-        builder.row(InlineKeyboardButton(text="🚏 Set Stop Loss Percent (%)", callback_data="stop_loss_percent_home"))
-        builder.row(InlineKeyboardButton(text="🚥 Last market signals", callback_data="last_market_signals_home"))
+        builder.row(
+            InlineKeyboardButton(text="🚏 Set Stop Loss Percent (%)", callback_data="stop_loss_percent_home"),
+            InlineKeyboardButton(text="⚙ Auto-Entry Trader config", callback_data="auto_entry_trader_config_home"),
+        )
         builder.row(
             InlineKeyboardButton(text="🚩 Global Flags (Jobs)", callback_data="global_flags_home"),
             InlineKeyboardButton(text="🔔 Notifications", callback_data="push_notificacions_home"),
         )
+        builder.row(InlineKeyboardButton(text="🚥 Last market signals", callback_data="last_market_signals_home"))
         builder.row(InlineKeyboardButton(text="📴 Logout", callback_data="logout"))
         return builder.as_markup()
 
@@ -65,11 +69,23 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
         builder.row(InlineKeyboardButton(text="<< Back", callback_data="go_back_home"))
         return builder.as_markup()
 
+    def get_auto_entry_trader_config_keyboard(self, items: list[AutoBuyTraderConfigItem]) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        for item in items:
+            builder.row(
+                InlineKeyboardButton(
+                    text=f"{item.symbol} - 💰 FIAT Assigned: {item.fiat_wallet_percent_assigned} %",
+                    callback_data=f"set_auto_entry_trader_config$${item.symbol}",
+                )
+            )
+        builder.row(InlineKeyboardButton(text="<< Back", callback_data="go_back_home"))
+        return builder.as_markup()
+
     def get_stop_loss_percent_values_by_symbol_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
         buttons = [
             InlineKeyboardButton(
-                text=f"{percent_value} %", callback_data=f"persist_stop_loss$${symbol}$${percent_value}"
+                text=f"{percent_value}%", callback_data=f"persist_stop_loss$${symbol}$${percent_value}"
             )
             for percent_value in np.arange(0.25, 10.25, 0.25).tolist()
         ]
@@ -77,6 +93,19 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
         for buttons_chunk in pydash.chunk(buttons, size=5):
             builder.row(*buttons_chunk)
         builder.row(InlineKeyboardButton(text="<< Back", callback_data="stop_loss_percent_home"))
+        return builder.as_markup()
+
+    def get_auto_entry_trader_config_values_by_symbol_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        # Add buttons in rows of 3
+        for percent_value in np.arange(0, 125, 25).tolist():
+            builder.row(
+                InlineKeyboardButton(
+                    text=f"Assign {percent_value}% 💰 FIAT money",
+                    callback_data=f"persist_auto_entry_trader_config$${symbol}$${percent_value}",
+                )
+            )
+        builder.row(InlineKeyboardButton(text="<< Back", callback_data="auto_entry_trader_config_home"))
         return builder.as_markup()
 
     def get_push_notifications_home_keyboard(

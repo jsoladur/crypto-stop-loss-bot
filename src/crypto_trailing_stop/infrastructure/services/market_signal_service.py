@@ -1,11 +1,12 @@
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import override
 
-from crypto_trailing_stop.commons.constants import SIGNALS_EVALUATION_RESULT_EVENT_NAME
+from crypto_trailing_stop.commons.constants import SIGNALS_EVALUATION_RESULT_EVENT_NAME, TRIGGER_BUY_ACTION_EVENT_NAME
 from crypto_trailing_stop.commons.patterns import SingletonABCMeta
 from crypto_trailing_stop.config import get_configuration_properties, get_event_emitter
 from crypto_trailing_stop.infrastructure.database.models import MarketSignal
-from crypto_trailing_stop.infrastructure.services.base import AbstractService
+from crypto_trailing_stop.infrastructure.services.base import AbstractEventHandlerService
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import SignalsEvaluationResult
 from crypto_trailing_stop.infrastructure.tasks.vo.types import ReliableTimeframe
@@ -13,13 +14,15 @@ from crypto_trailing_stop.infrastructure.tasks.vo.types import ReliableTimeframe
 logger = logging.getLogger(__name__)
 
 
-class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
+class MarketSignalService(AbstractEventHandlerService, metaclass=SingletonABCMeta):
     def __init__(self) -> None:
         super().__init__()
         self._configuration_properties = get_configuration_properties()
 
+    @override
     def configure(self) -> None:
-        get_event_emitter().add_listener(SIGNALS_EVALUATION_RESULT_EVENT_NAME, self.on_signals_evaluation_result)
+        event_emitter = get_event_emitter()
+        event_emitter.add_listener(SIGNALS_EVALUATION_RESULT_EVENT_NAME, self.on_signals_evaluation_result)
 
     async def find_by_symbol(
         self, symbol: str, *, timeframe: ReliableTimeframe | None = None, ascending: bool = True
@@ -91,9 +94,12 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
             await self._save_new_market_signal(signals)
 
     async def _store_1h_signals(self, signals: SignalsEvaluationResult) -> None:
-        await self._save_new_market_signal(signals)
+        new_market_signal = await self._save_new_market_signal(signals)
+        if new_market_signal.is_candidate_to_trigger_buy_action:
+            event_emitter = get_event_emitter()
+            event_emitter.emit(TRIGGER_BUY_ACTION_EVENT_NAME, new_market_signal)
 
-    async def _save_new_market_signal(self, signals: SignalsEvaluationResult) -> MarketSignal:
+    async def _save_new_market_signal(self, signals: SignalsEvaluationResult) -> MarketSignalItem:
         if signals.timeframe != "4h":
             await self._apply_market_signal_retention_policy(signals)
         new_market_signal = MarketSignal(
@@ -106,7 +112,7 @@ class MarketSignalService(AbstractService, metaclass=SingletonABCMeta):
             ema_long_price=signals.ema_long_price,
         )
         await new_market_signal.save()
-        return new_market_signal
+        return self._convert_model_to_vo(new_market_signal)
 
     async def _apply_market_signal_retention_policy(self, signals: SignalsEvaluationResult) -> None:
         expiration_date = datetime.now(tz=UTC) - timedelta(
