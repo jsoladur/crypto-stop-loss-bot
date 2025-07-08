@@ -230,7 +230,7 @@ def _prepare_httpserver_mock(
         RootModel[list[Bit2MeTradingWalletBalanceDto]](
             [
                 Bit2MeTradingWalletBalanceDto(
-                    id=faker.uuid4(), currency=crypto_currency, balance=round(buy_order_amount_after_feeds, ndigits=2)
+                    id=faker.uuid4(), currency=crypto_currency, balance=buy_order_amount_after_feeds
                 )
             ]
         ).model_dump(mode="json", by_alias=True)

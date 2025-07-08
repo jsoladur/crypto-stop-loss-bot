@@ -175,6 +175,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         crypto_currency_wallet, *_ = await self._bit2me_remote_service.get_trading_wallet_balance(
             symbols=crypto_currency, client=client
         )
+        new_limit_sell_order_amount = min(crypto_currency_wallet.balance, new_buy_market_order.order_amount)
         new_limit_sell_order = await self._bit2me_remote_service.create_order(
             order=CreateNewBit2MeOrderDto(
                 order_type="limit",
@@ -191,7 +192,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                         ),
                     )
                 ),
-                amount=str(crypto_currency_wallet.balance),
+                amount=str(new_limit_sell_order_amount),
             ),
             client=client,
         )
