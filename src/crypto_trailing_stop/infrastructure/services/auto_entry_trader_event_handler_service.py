@@ -112,14 +112,16 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 new_limit_sell_order = await self._create_new_sell_limit_order(
                     new_buy_market_order, tickers, crypto_currency, client=client
                 )
-                await self._update_stop_loss(new_limit_sell_order, crypto_currency, client=client)
+                stop_loss_percent_value = await self._update_stop_loss(
+                    new_limit_sell_order, crypto_currency, client=client
+                )
                 # Ensure Auto-exit on ATR-based take profit is enabled
                 if not (await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)):
                     await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)
                 # Re-enable Limit Sell Order Guard, once stop loss is setup!
                 await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
                 # FIXME: Improve this!!!
-                await self._notify_alert(tickers, body_message="IMPROVE THIS!!")
+                await self._notify_alert(new_buy_market_order, new_limit_sell_order, tickers, stop_loss_percent_value)
 
     async def _calculate_total_amount_to_invest(
         self, buy_trader_config: AutoBuyTraderConfigItem, fiat_currency: str, client: AsyncClient
@@ -202,25 +204,40 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             new_limit_sell_order, client=client
         )
         # XXX [JMSOLA]: Calculate suggested stop loss and update it
-        steps = np.arange(
-            guard_metrics.suggested_stop_loss_percent_value - 2,
-            guard_metrics.suggested_stop_loss_percent_value + 2,
-            0.25,
-        )
+        steps = np.arange(0.25, 100.25, 0.25)
         stop_loss_percent_value = steps[steps >= guard_metrics.suggested_stop_loss_percent_value].min()
         await self._stop_loss_percent_service.save_or_update(
             StopLossPercentItem(symbol=crypto_currency, value=stop_loss_percent_value)
         )
+        return stop_loss_percent_value
 
-    async def _notify_alert(self, tickers: Bit2MeTickersDto, body_message: str) -> None:
+    async def _notify_alert(
+        self,
+        new_buy_market_order: Bit2MeOrderDto,
+        new_limit_sell_order: Bit2MeOrderDto,
+        tickers: Bit2MeTickersDto,
+        stop_loss_percent_value: float,
+    ) -> None:
         telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
             notification_type=PushNotificationTypeEnum.AUTO_ENTRY_TRADER_ALERT
         )
         if telegram_chat_ids:
             crypto_currency, fiat_currency = tickers.symbol.split("/")
-            message = f"✅ {html.bold('MARKET BUY ORDER FILLED')} ✅✅\n\n"
-            message += f"{body_message}\n"
-            message += html.bold(f"🔥 {crypto_currency} current price is {tickers.close} {fiat_currency}")
+            message = f"✅ {html.bold('MARKET BUY ORDER FILLED')} ✅\n\n"
+            message += (
+                f"🔥 {new_buy_market_order.order_amount} {crypto_currency} "
+                + f"purchased at {tickers.close:.2f} {fiat_currency}"
+            )
+            message += html.bold("\n\n⚠️ IMPORTANT CONSIDERATIONS ⚠️\n\n")
+            message += (
+                f"* 🚀 A new {html.bold(new_limit_sell_order.order_type.upper() + ' Sell Order')} ("
+                + f"{new_limit_sell_order.order_amount:.2f} {crypto_currency}), "
+                + f"further sell at {html.bold(str(new_limit_sell_order.price) + ' ' + fiat_currency)}"
+                + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
+            )
+            message += f"* 🚏 {html.bold('Stop Loss')} has been setup to {stop_loss_percent_value}%\n"
+            message += f"* 🚏 {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ACTIVATED!\n"
+            message += f"* 🚏 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} has been ACTIVATED!"
             for tg_chat_id in telegram_chat_ids:
                 await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
 
