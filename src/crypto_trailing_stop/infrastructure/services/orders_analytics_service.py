@@ -77,7 +77,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         (safeguard_stop_price, stop_loss_percent_item) = await self._calculate_safeguard_stop_price(
             sell_order, avg_buy_price
         )
-        (suggested_safeguard_stop_price, atr_value) = self._calculate_suggested_safeguard_stop_price(
+        (suggested_safeguard_stop_price, atr_value, closing_price) = self._calculate_suggested_safeguard_stop_price(
             sell_order, avg_buy_price, technical_indicators=technical_indicators
         )
         suggested_stop_loss_percent_value = round(
@@ -104,6 +104,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
                     sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
                 ),
             ),
+            closing_price=closing_price,
             suggested_safeguard_stop_price=suggested_safeguard_stop_price,
             suggested_stop_loss_percent_value=suggested_stop_loss_percent_value,
             suggested_take_profit_limit_price=suggested_take_profit_limit_price,
@@ -166,14 +167,15 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
 
     def _calculate_suggested_safeguard_stop_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float, technical_indicators: pd.DataFrame
-    ) -> tuple[float, float]:
+    ) -> tuple[float, float, float]:
         last = technical_indicators.iloc[-2]  # Last confirmed candle
+        closing_price = last["close"]
         atr_value = last["atr"]
         suggested_safeguard_stop_price = round(
             avg_buy_price - (last["atr"] * self._configuration_properties.suggested_stop_loss_atr_multiplier),
             ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
         )
-        return suggested_safeguard_stop_price, atr_value
+        return suggested_safeguard_stop_price, atr_value, closing_price
 
     def _calculate_suggested_take_profit_limit_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float, technical_indicators: pd.DataFrame
