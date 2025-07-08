@@ -34,31 +34,29 @@ class AutoBuyTraderConfigService(metaclass=SingletonMeta):
         return ret
 
     async def find_by_symbol(self, symbol: str) -> AutoBuyTraderConfigItem:
-        async with self._lock:
-            config = await AutoBuyTraderConfig.objects().where(AutoBuyTraderConfig.symbol == symbol.upper()).first()
-            if config:
-                ret = AutoBuyTraderConfigItem(
-                    symbol=config.symbol, fiat_wallet_percent_assigned=config.fiat_wallet_percent_assigned
-                )
-            else:
-                ret = AutoBuyTraderConfigItem(symbol=symbol.upper())
-            return ret
+        config = await AutoBuyTraderConfig.objects().where(AutoBuyTraderConfig.symbol == symbol.upper()).first()
+        if config:
+            ret = AutoBuyTraderConfigItem(
+                symbol=config.symbol, fiat_wallet_percent_assigned=config.fiat_wallet_percent_assigned
+            )
+        else:
+            ret = AutoBuyTraderConfigItem(symbol=symbol.upper())
+        return ret
 
     async def save_or_update(self, item: AutoBuyTraderConfigItem) -> None:
-        async with self._lock:
-            # XXX: [JMSOLA] Disable Limit Sell Order Guard job for as a precaution,
-            #      just in case we provoked expected situation!
-            config = await AutoBuyTraderConfig.objects().where(AutoBuyTraderConfig.symbol == item.symbol).first()
-            if config:
-                config.fiat_wallet_percent_assigned = item.fiat_wallet_percent_assigned
-            else:
-                config = AutoBuyTraderConfig(
-                    {
-                        AutoBuyTraderConfig.symbol: item.symbol,
-                        AutoBuyTraderConfig.fiat_wallet_percent_assigned: item.fiat_wallet_percent_assigned,
-                    }
-                )
-            await config.save()
+        # XXX: [JMSOLA] Disable Limit Sell Order Guard job for as a precaution,
+        #      just in case we provoked expected situation!
+        config = await AutoBuyTraderConfig.objects().where(AutoBuyTraderConfig.symbol == item.symbol).first()
+        if config:
+            config.fiat_wallet_percent_assigned = item.fiat_wallet_percent_assigned
+        else:
+            config = AutoBuyTraderConfig(
+                {
+                    AutoBuyTraderConfig.symbol: item.symbol,
+                    AutoBuyTraderConfig.fiat_wallet_percent_assigned: item.fiat_wallet_percent_assigned,
+                }
+            )
+        await config.save()
 
     @cachebox.cachedmethod(cachebox.TTLCache(0, ttl=DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS))
     async def _get_additional_crypto_currencies(self) -> list[str]:
