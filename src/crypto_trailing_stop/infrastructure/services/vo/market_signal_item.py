@@ -22,6 +22,10 @@ class MarketSignalItem:
     ema_long_price: float
 
     @property
+    def is_candidate_to_trigger_buy_action(self) -> bool:
+        return self.timeframe == "1h" and self.signal_type == "buy"
+
+    @property
     def atr_percent(self) -> float:
         return round(
             (self.atr / self.closing_price) * 100,

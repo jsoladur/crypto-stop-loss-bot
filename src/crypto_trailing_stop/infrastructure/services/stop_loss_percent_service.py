@@ -53,11 +53,14 @@ class StopLossPercentService(metaclass=SingletonMeta):
                 )
             return ret
 
-    async def save_or_update(self, item: StopLossPercentItem) -> None:
+    async def save_or_update(
+        self, item: StopLossPercentItem, *, force_disable_limit_sell_order_guard: bool = True
+    ) -> None:
         async with self._lock:
             # XXX: [JMSOLA] Disable Limit Sell Order Guard job for as a precaution,
             #      just in case we provoked expected situation!
-            await self._global_flag_service.force_disable_by_name(name=GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
+            if force_disable_limit_sell_order_guard:
+                await self._global_flag_service.force_disable_by_name(name=GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
             stop_loss_percent = await StopLossPercent.objects().where(StopLossPercent.symbol == item.symbol).first()
             if stop_loss_percent:
                 stop_loss_percent.value = item.value

@@ -26,6 +26,9 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_dto import Bit2MePortfolioBalanceDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto, Bit2MeTradeSide
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
+    Bit2MeTradingWalletBalanceDto,
+)
 from crypto_trailing_stop.infrastructure.adapters.remote.base import AbstractHttpRemoteAsyncService
 
 logger = logging.getLogger(__name__)
@@ -48,6 +51,16 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     async def get_account_info(self, *, client: AsyncClient | None = None) -> Bit2MeAccountInfoDto:
         response = await self._perform_http_request(url="/v1/account", client=client)
         ret = Bit2MeAccountInfoDto.model_validate_json(response.content)
+        return ret
+
+    async def get_trading_wallet_balance(
+        self, symbols: list[str] | str, *, client: AsyncClient | None = None
+    ) -> list[Bit2MeTradingWalletBalanceDto]:
+        params = {}
+        if symbols:
+            params["symbols"] = ",".join(symbols if isinstance(symbols, list) else [symbols])
+        response = await self._perform_http_request(url="/v1/trading/wallet/balance", params=params, client=client)
+        ret = RootModel[list[Bit2MeTradingWalletBalanceDto]].model_validate_json(response.content).root
         return ret
 
     async def retrieve_porfolio_balance(
@@ -108,6 +121,11 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         response = await self._perform_http_request(url="/v1/trading/order", params=params, client=client)
         orders: list[Bit2MeOrderDto] = RootModel[list[Bit2MeOrderDto]].model_validate_json(response.content).root
         return orders
+
+    async def get_order_by_id(self, id: str, *, client: AsyncClient | None = None) -> Bit2MeOrderDto:
+        response = await self._perform_http_request(url=f"/v1/trading/order/{id}", client=client)
+        ret = Bit2MeOrderDto.model_validate_json(response.content)
+        return ret
 
     async def get_trades(
         self, *, side: Bit2MeTradeSide | None = None, symbol: str | None = None, client: AsyncClient | None = None

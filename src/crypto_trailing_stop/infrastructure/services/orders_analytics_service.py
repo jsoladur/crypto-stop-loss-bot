@@ -1,5 +1,6 @@
 import logging
 
+import ccxt.async_support as ccxt  # Notice the async_support import
 import pandas as pd
 from httpx import AsyncClient
 
@@ -32,7 +33,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         self._stop_loss_percent_service = stop_loss_percent_service
         self._crypto_analytics_service = crypto_analytics_service
 
-    async def calculate_limit_sell_order_guard_metrics(
+    async def calculate_all_limit_sell_order_guard_metrics(
         self, *, symbol: str | None = None
     ) -> list[LimitSellOrderGuardMetrics]:
         async with await self._bit2me_remote_service.get_http_client() as client:
@@ -48,65 +49,82 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             previous_used_buy_trade_ids: set[str] = set()
             ret = []
             for sell_order in opened_sell_orders:
-                (avg_buy_price, previous_used_buy_trade_ids) = await self.calculate_correlated_avg_buy_price(
-                    sell_order, previous_used_buy_trade_ids, client=client
+                guard_metrics, previous_used_buy_trade_ids = await self.calculate_guard_metrics_by_sell_order(
+                    sell_order,
+                    technical_indicators=technical_indicators_by_symbol[sell_order.symbol],
+                    previous_used_buy_trade_ids=previous_used_buy_trade_ids,
+                    client=client,
                 )
-                (safeguard_stop_price, stop_loss_percent_item) = await self.calculate_safeguard_stop_price(
-                    sell_order, avg_buy_price
-                )
-                (suggested_safeguard_stop_price, atr_value) = self.calculate_suggested_safeguard_stop_price(
-                    sell_order, avg_buy_price, technical_indicators=technical_indicators_by_symbol[sell_order.symbol]
-                )
-                suggested_stop_loss_percent_value = round(
-                    (1 - (suggested_safeguard_stop_price / avg_buy_price)) * 100,
-                    ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
-                        sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
-                    ),
-                )
-                (suggested_take_profit_limit_price, *_) = self.calculate_suggested_take_profit_limit_price(
-                    sell_order, avg_buy_price, technical_indicators=technical_indicators_by_symbol[sell_order.symbol]
-                )
-                ret.append(
-                    LimitSellOrderGuardMetrics(
-                        sell_order=sell_order,
-                        avg_buy_price=avg_buy_price,
-                        break_even_price=round(
-                            self.calculate_break_even_price(sell_order, avg_buy_price),
-                            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
-                                sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
-                            ),
-                        ),
-                        stop_loss_percent_value=stop_loss_percent_item.value,
-                        safeguard_stop_price=safeguard_stop_price,
-                        current_attr_value=round(
-                            atr_value,
-                            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
-                                sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
-                            ),
-                        ),
-                        suggested_safeguard_stop_price=suggested_safeguard_stop_price,
-                        suggested_stop_loss_percent_value=suggested_stop_loss_percent_value,
-                        suggested_take_profit_limit_price=suggested_take_profit_limit_price,
-                    )
-                )
+                ret.append(guard_metrics)
             return ret
 
-    async def _calculate_technical_indicators_by_opened_sell_orders(
-        self, opened_sell_orders: list[Bit2MeOrderDto]
-    ) -> dict[str, pd.DataFrame]:
-        async with self._crypto_analytics_service.get_exchange_client() as exchange_client:
-            opened_sell_order_symbols = set([sell_order.symbol for sell_order in opened_sell_orders])
+    async def calculate_guard_metrics_by_sell_order(
+        self,
+        sell_order: Bit2MeOrderDto,
+        *,
+        technical_indicators: pd.DataFrame | None = None,
+        previous_used_buy_trade_ids: set[str] = set(),
+        client: AsyncClient | None = None,
+        exchange_client: ccxt.Exchange | None = None,
+    ) -> tuple[LimitSellOrderGuardMetrics, set[str]]:
+        if technical_indicators is None:
+            technical_indicators = await self._crypto_analytics_service.calculate_technical_indicators(
+                sell_order.symbol, exchange_client=exchange_client
+            )
+        (avg_buy_price, previous_used_buy_trade_ids) = await self._calculate_correlated_avg_buy_price(
+            sell_order, previous_used_buy_trade_ids, client=client
+        )
+        (safeguard_stop_price, stop_loss_percent_item) = await self._calculate_safeguard_stop_price(
+            sell_order, avg_buy_price
+        )
+        (suggested_safeguard_stop_price, atr_value) = self._calculate_suggested_safeguard_stop_price(
+            sell_order, avg_buy_price, technical_indicators=technical_indicators
+        )
+        suggested_stop_loss_percent_value = round(
+            (1 - (suggested_safeguard_stop_price / avg_buy_price)) * 100,
+            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+        )
+        (suggested_take_profit_limit_price, *_) = self._calculate_suggested_take_profit_limit_price(
+            sell_order, avg_buy_price, technical_indicators=technical_indicators
+        )
+        guard_metrics = LimitSellOrderGuardMetrics(
+            sell_order=sell_order,
+            avg_buy_price=avg_buy_price,
+            break_even_price=round(
+                self._calculate_break_even_price(sell_order, avg_buy_price),
+                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
+                    sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
+                ),
+            ),
+            stop_loss_percent_value=stop_loss_percent_item.value,
+            safeguard_stop_price=safeguard_stop_price,
+            current_attr_value=round(
+                atr_value,
+                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
+                    sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
+                ),
+            ),
+            suggested_safeguard_stop_price=suggested_safeguard_stop_price,
+            suggested_stop_loss_percent_value=suggested_stop_loss_percent_value,
+            suggested_take_profit_limit_price=suggested_take_profit_limit_price,
+        )
+        return (guard_metrics, previous_used_buy_trade_ids)
 
-            technical_indicators_by_symbol = {
-                symbol: await self._crypto_analytics_service.calculate_technical_indicators(
-                    symbol, exchange_client=exchange_client
-                )
-                for symbol in opened_sell_order_symbols
-            }
+    async def find_stop_loss_percent_by_sell_order(
+        self, sell_order: Bit2MeOrderDto
+    ) -> tuple[StopLossPercentItem, float]:
+        crypto_currency_symbol = sell_order.symbol.split("/")[0].strip().upper()
+        stop_loss_percent_item = await self._stop_loss_percent_service.find_stop_loss_percent_by_symbol(
+            symbol=crypto_currency_symbol
+        )
+        stop_loss_percent_decimal_value = stop_loss_percent_item.value / 100
+        logger.info(
+            f"Stop Loss Percent for Symbol {crypto_currency_symbol} "
+            + f"is setup to '{stop_loss_percent_item.value} %' (Decimal: {stop_loss_percent_decimal_value})..."
+        )
+        return stop_loss_percent_item, stop_loss_percent_decimal_value
 
-        return technical_indicators_by_symbol
-
-    async def calculate_correlated_avg_buy_price(
+    async def _calculate_correlated_avg_buy_price(
         self,
         sell_order: Bit2MeOrderDto,
         previous_used_buy_trade_ids: set[str] = set(),
@@ -133,7 +151,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         )
         return avg_buy_price, previous_used_buy_trade_ids
 
-    async def calculate_safeguard_stop_price(
+    async def _calculate_safeguard_stop_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float
     ) -> tuple[float, StopLossPercentItem]:
         (stop_loss_percent_item, stop_loss_percent_decimal_value) = await self.find_stop_loss_percent_by_sell_order(
@@ -146,7 +164,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         )
         return safeguard_stop_price, stop_loss_percent_item
 
-    def calculate_suggested_safeguard_stop_price(
+    def _calculate_suggested_safeguard_stop_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float, technical_indicators: pd.DataFrame
     ) -> tuple[float, float]:
         last = technical_indicators.iloc[-2]  # Last confirmed candle
@@ -157,7 +175,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         )
         return suggested_safeguard_stop_price, atr_value
 
-    def calculate_suggested_take_profit_limit_price(
+    def _calculate_suggested_take_profit_limit_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float, technical_indicators: pd.DataFrame
     ) -> tuple[float, float]:
         last = technical_indicators.iloc[-2]  # Last confirmed candle
@@ -168,23 +186,24 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         )
         return suggested_safeguard_stop_price, atr_value
 
-    def calculate_break_even_price(self, sell_order: Bit2MeOrderDto, avg_buy_price: float) -> float:
+    def _calculate_break_even_price(self, sell_order: Bit2MeOrderDto, avg_buy_price: float) -> float:
         break_even_price = round(
             avg_buy_price * (1.0 + BIT2ME_MAKER_AND_TAKER_FEES_SUM),
             ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
         )
         return break_even_price
 
-    async def find_stop_loss_percent_by_sell_order(
-        self, sell_order: Bit2MeOrderDto
-    ) -> tuple[StopLossPercentItem, float]:
-        crypto_currency_symbol = sell_order.symbol.split("/")[0].strip().upper()
-        stop_loss_percent_item = await self._stop_loss_percent_service.find_stop_loss_percent_by_symbol(
-            symbol=crypto_currency_symbol
-        )
-        stop_loss_percent_decimal_value = stop_loss_percent_item.value / 100
-        logger.info(
-            f"Stop Loss Percent for Symbol {crypto_currency_symbol} "
-            + f"is setup to '{stop_loss_percent_item.value} %' (Decimal: {stop_loss_percent_decimal_value})..."
-        )
-        return stop_loss_percent_item, stop_loss_percent_decimal_value
+    async def _calculate_technical_indicators_by_opened_sell_orders(
+        self, opened_sell_orders: list[Bit2MeOrderDto]
+    ) -> dict[str, pd.DataFrame]:
+        async with self._crypto_analytics_service.get_exchange_client() as exchange_client:
+            opened_sell_order_symbols = set([sell_order.symbol for sell_order in opened_sell_orders])
+
+            technical_indicators_by_symbol = {
+                symbol: await self._crypto_analytics_service.calculate_technical_indicators(
+                    symbol, exchange_client=exchange_client
+                )
+                for symbol in opened_sell_order_symbols
+            }
+
+        return technical_indicators_by_symbol
