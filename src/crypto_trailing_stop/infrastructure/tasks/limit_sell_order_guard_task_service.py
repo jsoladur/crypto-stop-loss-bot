@@ -194,7 +194,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         auto_exit_reason: AutoExitReason,
     ) -> None:
         crypto_currency, fiat_currency = new_market_order.symbol.split("/")
-        text_message = f"🚨🚨 {html.bold('MARKET SELL ORDER CREATED')} 🚨🚨\n\n"
+        text_message = f"🚨 {html.bold('MARKET SELL ORDER FILLED')} 🚨\n\n"
         text_message += f"{new_market_order.order_amount} {crypto_currency} HAS BEEN SOLD due to:\n"
         details = self._get_notification_message_details(
             current_symbol_price, guard_metrics, auto_exit_reason, crypto_currency, fiat_currency

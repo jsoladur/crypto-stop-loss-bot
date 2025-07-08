@@ -22,6 +22,7 @@ class Bit2MeOrderDtoObjectMother:
         symbol: str | None = None,
         order_type: Bit2MeOrderType | None = None,
         status: Bit2MeOrderStatus | None = None,
+        order_amount: float | int | None = None,
         stop_price: float | int | None = None,
         price: float | int | None = None,
     ) -> Bit2MeOrderDto:
@@ -47,7 +48,7 @@ class Bit2MeOrderDtoObjectMother:
             symbol=symbol or cls._faker.random_element(["ETH/EUR", "SOL/EUR"]),
             order_type=order_type,
             status=status or cls._faker.random_element(["open", "filled", "cancelled", "inactive"]),
-            order_amount=cls._faker.pyfloat(positive=True, min_value=1_000, max_value=10_000),
+            order_amount=order_amount or cls._faker.pyfloat(positive=True, min_value=1_000, max_value=10_000),
             stop_price=stop_price,
             price=price,
         )
