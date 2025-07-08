@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def should_calculate_limit_sell_order_guard_metrics_properly(
+async def should_calculate_all_limit_sell_order_guard_metrics_properly(
     faker: Faker, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
 ) -> None:
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
@@ -52,8 +52,10 @@ async def should_calculate_limit_sell_order_guard_metrics_properly(
     with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
         fetch_ohlcv_return_value = json.loads(fd.read())
         with patch.object(ccxt.binance, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
-            limit_sell_order_guard_metrics = await orders_analytics_service.calculate_limit_sell_order_guard_metrics(
-                symbol=first_sell_order.symbol
+            limit_sell_order_guard_metrics = (
+                await orders_analytics_service.calculate_all_limit_sell_order_guard_metrics(
+                    symbol=first_sell_order.symbol
+                )
             )
             for idx, sell_order in enumerate(opened_sell_bit2me_orders):
                 logger.info(repr(limit_sell_order_guard_metrics))

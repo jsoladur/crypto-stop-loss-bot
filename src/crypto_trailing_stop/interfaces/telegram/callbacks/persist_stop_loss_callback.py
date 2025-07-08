@@ -46,7 +46,7 @@ async def handle_persist_stop_loss_callback(callback_query: CallbackQuery, state
             percent_value = float(match.group(2).strip())
             await stop_loss_percent_service.save_or_update(StopLossPercentItem(symbol=symbol, value=percent_value))
             limit_sell_order_guard_metrics_list = (
-                await orders_analytics_service.calculate_limit_sell_order_guard_metrics(symbol=symbol)
+                await orders_analytics_service.calculate_all_limit_sell_order_guard_metrics(symbol=symbol)
             )
             answer_text = messages_formatter.format_persist_stop_loss_message(
                 symbol, percent_value, limit_sell_order_guard_metrics_list

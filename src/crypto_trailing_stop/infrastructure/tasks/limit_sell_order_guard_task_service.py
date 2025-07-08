@@ -136,7 +136,9 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
                 ),
                 client=client,
             )
-            logger.info(f"[NEW MARKET ORDER] Id: '{new_market_order.id}', for selling everything immediately!")
+            logger.info(
+                f"[LIMIT SELL ORDER GUARD] NEW MARKET ORDER Id: '{new_market_order.id}', for selling everything immediately!"  # noqa: E501
+            )
             await self._notify_new_market_order_created_via_telegram(
                 new_market_order,
                 current_symbol_price=tickers.close,

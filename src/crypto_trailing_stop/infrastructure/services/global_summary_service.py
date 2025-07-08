@@ -6,6 +6,7 @@ import pandas as pd
 import pydash
 from httpx import Client
 
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.vo.global_summary import GlobalSummary
 
@@ -43,14 +44,18 @@ class GlobalSummaryService:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.info(f"Operation type found out are: {','.join(operation_types)}")
 
-            current_value = await self._calculate_current_value(client)
+            current_value = await self.calculate_portfolio_total_fiat_amount(account_info, client=client)
             global_summary = GlobalSummary(
                 total_deposits=total_deposits, withdrawls=withdrawls, current_value=current_value
             )
             return global_summary
 
-    async def _calculate_current_value(self, client: Client | None = None) -> float:
-        balances = await self._bit2me_remote_service.retrieve_porfolio_balance(user_currency="eur", client=client)
+    async def calculate_portfolio_total_fiat_amount(
+        self, account_info: Bit2MeAccountInfoDto, *, client: Client | None = None
+    ) -> float:
+        balances = await self._bit2me_remote_service.retrieve_porfolio_balance(
+            user_currency=account_info.profile.currency_code.lower(), client=client
+        )
         balances_by_service_name = pydash.group_by(balances, lambda b: b.service_name)
         current_value = round(
             pydash.sum_(
@@ -61,5 +66,4 @@ class GlobalSummaryService:
             ),
             ndigits=2,
         )
-
         return current_value
