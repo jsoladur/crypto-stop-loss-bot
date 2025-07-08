@@ -1,4 +1,5 @@
 import math
+from unittest.mock import patch
 from urllib.parse import urlencode
 
 import pydash
@@ -41,9 +42,12 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
     trailing_stop_loss_task_service: TrailingStopLossTaskService = task_manager.get_tasks()[
         GlobalFlagTypeEnum.TRAILING_STOP_LOSS
     ]
-    await trailing_stop_loss_task_service.run()
-
-    httpserver.check_assertions()
+    with patch.object(
+        TrailingStopLossTaskService, "_notify_fatal_error_via_telegram"
+    ) as notify_fatal_error_via_telegram_mock:
+        await trailing_stop_loss_task_service.run()
+        notify_fatal_error_via_telegram_mock.assert_not_called()
+        httpserver.check_assertions()
 
 
 def _prepare_httpserver_mock(
