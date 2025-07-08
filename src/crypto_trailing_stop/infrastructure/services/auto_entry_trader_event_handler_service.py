@@ -102,7 +102,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 logger.info(
                     f"[Auto-Entry Trader] Trying to create BUY MARKET ORDER for {market_signal_item.symbol}, "  # noqa: E501
                     + f"which has current price {tickers.close} {fiat_currency}. "
-                    + f"Investing {final_amount_to_invest} {fiat_currency}, "
+                    + f"Investing {final_amount_to_invest:.2f} {fiat_currency}, "
                     + f"buying {buy_order_amount} {crypto_currency}"
                 )
                 new_buy_market_order = await self._create_new_buy_market_order_and_wait_until_filled(
