@@ -1,3 +1,4 @@
+import asyncio
 import json
 import math
 from datetime import UTC, datetime
@@ -17,7 +18,9 @@ from crypto_trailing_stop.commons.constants import (
     BIT2ME_TAKER_FEES,
     DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
     NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
+    TRIGGER_BUY_ACTION_EVENT_NAME,
 )
+from crypto_trailing_stop.config import get_event_emitter
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_dto import (
     Bit2MePortfolioBalanceDto,
@@ -49,9 +52,10 @@ from tests.helpers.object_mothers import (
 )
 
 
+@pytest.mark.parametrize("use_event_emitter", [False, True])
 @pytest.mark.asyncio
 async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signal_is_triggered(
-    faker: Faker, integration_test_env: tuple[HTTPServer, str]
+    faker: Faker, use_event_emitter: bool, integration_test_env: tuple[HTTPServer, str]
 ) -> None:
     """
     Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
@@ -94,7 +98,12 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
                 fetch_ohlcv_return_value = json.loads(fd.read())
                 with patch.object(ccxt.binance, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
                     with patch.object(Bot, "send_message"):
-                        await auto_entry_trader_event_handler_service.on_buy_market_signal(market_signal_item)
+                        if use_event_emitter:
+                            event_emitter = get_event_emitter()
+                            event_emitter.emit(TRIGGER_BUY_ACTION_EVENT_NAME, market_signal_item)
+                            await asyncio.sleep(delay=15.0)
+                        else:
+                            await auto_entry_trader_event_handler_service.on_buy_market_signal(market_signal_item)
 
             httpserver.check_assertions()
             notify_fatal_error_via_telegram_mock.assert_not_called()
