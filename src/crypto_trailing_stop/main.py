@@ -14,6 +14,10 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from crypto_trailing_stop.config import get_configuration_properties, get_dispacher, get_scheduler, get_telegram_bot
 from crypto_trailing_stop.infrastructure.database import init_database
+from crypto_trailing_stop.infrastructure.services.auto_entry_trader_event_handler_service import (
+    AutoEntryTraderEventHandlerService,
+)
+from crypto_trailing_stop.infrastructure.services.base import AbstractEventHandlerService
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.interfaces.controllers.health_controller import router as health_router
@@ -72,8 +76,12 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
         scheduler.start()
 
     # Configure pyee listeners
-    market_signal_service = MarketSignalService()
-    market_signal_service.configure()
+    event_handler_services: list[AbstractEventHandlerService] = [
+        MarketSignalService(),
+        AutoEntryTraderEventHandlerService(),
+    ]
+    for event_handler_service in event_handler_services:
+        event_handler_service.configure()
 
     logger.info("Application startup complete.")
 
