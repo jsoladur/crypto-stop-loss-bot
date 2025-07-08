@@ -195,7 +195,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             # Ensuring we are not selling below the break even price,
             # regardless what the ATR Take profit limit price is!
             atr_take_profit_limit_price_reached = bool(
-                tickers.close > break_even_price and tickers.close > atr_take_profit_limit_price
+                tickers.close >= break_even_price and tickers.close >= atr_take_profit_limit_price
             )
         return atr_take_profit_limit_price_reached
 
