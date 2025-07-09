@@ -13,6 +13,7 @@ from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.services.vo.current_crypto_metrics import CurrentCryptoMetrics
 from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,23 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         self._configuration_properties = get_configuration_properties()
         self._bit2me_remote_service = bit2me_remote_service
         self._ccxt_remote_service = ccxt_remote_service
+
+    async def get_current_crypto_metrics(
+        self, symbol: str, *, timeframe: Timeframe = "1h", exchange_client: ccxt.Exchange | None = None
+    ) -> CurrentCryptoMetrics:
+        technical_indicators: pd.DataFrame = await self.calculate_technical_indicators(
+            symbol, timeframe=timeframe, exchange_client=exchange_client
+        )
+        current = technical_indicators.iloc[-1]  # Current candle (uncompleted)
+        return CurrentCryptoMetrics(
+            symbol=symbol,
+            current_price=current["close"],
+            ema_short=current["ema_short"],
+            ema_mid=current["ema_mid"],
+            ema_long=current["ema_long"],
+            rsi=current["rsi"],
+            atr=current["atr"],
+        )
 
     async def calculate_technical_indicators(
         self, symbol: str, *, timeframe: Timeframe = "1h", exchange_client: ccxt.Exchange | None = None
@@ -63,7 +81,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         return symbols
 
     def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
-        logger.info("Calculating indicators...")
+        logger.debug("Calculating indicators...")
         # Exponential Moving Average (EMA) 9
         df["ema_short"] = EMAIndicator(
             df["close"], window=self._configuration_properties.buy_sell_signals_ema_short_value
@@ -85,5 +103,5 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         df["atr"] = AverageTrueRange(df["high"], df["low"], df["close"], window=14).average_true_range()
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)
-        logger.info("Indicator calculation complete.")
+        logger.debug("Indicator calculation complete.")
         return df

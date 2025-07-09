@@ -39,9 +39,10 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
 
     def get_home_keyboard(self) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
+        builder.row(InlineKeyboardButton(text="📈 Global Summary", callback_data="get_global_summary"))
         builder.row(
-            InlineKeyboardButton(text="📈 Get Global Summary", callback_data="get_global_summary"),
-            InlineKeyboardButton(text="💵 Get Current Prices", callback_data="get_current_prices"),
+            InlineKeyboardButton(text="💵 Current Prices", callback_data="get_current_prices"),
+            InlineKeyboardButton(text="🧮 Current Metrics", callback_data="current_metrics_home"),
         )
         builder.row(
             InlineKeyboardButton(text="🚏 Set Stop Loss Percent (%)", callback_data="stop_loss_percent_home"),
@@ -76,6 +77,17 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
                 InlineKeyboardButton(
                     text=f"{item.symbol} - 💰 FIAT Assigned: {item.fiat_wallet_percent_assigned} %",
                     callback_data=f"set_auto_entry_trader_config$${item.symbol}",
+                )
+            )
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
+        return builder.as_markup()
+
+    def get_current_metrics_home_keyboard(self, crypto_currencies: str) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        for crypto_currency in crypto_currencies:
+            builder.row(
+                InlineKeyboardButton(
+                    text=f"🧮 {crypto_currency}", callback_data=f"get_current_metrics_for_symbol$${crypto_currency}"
                 )
             )
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
@@ -138,6 +150,6 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
     def get_last_market_signals_symbols_keyboard(self, symbols: str) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
         for symbol in symbols:
-            builder.row(InlineKeyboardButton(text=f"🔥 {symbol}", callback_data=f"show_last_market_signals$${symbol}"))
+            builder.row(InlineKeyboardButton(text=f"🚥 {symbol}", callback_data=f"show_last_market_signals$${symbol}"))
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()

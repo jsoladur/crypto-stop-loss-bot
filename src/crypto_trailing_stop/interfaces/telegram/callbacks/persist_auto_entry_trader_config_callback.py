@@ -39,12 +39,13 @@ async def handle_persist_stop_loss_callback(callback_query: CallbackQuery, state
             )
             await callback_query.message.answer(answer_text, reply_markup=keyboards_builder.get_home_keyboard())
         except Exception as e:
-            logger.error(f"Error persisting stop loss: {str(e)}", exc_info=True)
+            logger.error(f"Error persisting Auto-Entry trader config: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ An error occurred while persisting a stop loss. Please try again later:\n\n{html.code(str(e))}"
+                "⚠️ An error occurred while persisting an Auto-Entry Trader configuration. "
+                + f"Please try again later:\n\n{html.code(str(e))}"
             )
     else:
         await callback_query.message.answer(
-            "⚠️ Please log in to set the stop loss percent (%).",
+            "⚠️ Please log in to set the corresponding Auto-Entry Trader configuration.",
             reply_markup=keyboards_builder.get_login_keyboard(state),
         )

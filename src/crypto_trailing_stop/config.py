@@ -62,7 +62,7 @@ class ConfigurationProperties(BaseSettings):
     market_signal_retention_days: int = 9
     # XXX: Other parameters
     suggested_stop_loss_atr_multiplier: float = 1.85
-    suggested_take_profit_atr_multiplier: float = 2.5
+    suggested_take_profit_atr_multiplier: float = 3.0
     # Google OAuth configuration
     google_oauth_client_id: str
     google_oauth_client_secret: str

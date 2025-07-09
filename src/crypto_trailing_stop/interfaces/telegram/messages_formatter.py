@@ -3,11 +3,37 @@ from zoneinfo import ZoneInfo
 from aiogram import html
 
 from crypto_trailing_stop.commons.patterns import SingletonMeta
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
+from crypto_trailing_stop.infrastructure.services.vo.current_crypto_metrics import CurrentCryptoMetrics
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 
 
 class MessagesFormatter(metaclass=SingletonMeta):
+    def format_current_prices_message(self, tickers_list: Bit2MeTickersDto) -> str:
+        message_lines = ["===========================", "💵 CURRENT PRICES 💵", "==========================="]
+        for tickers in tickers_list:
+            crypto_currency, fiat_currency = tickers.symbol.split("/")
+            message_lines.append(
+                f"🔥 {html.bold(crypto_currency.upper())} 💰 {html.bold(str(tickers.close) + ' ' + fiat_currency)}"
+            )
+        ret = "\n".join(message_lines)
+        return ret
+
+    def format_current_crypto_metrics_message(self, metrics: CurrentCryptoMetrics) -> str:
+        *_, fiat_currency = metrics.symbol.split("/")
+        header = f"🧮 {html.bold('CURRENT METRICS')} for {html.bold(metrics.symbol)} 🧮\n\n"
+        message_lines = [
+            f"💰 {html.bold('Current Price')} = {html.code(f'{metrics.current_price:.2f} {fiat_currency}')}",
+            f"📈 {html.bold('EMA Short')} = {metrics.ema_short:.2f} {fiat_currency}",
+            f"📉 {html.bold('EMA Mid')} = {metrics.ema_mid:.2f} {fiat_currency}",
+            f"📐 {html.bold('EMA Long')} = {metrics.ema_long:.2f} {fiat_currency}",
+            f"🎢 {html.bold('ATR')} = ±{metrics.atr:.2f} {fiat_currency} (±{metrics.atr_percent}%)",
+            f"📊 {html.bold('RSI')} = {html.italic(metrics.rsi_state.capitalize())} ({metrics.rsi:.2f})",
+        ]
+        ret = header + "\n".join(message_lines)
+        return ret
+
     def format_persist_stop_loss_message(
         self, symbol: str, percent_value: float, limit_sell_order_guard_metrics_list: list[LimitSellOrderGuardMetrics]
     ) -> str:
