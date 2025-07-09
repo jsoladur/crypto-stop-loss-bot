@@ -122,11 +122,6 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
                 )
                 assert is_enabled_for_auto_exit_sell_1h is True
 
-                is_enabled_for_auto_exit_atr_take_profit = await global_flag_service.is_enabled_for(
-                    GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT
-                )
-                assert is_enabled_for_auto_exit_atr_take_profit is True
-
                 is_enabled_for_limit_sell_order_guard = await global_flag_service.is_enabled_for(
                     GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
                 )

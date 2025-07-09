@@ -35,6 +35,6 @@ async def auto_entry_trader_config_home_callback_handler(callback_query: Callbac
             )
     else:
         await callback_query.message.answer(
-            "⚠️ Please log in to operate with auto-entry trader configuration (%).",
+            "⚠️ Please log in to operate with auto-entry trader configuration.",
             reply_markup=keyboards_builder.get_login_keyboard(state),
         )
