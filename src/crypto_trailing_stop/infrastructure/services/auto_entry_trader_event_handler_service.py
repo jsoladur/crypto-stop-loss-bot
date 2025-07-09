@@ -78,7 +78,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                     else:
                         reason_message = "    - 🎢 " + html.italic(
                             f"Current ATR ({market_signal_item.atr_percent:.2f}%) "
-                            + f"exceeds the allowed risk threshold (<={self._configuration_properties.max_atr_percent_for_auto_entry}%).\n"  # noqa: E501
+                            + f"exceeds the allowed risk threshold (&lt;={self._configuration_properties.max_atr_percent_for_auto_entry}%).\n"  # noqa: E501
                         )
                         reason_message += "⏸️ Trading paused to protect capital."
                         await self._notify_warning(market_signal_item, warning_reason_message=reason_message)
