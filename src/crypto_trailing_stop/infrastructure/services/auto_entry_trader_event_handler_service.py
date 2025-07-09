@@ -132,7 +132,9 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 # Re-enable Limit Sell Order Guard, once stop loss is setup!
                 await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
                 # Notifying via Telegram
-                await self._notify_alert(new_buy_market_order, new_limit_sell_order, tickers, stop_loss_percent_value)
+                await self._notify_success_alert(
+                    new_buy_market_order, new_limit_sell_order, tickers, stop_loss_percent_value
+                )
 
     async def _calculate_total_amount_to_invest(
         self, buy_trader_config: AutoBuyTraderConfigItem, fiat_currency: str, client: AsyncClient
@@ -234,11 +236,11 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             message += "    - 🎢 " + html.italic(
                 f"Current ATR ({market_signal_item.atr_percent:.2f}%) exceeds the allowed risk threshold.\n"
             )  # noqa: E501
-            message += "🫸 Trading paused to protect capital."
+            message += "⏸️ Trading paused to protect capital."
             for tg_chat_id in telegram_chat_ids:
                 await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
 
-    async def _notify_alert(
+    async def _notify_success_alert(
         self,
         new_buy_market_order: Bit2MeOrderDto,
         new_limit_sell_order: Bit2MeOrderDto,
@@ -264,7 +266,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             )
             message += f"* 🚏 {html.bold('Stop Loss')} has been setup to {stop_loss_percent_value}%\n"
             message += f"* 🛡️ {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ACTIVATED!\n"
-            message += f"* 🛑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H.description)} has been ACTIVATED!"
+            message += f"* 🛑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H.description)} has been ACTIVATED!\n"
             message += f"* 🤑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} has been ACTIVATED!"
             for tg_chat_id in telegram_chat_ids:
                 await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
