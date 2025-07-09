@@ -30,7 +30,7 @@ async def toggle_push_notification_callback_handler(callback_query: CallbackQuer
                 telegram_chat_id=state.key.chat_id, notification_type=notification_type
             )
             await callback_query.message.answer(
-                f"ℹ Push notifications for '{html.bold(push_notification_item.notification_type.description)}'"
+                f"ℹ️ Push notifications for '{html.bold(push_notification_item.notification_type.description)}'"
                 + f" has been {('🔔' + html.bold(' ENABLED')) if push_notification_item.activated else ('🔕' + html.bold(' DISABLED'))}!",  # noqa: E501
                 reply_markup=keyboards_builder.get_home_keyboard(),
             )

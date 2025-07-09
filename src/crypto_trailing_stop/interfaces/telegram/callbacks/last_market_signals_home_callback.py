@@ -35,7 +35,7 @@ async def last_market_signals_home_callback_handler(callback_query: CallbackQuer
                 )
             )
             await callback_query.message.answer(
-                "ℹ Click into a symbol for showing up its last market signals",
+                "ℹ️ Click into a symbol for showing up its last market signals",
                 reply_markup=keyboards_builder.get_last_market_signals_symbols_keyboard(symbols),
             )
         except Exception as e:

@@ -4,7 +4,7 @@ from aiogram import html
 
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.services.vo.current_crypto_metrics import CurrentCryptoMetrics
+from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 
@@ -20,11 +20,11 @@ class MessagesFormatter(metaclass=SingletonMeta):
         ret = "\n".join(message_lines)
         return ret
 
-    def format_current_crypto_metrics_message(self, metrics: CurrentCryptoMetrics) -> str:
+    def format_current_crypto_metrics_message(self, metrics: CryptoMarketMetrics) -> str:
         *_, fiat_currency = metrics.symbol.split("/")
         header = f"🧮 {html.bold('CURRENT METRICS')} for {html.bold(metrics.symbol)} 🧮\n\n"
         message_lines = [
-            f"💰 {html.bold('Current Price')} = {html.code(f'{metrics.current_price:.2f} {fiat_currency}')}",
+            f"💰 {html.bold('Current Price')} = {html.code(f'{metrics.closing_price:.2f} {fiat_currency}')}",
             f"📈 {html.bold('EMA Short')} = {metrics.ema_short:.2f} {fiat_currency}",
             f"📉 {html.bold('EMA Mid')} = {metrics.ema_mid:.2f} {fiat_currency}",
             f"📐 {html.bold('EMA Long')} = {metrics.ema_long:.2f} {fiat_currency}",
@@ -38,7 +38,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
         self, symbol: str, percent_value: float, limit_sell_order_guard_metrics_list: list[LimitSellOrderGuardMetrics]
     ) -> str:
         answer_text = (
-            f"ℹ Stop loss for {html.bold(symbol)} at {html.bold(str(percent_value) + '%')} "
+            f"ℹ️ Stop loss for {html.bold(symbol)} at {html.bold(str(percent_value) + '%')} "
             + "has been successfully stored and it will be applied right now! \n\n"
             + html.bold(
                 "⚠️ IMPORTANT NOTE: Limit Sell Order Guard Jobs has been DISABLED for PRECAUTION! "

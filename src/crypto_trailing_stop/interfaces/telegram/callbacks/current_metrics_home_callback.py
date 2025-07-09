@@ -28,7 +28,7 @@ async def current_metrics_home_callback_handler(callback_query: CallbackQuery, s
         try:
             items = await crypto_analytics_service.get_favourite_symbols()
             await callback_query.message.answer(
-                "ℹ Click into a symbol for getting its current crypto metrics.",
+                "ℹ️ Click into a symbol for getting its current crypto metrics.",
                 reply_markup=keyboards_builder.get_current_metrics_home_keyboard(items),
             )
         except Exception as e:

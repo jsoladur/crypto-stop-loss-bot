@@ -26,7 +26,7 @@ async def push_notifications_home_callback(callback_query: CallbackQuery, state:
                 state.key.chat_id
             )
             await callback_query.message.answer(
-                "ℹ Click into a notification type for toggling (enabled/disabled) them",
+                "ℹ️ Click into a notification type for toggling (enabled/disabled) them",
                 reply_markup=keyboards_builder.get_push_notifications_home_keyboard(push_notification_items),
             )
         except Exception as e:

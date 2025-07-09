@@ -9,9 +9,9 @@ from crypto_trailing_stop.config import get_configuration_properties
 
 
 @dataclass
-class CurrentCryptoMetrics:
+class CryptoMarketMetrics:
     symbol: str
-    current_price: float
+    closing_price: float
     ema_short: float
     ema_mid: float
     ema_long: float
@@ -32,6 +32,6 @@ class CurrentCryptoMetrics:
     @property
     def atr_percent(self) -> float:
         return round(
-            (self.atr / self.current_price) * 100,
+            (self.atr / self.closing_price) * 100,
             ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(self.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
         )

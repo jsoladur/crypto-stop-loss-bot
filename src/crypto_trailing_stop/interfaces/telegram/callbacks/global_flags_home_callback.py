@@ -22,7 +22,7 @@ async def stop_loss_percent_home_callback_handler(callback_query: CallbackQuery,
     if is_user_logged:
         global_flag_items = await global_flag_service.find_all()
         await callback_query.message.answer(
-            "ℹ Click into a flag to active/deactivate them",
+            "ℹ️ Click into a flag to active/deactivate them",
             reply_markup=keyboards_builder.get_global_flags_home_keyboard(global_flag_items),
         )
     else:
