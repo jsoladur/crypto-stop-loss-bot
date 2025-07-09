@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import math
+from datetime import UTC, datetime
 from typing import override
 
 import numpy as np
@@ -25,8 +26,9 @@ from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service imp
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
 from crypto_trailing_stop.infrastructure.services.base import AbstractService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
-from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
+from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
+from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_enum import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.global_summary_service import GlobalSummaryService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
@@ -48,12 +50,13 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             bit2me_remote_service=self._bit2me_remote_service, global_flag_service=self._global_flag_service
         )
         self._global_summary_service = GlobalSummaryService(bit2me_remote_service=self._bit2me_remote_service)
+        self._crypto_analytics_service = CryptoAnalyticsService(
+            bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=CcxtRemoteService()
+        )
         self._orders_analytics_service = OrdersAnalyticsService(
             bit2me_remote_service=self._bit2me_remote_service,
             stop_loss_percent_service=self._stop_loss_percent_service,
-            crypto_analytics_service=CryptoAnalyticsService(
-                bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=CcxtRemoteService()
-            ),
+            crypto_analytics_service=self._crypto_analytics_service,
         )
         self._auto_buy_trader_config_service = AutoBuyTraderConfigService(
             bit2me_remote_service=self._bit2me_remote_service
@@ -63,6 +66,23 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
     def configure(self) -> None:
         event_emitter = get_event_emitter()
         event_emitter.add_listener(TRIGGER_BUY_ACTION_EVENT_NAME, self.on_buy_market_signal)
+
+    async def trigger_immediate_buy_market_signal(self, symbol: str) -> None:
+        crypto_market_metrics = await self._crypto_analytics_service.get_crypto_market_metrics(
+            symbol, over_candlestick=CandleStickEnum.LAST
+        )
+        market_signal_item = MarketSignalItem(
+            timestamp=datetime.now(UTC),
+            symbol=crypto_market_metrics.symbol,
+            timeframe="1h",
+            signal_type="buy",
+            rsi_state=crypto_market_metrics.rsi_state,
+            atr=crypto_market_metrics.atr,
+            closing_price=crypto_market_metrics.closing_price,
+            ema_long_price=crypto_market_metrics.ema_long,
+        )
+        event_emitter = get_event_emitter()
+        event_emitter.emit(TRIGGER_BUY_ACTION_EVENT_NAME, market_signal_item)
 
     async def on_buy_market_signal(self, market_signal_item: MarketSignalItem) -> None:
         try:

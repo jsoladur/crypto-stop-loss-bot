@@ -63,7 +63,7 @@ async def auto_entry_trader_config_for_symbol_callback_handler(
                 inline_keyboard_markup = None
             await callback_query.message.answer(message, reply_markup=inline_keyboard_markup)
         except Exception as e:
-            logger.error(f"Error retrieving current crypto metrics for {symbol}: {str(e)}", exc_info=True)
+            logger.error(f"Error retrieving current crypto metrics: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 f"⚠️ An error occurred while retrieving current crypto metrics for {symbol}. "
                 + f"Please try again later:\n\n{html.code(str(e))}"
