@@ -71,7 +71,12 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 crypto_currency, fiat_currency = market_signal_item.symbol.split("/")
                 buy_trader_config = await self._auto_buy_trader_config_service.find_by_symbol(crypto_currency)
                 if buy_trader_config.fiat_wallet_percent_assigned > 0:
-                    await self._perform_trading(market_signal_item, crypto_currency, fiat_currency, buy_trader_config)
+                    if market_signal_item.atr_percent < self._configuration_properties.max_atr_percent_for_auto_entry:
+                        await self._perform_trading(
+                            market_signal_item, crypto_currency, fiat_currency, buy_trader_config
+                        )
+                    else:
+                        await self._notify_warning_unfavorable_conditions_for_trading(market_signal_item)
         except Exception as e:
             logger.error(str(e), exc_info=True)
             await self._notify_fatal_error_via_telegram(e)
@@ -217,6 +222,21 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             StopLossPercentItem(symbol=crypto_currency, value=stop_loss_percent_value)
         )
         return stop_loss_percent_value
+
+    async def _notify_warning_unfavorable_conditions_for_trading(self, market_signal_item: MarketSignalItem) -> None:
+        telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
+            notification_type=PushNotificationTypeEnum.AUTO_ENTRY_TRADER_ALERT
+        )
+        if telegram_chat_ids:
+            message = f"⚠️ {html.bold('AUTO-ENTRY TRADER WARNING')} ⚠️\n\n"
+            message += f"Stopping trading operations for {market_signal_item.symbol}, despite recent BUY 1H signal.\n"  # noqa: E501
+            message += "✴️ Reasons:\n"
+            message += "    - 🎢 " + html.italic(
+                f"Current ATR ({market_signal_item.atr_percent:.2f}%) exceeds the allowed risk threshold.\n"
+            )  # noqa: E501
+            message += "🫸 Trading paused to protect capital."
+            for tg_chat_id in telegram_chat_ids:
+                await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
 
     async def _notify_alert(
         self,
