@@ -22,6 +22,7 @@ from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service i
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
+from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
@@ -154,8 +155,8 @@ class BuySellSignalsTaskService(AbstractTaskService):
         buy_signal, sell_signal, is_choppy = False, False, False
         rsi_state = "neutral"
         if len(df) >= 3:
-            prev = df.iloc[-3]  # Prev confirmed candle
-            last = df.iloc[-2]  # Last confirmed candle
+            prev = df.iloc[CandleStickEnum.PREV]  # Prev confirmed candle
+            last = df.iloc[CandleStickEnum.LAST]  # Last confirmed candle
             # Update timestamp
             timestamp = last["timestamp"].timestamp()
             # Calculate RSI Anticipation Zone (RSI)

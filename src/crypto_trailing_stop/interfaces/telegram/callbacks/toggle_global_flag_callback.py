@@ -28,7 +28,7 @@ async def toggle_push_notification_callback_handler(callback_query: CallbackQuer
             global_flag_name = GlobalFlagTypeEnum.from_value(match.group(1))
             global_flag_item = await global_flag_service.toggle_by_name(global_flag_name)
             await callback_query.message.answer(
-                f"ℹ Global Flag for '{html.bold(global_flag_item.name.description)}'"
+                f"ℹ️ Global Flag for '{html.bold(global_flag_item.name.description)}'"
                 + f" has been {('🟢' + html.bold(' ENABLED')) if global_flag_item.value else ('🟥' + html.bold(' DISABLED'))}!",  # noqa: E501
                 reply_markup=keyboards_builder.get_home_keyboard(),
             )

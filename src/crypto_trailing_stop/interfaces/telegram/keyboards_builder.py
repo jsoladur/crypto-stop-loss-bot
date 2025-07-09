@@ -119,6 +119,24 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="auto_entry_trader_config_home"))
         return builder.as_markup()
 
+    def get_first_confirmation_trigger_auto_entry_trader_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        builder.row(
+            InlineKeyboardButton(
+                text="☑️ Yes", callback_data=f"auto_entry_trader_manual_trigger_confirmation$${symbol}"
+            ),
+            InlineKeyboardButton(text="🔙 No", callback_data="go_back_home"),
+        )
+        return builder.as_markup()
+
+    def get_second_confirmation_trigger_auto_entry_trader_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        builder.row(
+            InlineKeyboardButton(text="☑️ Yes", callback_data=f"trigger_auto_entry_trader$${symbol}"),
+            InlineKeyboardButton(text="🔙 No", callback_data="go_back_home"),
+        )
+        return builder.as_markup()
+
     def get_push_notifications_home_keyboard(
         self, push_notification_items: list[PushNotificationItem]
     ) -> InlineKeyboardMarkup:
