@@ -12,7 +12,11 @@ from pydantic import AnyUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pyee.asyncio import AsyncIOEventEmitter
 
-from crypto_trailing_stop.commons.constants import DEFAULT_JOB_INTERVAL_SECONDS, DEFAULT_TRAILING_STOP_LOSS_PERCENT
+from crypto_trailing_stop.commons.constants import (
+    DEFAULT_JOB_INTERVAL_SECONDS,
+    DEFAULT_TRAILING_STOP_LOSS_PERCENT,
+    STOP_LOSS_STEPS_VALUE_LIST,
+)
 
 _configuration_properties: ConfigurationProperties | None = None
 _scheduler: AsyncIOScheduler | None = None
@@ -48,6 +52,8 @@ class ConfigurationProperties(BaseSettings):
     buy_sell_signals_1h_volatility_threshold: float = 0.004
     buy_sell_signals_rsi_overbought: int = 70
     buy_sell_signals_rsi_oversold: int = 30
+    # Auto-Entry Trader configuration properties
+    max_atr_percent_for_auto_entry: int = STOP_LOSS_STEPS_VALUE_LIST[-1]
     # XXX: EMA values
     buy_sell_signals_ema_short_value: int = 7
     buy_sell_signals_ema_mid_value: int = 18
