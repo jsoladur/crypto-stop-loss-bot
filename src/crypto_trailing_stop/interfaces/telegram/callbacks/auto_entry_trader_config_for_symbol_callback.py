@@ -28,7 +28,9 @@ async def auto_entry_trader_config_for_symbol_callback_handler(
         match = re.match(r"^set_auto_entry_trader_config\$\$(.+)$", callback_query.data)
         symbol = match.group(1)
         await callback_query.message.answer(
-            f"ℹ Select the new 💰 FIAT 💰 assigned value for {html.bold(symbol.upper())} auto-entries executions",
+            "ℹ Select the 💰 FIAT 💰 wallet amount assigned "
+            + f"for {html.bold(symbol.upper())} Auto-Entry Trader executions, "
+            + "where 0% would mean disabled.",
             reply_markup=keyboards_builder.get_auto_entry_trader_config_values_by_symbol_keyboard(symbol),
         )
     else:

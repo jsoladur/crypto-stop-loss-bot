@@ -1,11 +1,11 @@
 from urllib.parse import urlencode, urlparse, urlunparse
 
-import numpy as np
 import pydash
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from crypto_trailing_stop.commons.constants import AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST, STOP_LOSS_STEPS_VALUE_LIST
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
@@ -66,7 +66,7 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
                     callback_data=f"set_stop_loss_percent$${stop_loss_percent_item.symbol}",
                 )
             )
-        builder.row(InlineKeyboardButton(text="<< Back", callback_data="go_back_home"))
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 
     def get_auto_entry_trader_config_keyboard(self, items: list[AutoBuyTraderConfigItem]) -> InlineKeyboardMarkup:
@@ -78,7 +78,7 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
                     callback_data=f"set_auto_entry_trader_config$${item.symbol}",
                 )
             )
-        builder.row(InlineKeyboardButton(text="<< Back", callback_data="go_back_home"))
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 
     def get_stop_loss_percent_values_by_symbol_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
@@ -87,25 +87,24 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
             InlineKeyboardButton(
                 text=f"{percent_value}%", callback_data=f"persist_stop_loss$${symbol}$${percent_value}"
             )
-            for percent_value in np.arange(0.25, 10.25, 0.25).tolist()
+            for percent_value in STOP_LOSS_STEPS_VALUE_LIST
         ]
         # Add buttons in rows of 3
         for buttons_chunk in pydash.chunk(buttons, size=5):
             builder.row(*buttons_chunk)
-        builder.row(InlineKeyboardButton(text="<< Back", callback_data="stop_loss_percent_home"))
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="stop_loss_percent_home"))
         return builder.as_markup()
 
     def get_auto_entry_trader_config_values_by_symbol_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
-        # Add buttons in rows of 3
-        for percent_value in np.arange(0, 125, 25).tolist():
+        for percent_value in AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST:
             builder.row(
                 InlineKeyboardButton(
-                    text=f"Assign {percent_value}% 💰 FIAT money",
+                    text=f"💰 {percent_value}%",
                     callback_data=f"persist_auto_entry_trader_config$${symbol}$${percent_value}",
                 )
             )
-        builder.row(InlineKeyboardButton(text="<< Back", callback_data="auto_entry_trader_config_home"))
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="auto_entry_trader_config_home"))
         return builder.as_markup()
 
     def get_push_notifications_home_keyboard(
@@ -120,7 +119,7 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
                     callback_data=f"toggle_push_notification$${item.notification_type.value}",
                 )
             )
-        builder.row(InlineKeyboardButton(text="<< Back", callback_data="go_back_home"))
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 
     def get_global_flags_home_keyboard(self, global_flags_items: list[GlobalFlagItem]) -> InlineKeyboardMarkup:
@@ -133,12 +132,12 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
                     callback_data=f"toggle_global_flag$${item.name.value}",
                 )
             )
-        builder.row(InlineKeyboardButton(text="<< Back", callback_data="go_back_home"))
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 
     def get_last_market_signals_symbols_keyboard(self, symbols: str) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
         for symbol in symbols:
             builder.row(InlineKeyboardButton(text=f"🔥 {symbol}", callback_data=f"show_last_market_signals$${symbol}"))
-        builder.row(InlineKeyboardButton(text="<< Back", callback_data="go_back_home"))
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()

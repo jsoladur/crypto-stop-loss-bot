@@ -13,6 +13,7 @@ from crypto_trailing_stop.commons.constants import (
     DEFAULT_NUMBER_OF_DECIMALS_IN_QUANTITY,
     NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
     NUMBER_OF_DECIMALS_IN_QUANTITY_BY_SYMBOL,
+    STOP_LOSS_STEPS_VALUE_LIST,
     TRIGGER_BUY_ACTION_EVENT_NAME,
 )
 from crypto_trailing_stop.commons.patterns import SingletonABCMeta
@@ -210,8 +211,8 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             new_limit_sell_order, client=client
         )
         # XXX [JMSOLA]: Calculate suggested stop loss and update it
-        steps = np.arange(0.25, 100.25, 0.25)
-        stop_loss_percent_value = steps[steps >= guard_metrics.suggested_stop_loss_percent_value].min()
+        steps = np.array(STOP_LOSS_STEPS_VALUE_LIST)
+        stop_loss_percent_value = float(steps[steps >= guard_metrics.suggested_stop_loss_percent_value].min())
         await self._stop_loss_percent_service.save_or_update(
             StopLossPercentItem(symbol=crypto_currency, value=stop_loss_percent_value)
         )
