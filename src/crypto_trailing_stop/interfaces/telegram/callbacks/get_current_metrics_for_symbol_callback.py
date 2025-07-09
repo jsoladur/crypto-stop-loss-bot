@@ -1,6 +1,7 @@
 import logging
+import re
 
-from aiogram import html
+from aiogram import F, html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
@@ -23,22 +24,26 @@ crypto_analytics_service = CryptoAnalyticsService(
 )
 
 
-@dp.callback_query(lambda c: c.data == "get_current_prices")
-async def get_current_prices_callback_handler(callback_query: CallbackQuery, state: FSMContext) -> None:
+@dp.callback_query(F.data.regexp(r"^get_current_metrics_for_symbol\$\$(.+)$"))
+async def auto_entry_trader_config_for_symbol_callback_handler(
+    callback_query: CallbackQuery, state: FSMContext
+) -> None:
     is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:
-            tickers_list = await crypto_analytics_service.get_favourite_tickers()
-            message = messages_formatter.format_current_prices_message(tickers_list)
-            await callback_query.message.answer(text=message)
+            match = re.match(r"^get_current_metrics_for_symbol\$\$(.+)$", callback_query.data)
+            symbol = match.group(1)
+            current_crypto_metrics = await crypto_analytics_service.get_current_crypto_metrics(symbol)
+            message = messages_formatter.format_current_crypto_metrics_message(current_crypto_metrics)
+            await callback_query.message.answer(message)
         except Exception as e:
-            logger.error(f"Error fetching get current crypto currency prices: {str(e)}", exc_info=True)
+            logger.error(f"Error retrieving current crypto metrics for {symbol}: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                "⚠️ An error occurred while fetching current crypto currency prices. "
+                f"⚠️ An error occurred while retrieving current crypto metrics for {symbol}. "
                 + f"Please try again later:\n\n{html.code(str(e))}"
             )
     else:
         await callback_query.message.answer(
-            "⚠️ Please log in to get the current crypto currency prices!",
+            "⚠️ Please log in to get current crypto metrics for any symbol.",
             reply_markup=keyboards_builder.get_login_keyboard(state),
         )
