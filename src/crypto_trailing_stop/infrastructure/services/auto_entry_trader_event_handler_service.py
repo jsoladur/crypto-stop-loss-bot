@@ -76,7 +76,12 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                             market_signal_item, crypto_currency, fiat_currency, buy_trader_config
                         )
                     else:
-                        await self._notify_warning_unfavorable_conditions_for_trading(market_signal_item)
+                        reason_message = "    - 🎢 " + html.italic(
+                            f"Current ATR ({market_signal_item.atr_percent:.2f}%) "
+                            + f"exceeds the allowed risk threshold (<={self._configuration_properties.max_atr_percent_for_auto_entry}%).\n"  # noqa: E501
+                        )
+                        reason_message += "⏸️ Trading paused to protect capital."
+                        await self._notify_warning(market_signal_item, warning_reason_message=reason_message)
         except Exception as e:
             logger.error(str(e), exc_info=True)
             await self._notify_fatal_error_via_telegram(e)
@@ -92,46 +97,61 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             initial_amount_to_invest = await self._calculate_total_amount_to_invest(
                 buy_trader_config, fiat_currency, client
             )
-            # XXX: [JMSOLA] Investing less than 50.0 EUR is not worthly
+            # XXX: [JMSOLA] Investing less than 25.0 EUR is not worthly
             if initial_amount_to_invest > AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST:
-                # XXX: [JMSOLA] Get the current tickers.close price for calculate the order_amount
-                tickers = await self._bit2me_remote_service.get_tickers_by_symbol(market_signal_item.symbol)
-                # XXX: [JMSOLA] Calculate buy order amount
+                await self._invest(
+                    market_signal_item, crypto_currency, fiat_currency, initial_amount_to_invest, client=client
+                )
+            else:
+                reason_message = "    - 💸 " + html.italic(
+                    f"Insufficient funds to invest ({initial_amount_to_invest:.2f} {fiat_currency}). "
+                    + f"Minimal funds needed are {AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST:.2f} {fiat_currency}"
+                )
+                await self._notify_warning(market_signal_item, warning_reason_message=reason_message)
 
-                buy_order_amount = self._floor_round(
-                    initial_amount_to_invest / tickers.close,
-                    ndigits=NUMBER_OF_DECIMALS_IN_QUANTITY_BY_SYMBOL.get(
-                        market_signal_item.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_QUANTITY
-                    ),
-                )
-                final_amount_to_invest = buy_order_amount * tickers.close
-                logger.info(
-                    f"[Auto-Entry Trader] Trying to create BUY MARKET ORDER for {market_signal_item.symbol}, "  # noqa: E501
-                    + f"which has current price {tickers.close} {fiat_currency}. "
-                    + f"Investing {final_amount_to_invest:.2f} {fiat_currency}, "
-                    + f"buying {buy_order_amount} {crypto_currency}"
-                )
-                new_buy_market_order = await self._create_new_buy_market_order_and_wait_until_filled(
-                    market_signal_item, buy_order_amount, client=client
-                )
-                # XXX [JMSOLA]: Disabling temporary Limit Sell Guard order for precaution
-                await self._global_flag_service.force_disable_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
-                # Creating new sell limite order
-                new_limit_sell_order = await self._create_new_sell_limit_order(
-                    new_buy_market_order, tickers, crypto_currency, client=client
-                )
-                stop_loss_percent_value = await self._update_stop_loss(
-                    new_limit_sell_order, crypto_currency, client=client
-                )
-                # Ensure Auto-exit on sudden SELL 1H signal is enabled
-                if not (await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)):
-                    await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
-                # Re-enable Limit Sell Order Guard, once stop loss is setup!
-                await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
-                # Notifying via Telegram
-                await self._notify_success_alert(
-                    new_buy_market_order, new_limit_sell_order, tickers, stop_loss_percent_value
-                )
+    async def _invest(
+        self,
+        market_signal_item: MarketSignalItem,
+        crypto_currency: str,
+        fiat_currency: str,
+        initial_amount_to_invest: float,
+        *,
+        client: AsyncClient,
+    ) -> None:
+        # XXX: [JMSOLA] Get the current tickers.close price for calculate the order_amount
+        tickers = await self._bit2me_remote_service.get_tickers_by_symbol(market_signal_item.symbol)
+        # XXX: [JMSOLA] Calculate buy order amount
+
+        buy_order_amount = self._floor_round(
+            initial_amount_to_invest / tickers.close,
+            ndigits=NUMBER_OF_DECIMALS_IN_QUANTITY_BY_SYMBOL.get(
+                market_signal_item.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_QUANTITY
+            ),
+        )
+        final_amount_to_invest = buy_order_amount * tickers.close
+        logger.info(
+            f"[Auto-Entry Trader] Trying to create BUY MARKET ORDER for {market_signal_item.symbol}, "  # noqa: E501
+            + f"which has current price {tickers.close} {fiat_currency}. "
+            + f"Investing {final_amount_to_invest:.2f} {fiat_currency}, "
+            + f"buying {buy_order_amount} {crypto_currency}"
+        )
+        new_buy_market_order = await self._create_new_buy_market_order_and_wait_until_filled(
+            market_signal_item, buy_order_amount, client=client
+        )
+        # XXX [JMSOLA]: Disabling temporary Limit Sell Guard order for precaution
+        await self._global_flag_service.force_disable_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
+        # Creating new sell limite order
+        new_limit_sell_order = await self._create_new_sell_limit_order(
+            new_buy_market_order, tickers, crypto_currency, client=client
+        )
+        stop_loss_percent_value = await self._update_stop_loss(new_limit_sell_order, crypto_currency, client=client)
+        # Ensure Auto-exit on sudden SELL 1H signal is enabled
+        if not (await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)):
+            await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
+            # Re-enable Limit Sell Order Guard, once stop loss is setup!
+        await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
+        # Notifying via Telegram
+        await self._notify_success_alert(new_buy_market_order, new_limit_sell_order, tickers, stop_loss_percent_value)
 
     async def _calculate_total_amount_to_invest(
         self, buy_trader_config: AutoBuyTraderConfigItem, fiat_currency: str, client: AsyncClient
@@ -222,7 +242,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         )
         return stop_loss_percent_value
 
-    async def _notify_warning_unfavorable_conditions_for_trading(self, market_signal_item: MarketSignalItem) -> None:
+    async def _notify_warning(self, market_signal_item: MarketSignalItem, warning_reason_message: str) -> None:
         telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
             notification_type=PushNotificationTypeEnum.AUTO_ENTRY_TRADER_ALERT
         )
@@ -230,10 +250,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             message = f"⚠️ {html.bold('AUTO-ENTRY TRADER WARNING')} ⚠️\n\n"
             message += f"Stopping trading operations for {market_signal_item.symbol}, despite recent BUY 1H signal.\n"  # noqa: E501
             message += "✴️ Reasons:\n"
-            message += "    - 🎢 " + html.italic(
-                f"Current ATR ({market_signal_item.atr_percent:.2f}%) exceeds the allowed risk threshold.\n"
-            )  # noqa: E501
-            message += "⏸️ Trading paused to protect capital."
+            message += warning_reason_message
             for tg_chat_id in telegram_chat_ids:
                 await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
 
