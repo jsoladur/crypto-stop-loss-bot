@@ -126,9 +126,6 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 # Ensure Auto-exit on sudden SELL 1H signal is enabled
                 if not (await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)):
                     await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
-                # Ensure Auto-exit on ATR-based take profit is enabled
-                if not (await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)):
-                    await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)
                 # Re-enable Limit Sell Order Guard, once stop loss is setup!
                 await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
                 # Notifying via Telegram
@@ -265,9 +262,12 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
             )
             message += f"* 🚏 {html.bold('Stop Loss')} has been setup to {stop_loss_percent_value}%\n"
-            message += f"* 🛡️ {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ACTIVATED!\n"
-            message += f"* 🛑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H.description)} has been ACTIVATED!\n"
-            message += f"* 🤑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} has been ACTIVATED!"
+            message += f"* 🛡️ {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ENABLED!\n"
+            message += f"* 🛑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H.description)} has been ENABLED!\n"
+            message += (
+                f"* ⚡ {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} has NOT been ENABLED! "
+                + "Please, consider to enable it if needed!"
+            )
             for tg_chat_id in telegram_chat_ids:
                 await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
 
