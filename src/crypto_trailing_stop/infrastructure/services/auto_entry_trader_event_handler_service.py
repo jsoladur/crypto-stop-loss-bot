@@ -13,6 +13,7 @@ from crypto_trailing_stop.commons.constants import (
     DEFAULT_NUMBER_OF_DECIMALS_IN_QUANTITY,
     NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
     NUMBER_OF_DECIMALS_IN_QUANTITY_BY_SYMBOL,
+    STOP_LOSS_STEPS_VALUE_LIST,
     TRIGGER_BUY_ACTION_EVENT_NAME,
 )
 from crypto_trailing_stop.commons.patterns import SingletonABCMeta
@@ -70,7 +71,12 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 crypto_currency, fiat_currency = market_signal_item.symbol.split("/")
                 buy_trader_config = await self._auto_buy_trader_config_service.find_by_symbol(crypto_currency)
                 if buy_trader_config.fiat_wallet_percent_assigned > 0:
-                    await self._perform_trading(market_signal_item, crypto_currency, fiat_currency, buy_trader_config)
+                    if market_signal_item.atr_percent < self._configuration_properties.max_atr_percent_for_auto_entry:
+                        await self._perform_trading(
+                            market_signal_item, crypto_currency, fiat_currency, buy_trader_config
+                        )
+                    else:
+                        await self._notify_warning_unfavorable_conditions_for_trading(market_signal_item)
         except Exception as e:
             logger.error(str(e), exc_info=True)
             await self._notify_fatal_error_via_telegram(e)
@@ -117,13 +123,18 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 stop_loss_percent_value = await self._update_stop_loss(
                     new_limit_sell_order, crypto_currency, client=client
                 )
+                # Ensure Auto-exit on sudden SELL 1H signal is enabled
+                if not (await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)):
+                    await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
                 # Ensure Auto-exit on ATR-based take profit is enabled
                 if not (await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)):
                     await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)
                 # Re-enable Limit Sell Order Guard, once stop loss is setup!
                 await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
                 # Notifying via Telegram
-                await self._notify_alert(new_buy_market_order, new_limit_sell_order, tickers, stop_loss_percent_value)
+                await self._notify_success_alert(
+                    new_buy_market_order, new_limit_sell_order, tickers, stop_loss_percent_value
+                )
 
     async def _calculate_total_amount_to_invest(
         self, buy_trader_config: AutoBuyTraderConfigItem, fiat_currency: str, client: AsyncClient
@@ -207,14 +218,29 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             new_limit_sell_order, client=client
         )
         # XXX [JMSOLA]: Calculate suggested stop loss and update it
-        steps = np.arange(0.25, 100.25, 0.25)
-        stop_loss_percent_value = steps[steps >= guard_metrics.suggested_stop_loss_percent_value].min()
+        steps = np.array(STOP_LOSS_STEPS_VALUE_LIST)
+        stop_loss_percent_value = float(steps[steps >= guard_metrics.suggested_stop_loss_percent_value].min())
         await self._stop_loss_percent_service.save_or_update(
             StopLossPercentItem(symbol=crypto_currency, value=stop_loss_percent_value)
         )
         return stop_loss_percent_value
 
-    async def _notify_alert(
+    async def _notify_warning_unfavorable_conditions_for_trading(self, market_signal_item: MarketSignalItem) -> None:
+        telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
+            notification_type=PushNotificationTypeEnum.AUTO_ENTRY_TRADER_ALERT
+        )
+        if telegram_chat_ids:
+            message = f"⚠️ {html.bold('AUTO-ENTRY TRADER WARNING')} ⚠️\n\n"
+            message += f"Stopping trading operations for {market_signal_item.symbol}, despite recent BUY 1H signal.\n"  # noqa: E501
+            message += "✴️ Reasons:\n"
+            message += "    - 🎢 " + html.italic(
+                f"Current ATR ({market_signal_item.atr_percent:.2f}%) exceeds the allowed risk threshold.\n"
+            )  # noqa: E501
+            message += "⏸️ Trading paused to protect capital."
+            for tg_chat_id in telegram_chat_ids:
+                await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
+
+    async def _notify_success_alert(
         self,
         new_buy_market_order: Bit2MeOrderDto,
         new_limit_sell_order: Bit2MeOrderDto,
@@ -239,8 +265,9 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
             )
             message += f"* 🚏 {html.bold('Stop Loss')} has been setup to {stop_loss_percent_value}%\n"
-            message += f"* 🚏 {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ACTIVATED!\n"
-            message += f"* 🚏 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} has been ACTIVATED!"
+            message += f"* 🛡️ {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ACTIVATED!\n"
+            message += f"* 🛑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H.description)} has been ACTIVATED!\n"
+            message += f"* 🤑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} has been ACTIVATED!"
             for tg_chat_id in telegram_chat_ids:
                 await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
 

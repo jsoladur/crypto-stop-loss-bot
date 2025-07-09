@@ -52,10 +52,16 @@ from tests.helpers.object_mothers import (
 )
 
 
-@pytest.mark.parametrize("use_event_emitter", [False, True])
+@pytest.mark.parametrize(
+    "use_event_emitter,warning_unfavorable_conditions_for_trading",
+    [(False, False), (False, True), (True, False), (True, True)],
+)
 @pytest.mark.asyncio
 async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signal_is_triggered(
-    faker: Faker, use_event_emitter: bool, integration_test_env: tuple[HTTPServer, str]
+    faker: Faker,
+    use_event_emitter: bool,
+    warning_unfavorable_conditions_for_trading: bool,
+    integration_test_env: tuple[HTTPServer, str],
 ) -> None:
     """
     Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
@@ -66,7 +72,7 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
     await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.AUTO_ENTRY_TRADER)
 
     market_signal_item, _, crypto_currency, *_ = _prepare_httpserver_mock(
-        faker, httpserver, bit2me_api_key, bit2me_api_secret
+        faker, httpserver, bit2me_api_key, bit2me_api_secret, warning_unfavorable_conditions_for_trading
     )
     # Provoke send a notification via Telegram
     telegram_chat_id = faker.random_number(digits=9, fix_len=True)
@@ -87,7 +93,7 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
         AutoBuyTraderConfigItem(symbol=crypto_currency, fiat_wallet_percent_assigned=100)
     )
     # Trigger the event
-    with patch.object(GlobalFlagService, "_toggle_task") as toggle_task_called:
+    with patch.object(GlobalFlagService, "_toggle_task") as toggle_task_mock:
         with patch.object(
             AutoEntryTraderEventHandlerService, "_notify_fatal_error_via_telegram"
         ) as notify_fatal_error_via_telegram_mock:
@@ -107,20 +113,32 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
 
             httpserver.check_assertions()
             notify_fatal_error_via_telegram_mock.assert_not_called()
-            toggle_task_called.assert_called()
+            if warning_unfavorable_conditions_for_trading:
+                toggle_task_mock.assert_not_called()
+            else:
+                toggle_task_mock.assert_called()
+                is_enabled_for_auto_exit_sell_1h = await global_flag_service.is_enabled_for(
+                    GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H
+                )
+                assert is_enabled_for_auto_exit_sell_1h is True
 
-            is_enabled_for_auto_exit_atr_take_profit = await global_flag_service.is_enabled_for(
-                GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT
-            )
-            is_enabled_for_limit_sell_order_guard = await global_flag_service.is_enabled_for(
-                GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
-            )
-            assert is_enabled_for_auto_exit_atr_take_profit is True
-            assert is_enabled_for_limit_sell_order_guard is True
+                is_enabled_for_auto_exit_atr_take_profit = await global_flag_service.is_enabled_for(
+                    GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT
+                )
+                assert is_enabled_for_auto_exit_atr_take_profit is True
+
+                is_enabled_for_limit_sell_order_guard = await global_flag_service.is_enabled_for(
+                    GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
+                )
+                assert is_enabled_for_limit_sell_order_guard is True
 
 
 def _prepare_httpserver_mock(
-    faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str
+    faker: Faker,
+    httpserver: HTTPServer,
+    bit2me_api_key: str,
+    bik2me_api_secret: str,
+    warning_unfavorable_conditions_for_trading: bool,
 ) -> tuple[str, str, str]:
     symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
     crypto_currency, fiat_currency = symbol.split("/")
@@ -131,147 +149,150 @@ def _prepare_httpserver_mock(
         timeframe="1h",
         signal_type="buy",
         rsi_state="neutral",
-        atr=faker.pyfloat(min_value=100.0, max_value=200.0),
+        atr=faker.pyfloat(min_value=100.0, max_value=200.0)
+        if not warning_unfavorable_conditions_for_trading
+        else (closing_price * 0.9),
         closing_price=closing_price,
         ema_long_price=closing_price * 0.9,
     )
-    global_portfolio_balance = faker.pyfloat(min_value=2_500, max_value=2_700)
-    bit2me_pro_balance = global_portfolio_balance * 0.9
-    # Global portfolio
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/portfolio/balance",
-            query_string=urlencode({"userCurrency": fiat_currency.upper()}, doseq=False),
-            method="GET",
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(
-        RootModel[list[Bit2MePortfolioBalanceDto]](
-            [
-                Bit2MePortfolioBalanceDto(
-                    serviceName="all",
-                    total=TotalDto(
-                        converted_balance=ConvertedBalanceDto(currency="EUR", value=global_portfolio_balance)
-                    ),
-                    wallets=[],
-                )
-            ]
-        ).model_dump(mode="json", by_alias=True)
-    )
-    # Trading Wallet Balance for FIAT currency
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/trading/wallet/balance",
-            query_string=urlencode({"symbols": fiat_currency.upper()}, doseq=False),
-            method="GET",
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(
-        RootModel[list[Bit2MeTradingWalletBalanceDto]](
-            [
-                Bit2MeTradingWalletBalanceDto(
-                    id=faker.uuid4(), currency=fiat_currency, balance=round(bit2me_pro_balance, ndigits=2)
-                )
-            ]
-        ).model_dump(mode="json", by_alias=True)
-    )
-    # Mock tickers
-    tickers = Bit2MeTickersDtoObjectMother.create(symbol=symbol, close=closing_price * 1.02)
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": symbol}
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
+    if not warning_unfavorable_conditions_for_trading:
+        global_portfolio_balance = faker.pyfloat(min_value=2_500, max_value=2_700)
+        bit2me_pro_balance = global_portfolio_balance * 0.9
+        # Global portfolio
+        httpserver.expect(
+            Bit2MeAPIRequestMacher(
+                "/bit2me-api/v1/portfolio/balance",
+                query_string=urlencode({"userCurrency": fiat_currency.upper()}, doseq=False),
+                method="GET",
+            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+            handler_type=HandlerType.ONESHOT,
+        ).respond_with_json(
+            RootModel[list[Bit2MePortfolioBalanceDto]](
+                [
+                    Bit2MePortfolioBalanceDto(
+                        serviceName="all",
+                        total=TotalDto(
+                            converted_balance=ConvertedBalanceDto(currency="EUR", value=global_portfolio_balance)
+                        ),
+                        wallets=[],
+                    )
+                ]
+            ).model_dump(mode="json", by_alias=True)
+        )
+        # Trading Wallet Balance for FIAT currency
+        httpserver.expect(
+            Bit2MeAPIRequestMacher(
+                "/bit2me-api/v1/trading/wallet/balance",
+                query_string=urlencode({"symbols": fiat_currency.upper()}, doseq=False),
+                method="GET",
+            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+            handler_type=HandlerType.ONESHOT,
+        ).respond_with_json(
+            RootModel[list[Bit2MeTradingWalletBalanceDto]](
+                [
+                    Bit2MeTradingWalletBalanceDto(
+                        id=faker.uuid4(), currency=fiat_currency, balance=round(bit2me_pro_balance, ndigits=2)
+                    )
+                ]
+            ).model_dump(mode="json", by_alias=True)
+        )
+        # Mock tickers
+        tickers = Bit2MeTickersDtoObjectMother.create(symbol=symbol, close=closing_price * 1.02)
+        httpserver.expect(
+            Bit2MeAPIRequestMacher(
+                "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": symbol}
+            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+            handler_type=HandlerType.ONESHOT,
+        ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
 
-    # Mock call to POST /v1/trading/order
-    buy_order_amount = _floor_round(
-        bit2me_pro_balance / tickers.close,
-        ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
-            market_signal_item.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
-        ),
-    )
-    buy_order_created = Bit2MeOrderDtoObjectMother.create(
-        symbol=symbol, side="buy", order_amount=buy_order_amount, order_type="market", status="open"
-    )
-    httpserver.expect(
-        Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
-            bit2me_api_key, bik2me_api_secret
-        ),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
-    # Simulating waiting for FILLED
-    for _ in range(faker.pyint(min_value=1, max_value=3)):
+        # Mock call to POST /v1/trading/order
+        buy_order_amount = _floor_round(
+            bit2me_pro_balance / tickers.close,
+            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
+                market_signal_item.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
+            ),
+        )
+        buy_order_created = Bit2MeOrderDtoObjectMother.create(
+            symbol=symbol, side="buy", order_amount=buy_order_amount, order_type="market", status="open"
+        )
+        httpserver.expect(
+            Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
+                bit2me_api_key, bik2me_api_secret
+            ),
+            handler_type=HandlerType.ONESHOT,
+        ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
+        # Simulating waiting for FILLED
+        for _ in range(faker.pyint(min_value=1, max_value=3)):
+            httpserver.expect(
+                Bit2MeAPIRequestMacher(
+                    f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
+                ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
+        # Already filled!
         httpserver.expect(
             Bit2MeAPIRequestMacher(
                 f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
             ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
             handler_type=HandlerType.ONESHOT,
-        ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
-    # Already filled!
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(
-        buy_order_created.model_copy(deep=True, update={"status": "filled"}).model_dump(by_alias=True, mode="json")
-    )
-    # Trading Wallet Balance for CRYPTO currency
-    buy_order_amount_after_feeds = buy_order_amount * (1 - BIT2ME_TAKER_FEES)
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/trading/wallet/balance",
-            query_string=urlencode({"symbols": crypto_currency.upper()}, doseq=False),
-            method="GET",
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(
-        RootModel[list[Bit2MeTradingWalletBalanceDto]](
-            [
-                Bit2MeTradingWalletBalanceDto(
-                    id=faker.uuid4(), currency=crypto_currency, balance=buy_order_amount_after_feeds
-                )
-            ]
-        ).model_dump(mode="json", by_alias=True)
-    )
-    # Mock Limit Sell order created
-    httpserver.expect(
-        Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
-            bit2me_api_key, bik2me_api_secret
-        ),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(
-        Bit2MeOrderDtoObjectMother.create(
-            symbol=symbol,
-            side="sell",
-            order_amount=buy_order_amount_after_feeds,
-            order_type="limit",
-            status="open",
-            price=tickers.close * 2,
-        ).model_dump(by_alias=True, mode="json")
-    )
-    # Mock trades /v1/trading/trade
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/trading/trade",
-            method="GET",
-            query_string=urlencode({"direction": "desc", "side": "buy", "symbol": symbol}, doseq=False),
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(
-        Bit2MePaginationResultDto[Bit2MeTradeDto](
-            data=[
-                Bit2MeTradeDtoObjectMother.create(
-                    side="buy",
-                    symbol=market_signal_item.symbol,
-                    price=tickers.close,
-                    amount=buy_order_amount_after_feeds,
-                )
-            ],
-            total=faker.pyint(min_value=50, max_value=100),
-        ).model_dump(mode="json", by_alias=True)
-    )
+        ).respond_with_json(
+            buy_order_created.model_copy(deep=True, update={"status": "filled"}).model_dump(by_alias=True, mode="json")
+        )
+        # Trading Wallet Balance for CRYPTO currency
+        buy_order_amount_after_feeds = buy_order_amount * (1 - BIT2ME_TAKER_FEES)
+        httpserver.expect(
+            Bit2MeAPIRequestMacher(
+                "/bit2me-api/v1/trading/wallet/balance",
+                query_string=urlencode({"symbols": crypto_currency.upper()}, doseq=False),
+                method="GET",
+            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+            handler_type=HandlerType.ONESHOT,
+        ).respond_with_json(
+            RootModel[list[Bit2MeTradingWalletBalanceDto]](
+                [
+                    Bit2MeTradingWalletBalanceDto(
+                        id=faker.uuid4(), currency=crypto_currency, balance=buy_order_amount_after_feeds
+                    )
+                ]
+            ).model_dump(mode="json", by_alias=True)
+        )
+        # Mock Limit Sell order created
+        httpserver.expect(
+            Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
+                bit2me_api_key, bik2me_api_secret
+            ),
+            handler_type=HandlerType.ONESHOT,
+        ).respond_with_json(
+            Bit2MeOrderDtoObjectMother.create(
+                symbol=symbol,
+                side="sell",
+                order_amount=buy_order_amount_after_feeds,
+                order_type="limit",
+                status="open",
+                price=tickers.close * 2,
+            ).model_dump(by_alias=True, mode="json")
+        )
+        # Mock trades /v1/trading/trade
+        httpserver.expect(
+            Bit2MeAPIRequestMacher(
+                "/bit2me-api/v1/trading/trade",
+                method="GET",
+                query_string=urlencode({"direction": "desc", "side": "buy", "symbol": symbol}, doseq=False),
+            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+            handler_type=HandlerType.ONESHOT,
+        ).respond_with_json(
+            Bit2MePaginationResultDto[Bit2MeTradeDto](
+                data=[
+                    Bit2MeTradeDtoObjectMother.create(
+                        side="buy",
+                        symbol=market_signal_item.symbol,
+                        price=tickers.close,
+                        amount=buy_order_amount_after_feeds,
+                    )
+                ],
+                total=faker.pyint(min_value=50, max_value=100),
+            ).model_dump(mode="json", by_alias=True)
+        )
 
     return market_signal_item, symbol, crypto_currency, fiat_currency
 
