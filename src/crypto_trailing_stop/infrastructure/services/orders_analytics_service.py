@@ -14,6 +14,7 @@ from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
+from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
@@ -168,7 +169,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
     def _calculate_suggested_safeguard_stop_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float, technical_indicators: pd.DataFrame
     ) -> tuple[float, float, float]:
-        last = technical_indicators.iloc[-2]  # Last confirmed candle
+        last = technical_indicators.iloc[CandleStickEnum.LAST]  # Last confirmed candle
         closing_price = last["close"]
         atr_value = last["atr"]
         suggested_safeguard_stop_price = round(
@@ -180,7 +181,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
     def _calculate_suggested_take_profit_limit_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float, technical_indicators: pd.DataFrame
     ) -> tuple[float, float]:
-        last = technical_indicators.iloc[-2]  # Last confirmed candle
+        last = technical_indicators.iloc[CandleStickEnum.LAST]  # Last confirmed candle
         atr_value = last["atr"]
         suggested_safeguard_stop_price = round(
             avg_buy_price + (last["atr"] * self._configuration_properties.suggested_take_profit_atr_multiplier),

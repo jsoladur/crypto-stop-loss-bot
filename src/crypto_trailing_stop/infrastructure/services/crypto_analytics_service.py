@@ -13,7 +13,8 @@ from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
-from crypto_trailing_stop.infrastructure.services.vo.current_crypto_metrics import CurrentCryptoMetrics
+from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
+from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
 
 logger = logging.getLogger(__name__)
@@ -25,21 +26,26 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         self._bit2me_remote_service = bit2me_remote_service
         self._ccxt_remote_service = ccxt_remote_service
 
-    async def get_current_crypto_metrics(
-        self, symbol: str, *, timeframe: Timeframe = "1h", exchange_client: ccxt.Exchange | None = None
-    ) -> CurrentCryptoMetrics:
+    async def get_crypto_market_metrics(
+        self,
+        symbol: str,
+        *,
+        timeframe: Timeframe = "1h",
+        over_candlestick: CandleStickEnum = CandleStickEnum.LAST,
+        exchange_client: ccxt.Exchange | None = None,
+    ) -> CryptoMarketMetrics:
         technical_indicators: pd.DataFrame = await self.calculate_technical_indicators(
             symbol, timeframe=timeframe, exchange_client=exchange_client
         )
-        current = technical_indicators.iloc[-1]  # Current candle (uncompleted)
-        return CurrentCryptoMetrics(
+        selected_candlestick = technical_indicators.iloc[over_candlestick.value]
+        return CryptoMarketMetrics(
             symbol=symbol,
-            current_price=current["close"],
-            ema_short=current["ema_short"],
-            ema_mid=current["ema_mid"],
-            ema_long=current["ema_long"],
-            rsi=current["rsi"],
-            atr=current["atr"],
+            closing_price=selected_candlestick["close"],
+            ema_short=selected_candlestick["ema_short"],
+            ema_mid=selected_candlestick["ema_mid"],
+            ema_long=selected_candlestick["ema_long"],
+            rsi=selected_candlestick["rsi"],
+            atr=selected_candlestick["atr"],
         )
 
     async def calculate_technical_indicators(

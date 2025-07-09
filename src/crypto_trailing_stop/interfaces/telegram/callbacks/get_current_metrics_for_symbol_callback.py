@@ -9,6 +9,7 @@ from crypto_trailing_stop.config import get_dispacher
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
+from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from crypto_trailing_stop.interfaces.telegram.messages_formatter import MessagesFormatter
@@ -33,7 +34,9 @@ async def auto_entry_trader_config_for_symbol_callback_handler(
         try:
             match = re.match(r"^get_current_metrics_for_symbol\$\$(.+)$", callback_query.data)
             symbol = match.group(1)
-            current_crypto_metrics = await crypto_analytics_service.get_current_crypto_metrics(symbol)
+            current_crypto_metrics = await crypto_analytics_service.get_crypto_market_metrics(
+                symbol, over_candlestick=CandleStickEnum.CURRENT
+            )
             message = messages_formatter.format_current_crypto_metrics_message(current_crypto_metrics)
             await callback_query.message.answer(message)
         except Exception as e:
