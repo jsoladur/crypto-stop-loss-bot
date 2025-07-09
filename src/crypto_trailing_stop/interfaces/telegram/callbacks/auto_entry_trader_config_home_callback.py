@@ -25,7 +25,7 @@ async def auto_entry_trader_config_home_callback_handler(callback_query: Callbac
         try:
             items = await auto_buy_trader_config_service.find_all()
             await callback_query.message.answer(
-                "ℹ Click into a symbol for changing the percent of FIAT money assigned to auto-buy",
+                "ℹ️ Click into a symbol for changing the percent of FIAT money assigned to auto-buy",
                 reply_markup=keyboards_builder.get_auto_entry_trader_config_keyboard(items),
             )
         except Exception as e:

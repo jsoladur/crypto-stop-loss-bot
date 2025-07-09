@@ -38,7 +38,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
         self, symbol: str, percent_value: float, limit_sell_order_guard_metrics_list: list[LimitSellOrderGuardMetrics]
     ) -> str:
         answer_text = (
-            f"ℹ Stop loss for {html.bold(symbol)} at {html.bold(str(percent_value) + '%')} "
+            f"ℹ️ Stop loss for {html.bold(symbol)} at {html.bold(str(percent_value) + '%')} "
             + "has been successfully stored and it will be applied right now! \n\n"
             + html.bold(
                 "⚠️ IMPORTANT NOTE: Limit Sell Order Guard Jobs has been DISABLED for PRECAUTION! "

@@ -34,7 +34,7 @@ async def handle_persist_stop_loss_callback(callback_query: CallbackQuery, state
                 AutoBuyTraderConfigItem(symbol=symbol, fiat_wallet_percent_assigned=percent_value)
             )
             answer_text = (
-                f"ℹ 💰 FIAT 💰 assigned value for {html.bold(symbol)} at {html.bold(str(percent_value) + '%')} "
+                f"ℹ️ 💰 FIAT 💰 assigned value for {html.bold(symbol)} at {html.bold(str(percent_value) + '%')} "
                 + "has been successfully applied! \n\n"
             )
             await callback_query.message.answer(answer_text, reply_markup=keyboards_builder.get_home_keyboard())

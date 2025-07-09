@@ -28,7 +28,7 @@ async def stop_loss_percent_home_callback_handler(callback_query: CallbackQuery,
         try:
             stop_loss_percent_items = await stop_loss_percent_service.find_all_stop_loss_percent()
             await callback_query.message.answer(
-                "ℹ Click into a symbol for changing its stop loss percent value",
+                "ℹ️ Click into a symbol for changing its stop loss percent value",
                 reply_markup=keyboards_builder.get_stop_loss_percent_items_keyboard(stop_loss_percent_items),
             )
         except Exception as e:
