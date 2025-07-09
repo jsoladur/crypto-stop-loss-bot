@@ -117,6 +117,9 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 stop_loss_percent_value = await self._update_stop_loss(
                     new_limit_sell_order, crypto_currency, client=client
                 )
+                # Ensure Auto-exit on sudden SELL 1H signal is enabled
+                if not (await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)):
+                    await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
                 # Ensure Auto-exit on ATR-based take profit is enabled
                 if not (await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)):
                     await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)
@@ -239,8 +242,9 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
             )
             message += f"* 🚏 {html.bold('Stop Loss')} has been setup to {stop_loss_percent_value}%\n"
-            message += f"* 🚏 {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ACTIVATED!\n"
-            message += f"* 🚏 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} has been ACTIVATED!"
+            message += f"* 🛡️ {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ACTIVATED!\n"
+            message += f"* 🛑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H.description)} has been ACTIVATED!"
+            message += f"* 🤑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} has been ACTIVATED!"
             for tg_chat_id in telegram_chat_ids:
                 await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
 
