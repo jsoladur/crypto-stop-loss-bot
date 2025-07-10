@@ -5,10 +5,10 @@ from typing import Any
 class PushNotificationTypeEnum(str, Enum):
     description: str
 
-    BUY_SELL_STRATEGY_ALERT = ("BUY_SELL_STRATEGY_ALERT", "Buy/Sell Strategy alerts")
-    LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT = ("LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT", "Limit Sell Order Guard alerts")
-    AUTO_ENTRY_TRADER_ALERT = ("AUTO_ENTRY_TRADER_ALERT", "Auto-entry smart trader alerts")
-    BACKGROUND_JOB_FALTAL_ERRORS = ("BACKGROUND_JOB_FALTAL_ERRORS", "Jobs Fatal Errors alerts")
+    BUY_SELL_STRATEGY_ALERT = ("BUY_SELL_STRATEGY_ALERT", "Buy/Sell alerts")
+    LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT = ("LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT", "Limit Sell Guard alerts")
+    AUTO_ENTRY_TRADER_ALERT = ("AUTO_ENTRY_TRADER_ALERT", "Auto-Entry Trader alerts")
+    BACKGROUND_JOB_FALTAL_ERRORS = ("BACKGROUND_JOB_FALTAL_ERRORS", "Jobs Error alerts")
 
     @classmethod
     def from_value(cls, value: str) -> "PushNotificationTypeEnum":
