@@ -298,10 +298,11 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 + f"purchased at {tickers.close:.2f} {fiat_currency}"
             )
             message += html.bold("\n\n⚠️ IMPORTANT CONSIDERATIONS ⚠️\n\n")
+            new_limit_sell_order_price_formatted = f"{new_limit_sell_order.price:.2f} {fiat_currency}"
             message += (
                 f"* 🚀 A new {html.bold(new_limit_sell_order.order_type.upper() + ' Sell Order')} ("
                 + f"{new_limit_sell_order.order_amount:.2f} {crypto_currency}), "
-                + f"further sell at {html.bold(str(new_limit_sell_order.price) + ' ' + fiat_currency)}"
+                + f"further sell at {html.bold(new_limit_sell_order_price_formatted)}"
                 + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
             )
             message += f"* 🚏 {html.bold('Stop Loss')} has been setup to {stop_loss_percent_value}%\n"
