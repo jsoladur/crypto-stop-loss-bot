@@ -1,12 +1,11 @@
 from dataclasses import dataclass, field
-from typing import Literal
 
 from crypto_trailing_stop.commons.constants import (
     BUY_SELL_RELIABLE_TIMEFRAMES,
     DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
     NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
 )
-from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
+from crypto_trailing_stop.infrastructure.tasks.vo.types import RSIState, Timeframe
 
 
 @dataclass(frozen=True)
@@ -16,7 +15,7 @@ class SignalsEvaluationResult:
     timeframe: Timeframe
     buy: bool
     sell: bool
-    rsi_state: Literal["neutral", "overbought", "oversold"]
+    rsi_state: RSIState
     is_choppy: bool
     # Additional info but no comparable
     atr: float = field(compare=False)

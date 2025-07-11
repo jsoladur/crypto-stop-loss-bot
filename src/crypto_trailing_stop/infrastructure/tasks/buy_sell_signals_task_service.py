@@ -1,6 +1,6 @@
 import logging
 from datetime import UTC, datetime
-from typing import Literal, get_args, override
+from typing import get_args, override
 
 import ccxt.async_support as ccxt  # Notice the async_support import
 import pandas as pd
@@ -25,9 +25,10 @@ from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnu
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
+from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import SignalsEvaluationResult
-from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
+from crypto_trailing_stop.infrastructure.tasks.vo.types import RSIState, Timeframe
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +161,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             # Update timestamp
             timestamp = last["timestamp"].timestamp()
             # Calculate RSI Anticipation Zone (RSI)
-            rsi_state = self._get_rsi_for_anticipation_zone(last)
+            rsi_state = self._get_rsi_state(symbol, timeframe, last)
             # Use a threshold of 0 for 1H signals to disable the proximity check
             volatility_threshold = self._get_volatility_threshold(timeframe)
             min_volatility_threshold = last["close"] * volatility_threshold
@@ -216,14 +217,17 @@ class BuySellSignalsTaskService(AbstractTaskService):
 
         return bool(sell_signal)
 
-    def _get_rsi_for_anticipation_zone(self, last: pd.Series) -> Literal["neutral", "overbought", "oversold"]:
-        if last["rsi"] > self._configuration_properties.buy_sell_signals_rsi_overbought:
-            rsi_state = "overbought"
-        elif last["rsi"] < self._configuration_properties.buy_sell_signals_rsi_oversold:
-            rsi_state = "oversold"
-        else:  # pragma: no cover
-            rsi_state = "neutral"
-        return rsi_state
+    def _get_rsi_state(self, symbol: str, timeframe: Timeframe, last: pd.Series) -> RSIState:
+        crypto_market_metrics = CryptoMarketMetrics(
+            symbol=symbol,
+            closing_price=last["close"],
+            ema_short=last["ema_short"],
+            ema_mid=last["ema_mid"],
+            ema_long=last["ema_long"],
+            rsi=last["rsi"],
+            atr=last["atr"],
+        )
+        return crypto_market_metrics.rsi_state
 
     def _get_volatility_threshold(self, timeframe: Timeframe) -> float:
         # XXX: [JMSOLA] Volatility Filter Logic
@@ -279,27 +283,33 @@ class BuySellSignalsTaskService(AbstractTaskService):
 
     async def _notify_rsi_state_alert(
         self,
-        rsi_state: Literal["overbought", "oversold"],
+        rsi_state: RSIState,
         base_symbol: str,
         telegram_chat_ids: list[str],
         timeframe: Timeframe,
         tickers: Bit2MeTickersDto,
     ) -> None:
-        if rsi_state == "overbought":
+        if rsi_state == "bullish_momentum":
+            icon = "💪"
+            message_title = "💪 BULLISH MOMENTUM ANTICIPATION 💪"
+            description = (
+                "🔥 Bullish Momentum! RSI is high in a strong uptrend. 🔥"
+                + f" {html.bold('This confirms trend strength. DO NOT SELL.')}"
+            )
+        elif rsi_state == "overbought":
             icon = "📈"
-            rsi_warning_type = "SELL"
+            message_title = "Pre-SELL ⚠️ Warning ⚠️ "
             description = (
                 "🥵 Market is Overbought (RSI &gt; 70). Trend may be exhausted 🥵."
                 + f" {html.bold('Watch for a confirmation SELL signal')}."
             )
-        else:
+        elif rsi_state == "oversold":
             icon = "📉"
-            rsi_warning_type = "BUY"
+            message_title = "Pre-BUY ⚠️ Warning ⚠️ "
             description = (
                 "🥶 Market is Oversold (RSI &lt; 30). Selling may be exhausted 🥶."
                 + f" {html.bold('Get ready for a potential BUY signal')}."
             )
-        message_title = f"Pre-{rsi_warning_type} ⚠️ Warning ⚠️ "
         message = f"{icon} {html.bold(message_title + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}\n{description}"  # noqa: E501
         await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
 

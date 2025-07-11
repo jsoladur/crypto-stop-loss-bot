@@ -5,7 +5,7 @@ from typing import override
 from crypto_trailing_stop.commons.constants import SIGNALS_EVALUATION_RESULT_EVENT_NAME, TRIGGER_BUY_ACTION_EVENT_NAME
 from crypto_trailing_stop.commons.patterns import SingletonABCMeta
 from crypto_trailing_stop.config import get_configuration_properties, get_event_emitter
-from crypto_trailing_stop.infrastructure.database.models import MarketSignal
+from crypto_trailing_stop.infrastructure.database.models.market_signal import MarketSignal
 from crypto_trailing_stop.infrastructure.services.base import AbstractEventHandlerService
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import SignalsEvaluationResult

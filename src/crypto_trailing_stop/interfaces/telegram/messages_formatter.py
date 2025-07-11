@@ -1,5 +1,6 @@
 from zoneinfo import ZoneInfo
 
+import pydash
 from aiogram import html
 
 from crypto_trailing_stop.commons.patterns import SingletonMeta
@@ -29,7 +30,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
             f"📉 {html.bold('EMA Mid')} = {metrics.ema_mid:.2f} {fiat_currency}",
             f"📐 {html.bold('EMA Long')} = {metrics.ema_long:.2f} {fiat_currency}",
             f"🎢 {html.bold('ATR')} = ±{metrics.atr:.2f} {fiat_currency} (±{metrics.atr_percent}%)",
-            f"📊 {html.bold('RSI')} = {html.italic(metrics.rsi_state.capitalize())} ({metrics.rsi:.2f})",
+            f"📊 {html.bold('RSI')} = {html.italic(pydash.start_case(metrics.rsi_state))} ({metrics.rsi:.2f})",
         ]
         ret = header + "\n".join(message_lines)
         return ret
@@ -90,7 +91,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
                 formatted_timestamp = signal.timestamp.astimezone(ZoneInfo("Europe/Madrid")).strftime("%d-%m-%Y %H:%M")
                 timeframe = signal.timeframe.lower()
                 signal_type = signal.signal_type.lower()
-                rsi_state = signal.rsi_state.replace("_", " ").capitalize().strip()
+                rsi_state = pydash.start_case(signal.rsi_state)
 
                 # Match background job alert style
                 if timeframe == "4h":
