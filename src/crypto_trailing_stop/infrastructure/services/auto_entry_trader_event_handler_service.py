@@ -34,6 +34,7 @@ from crypto_trailing_stop.infrastructure.services.global_summary_service import 
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
+from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
 
@@ -164,14 +165,18 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         new_limit_sell_order = await self._create_new_sell_limit_order(
             new_buy_market_order, tickers, crypto_currency, client=client
         )
-        stop_loss_percent_value = await self._update_stop_loss(new_limit_sell_order, crypto_currency, client=client)
+        guard_metrics, stop_loss_percent_value = await self._update_stop_loss(
+            new_limit_sell_order, crypto_currency, client=client
+        )
         # Ensure Auto-exit on sudden SELL 1H signal is enabled
         if not (await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)):
             await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
             # Re-enable Limit Sell Order Guard, once stop loss is setup!
         await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
         # Notifying via Telegram
-        await self._notify_success_alert(new_buy_market_order, new_limit_sell_order, tickers, stop_loss_percent_value)
+        await self._notify_success_alert(
+            new_buy_market_order, new_limit_sell_order, tickers, guard_metrics, stop_loss_percent_value
+        )
 
     async def _calculate_total_amount_to_invest(
         self, buy_trader_config: AutoBuyTraderConfigItem, fiat_currency: str, client: AsyncClient
@@ -250,7 +255,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
 
     async def _update_stop_loss(
         self, new_limit_sell_order: Bit2MeOrderDto, crypto_currency: str, *, client: AsyncClient
-    ) -> None:
+    ) -> tuple[LimitSellOrderGuardMetrics, float]:
         guard_metrics, *_ = await self._orders_analytics_service.calculate_guard_metrics_by_sell_order(
             new_limit_sell_order, client=client
         )
@@ -260,7 +265,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         await self._stop_loss_percent_service.save_or_update(
             StopLossPercentItem(symbol=crypto_currency, value=stop_loss_percent_value)
         )
-        return stop_loss_percent_value
+        return guard_metrics, stop_loss_percent_value
 
     async def _notify_warning(self, market_signal_item: MarketSignalItem, warning_reason_message: str) -> None:
         telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
@@ -279,6 +284,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         new_buy_market_order: Bit2MeOrderDto,
         new_limit_sell_order: Bit2MeOrderDto,
         tickers: Bit2MeTickersDto,
+        guard_metrics: LimitSellOrderGuardMetrics,
         stop_loss_percent_value: float,
     ) -> None:
         telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
@@ -299,7 +305,8 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
             )
             message += f"* 🚏 {html.bold('Stop Loss')} has been setup to {stop_loss_percent_value}%\n"
-            message += f"* 🛡️ {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ENABLED!\n"
+            message += f"* 🛡️ {html.bold('Safeguard Stop Price = ' + str(guard_metrics.safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
+            message += f"* 🔰 {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ENABLED!\n"
             message += f"* 🛑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H.description)} has been ENABLED!\n"
             message += (
                 f"* ⚡ {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} has NOT been ENABLED! "
