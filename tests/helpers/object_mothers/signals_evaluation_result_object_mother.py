@@ -1,10 +1,10 @@
 from datetime import UTC, datetime, timedelta
-from typing import Literal, get_args
+from typing import get_args
 
 from faker import Faker
 
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import SignalsEvaluationResult
-from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
+from crypto_trailing_stop.infrastructure.tasks.vo.types import RSIState, Timeframe
 
 
 class SignalsEvaluationResultObjectMother:
@@ -30,7 +30,7 @@ class SignalsEvaluationResultObjectMother:
         timeframe: Timeframe | None = None,
         buy: bool | None = None,
         sell: bool | None = None,
-        rsi_state: Literal["neutral", "overbought", "oversold"] | None = None,
+        rsi_state: RSIState | None = None,
         is_choppy: bool | None = None,
     ) -> SignalsEvaluationResult:
         is_choppy = bool(is_choppy) if is_choppy is not None else False

@@ -2,7 +2,7 @@ import logging
 
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
-from crypto_trailing_stop.infrastructure.database.models import PushNotification
+from crypto_trailing_stop.infrastructure.database.models.push_notification import PushNotification
 from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.vo.push_notification_item import PushNotificationItem
 
