@@ -1,6 +1,5 @@
 import logging
 
-import ccxt.async_support as ccxt  # Notice the async_support import
 import pandas as pd
 from httpx import AsyncClient
 
@@ -45,7 +44,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
                 if symbol is None or len(symbol) <= 0 or sell_order.symbol.lower().startswith(symbol.lower())
             ]
             technical_indicators_by_symbol = await self._calculate_technical_indicators_by_opened_sell_orders(
-                opened_sell_orders
+                opened_sell_orders, client=client
             )
             previous_used_buy_trade_ids: set[str] = set()
             ret = []
@@ -66,11 +65,10 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         technical_indicators: pd.DataFrame | None = None,
         previous_used_buy_trade_ids: set[str] = set(),
         client: AsyncClient | None = None,
-        exchange_client: ccxt.Exchange | None = None,
     ) -> tuple[LimitSellOrderGuardMetrics, set[str]]:
         if technical_indicators is None:
             technical_indicators = await self._crypto_analytics_service.calculate_technical_indicators(
-                sell_order.symbol, exchange_client=exchange_client
+                sell_order.symbol, client=client
             )
         (avg_buy_price, previous_used_buy_trade_ids) = await self._calculate_correlated_avg_buy_price(
             sell_order, previous_used_buy_trade_ids, client=client
@@ -120,10 +118,6 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             symbol=crypto_currency_symbol
         )
         stop_loss_percent_decimal_value = stop_loss_percent_item.value / 100
-        logger.info(
-            f"Stop Loss Percent for Symbol {crypto_currency_symbol} "
-            + f"is setup to '{stop_loss_percent_item.value} %' (Decimal: {stop_loss_percent_decimal_value})..."
-        )
         return stop_loss_percent_item, stop_loss_percent_decimal_value
 
     async def _calculate_correlated_avg_buy_price(
@@ -159,7 +153,6 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         (stop_loss_percent_item, stop_loss_percent_decimal_value) = await self.find_stop_loss_percent_by_sell_order(
             sell_order
         )
-
         safeguard_stop_price = round(
             avg_buy_price * (1 - stop_loss_percent_decimal_value),
             ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
@@ -197,16 +190,12 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         return break_even_price
 
     async def _calculate_technical_indicators_by_opened_sell_orders(
-        self, opened_sell_orders: list[Bit2MeOrderDto]
+        self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
     ) -> dict[str, pd.DataFrame]:
-        async with self._crypto_analytics_service.get_exchange_client() as exchange_client:
-            opened_sell_order_symbols = set([sell_order.symbol for sell_order in opened_sell_orders])
+        opened_sell_order_symbols = set([sell_order.symbol for sell_order in opened_sell_orders])
 
-            technical_indicators_by_symbol = {
-                symbol: await self._crypto_analytics_service.calculate_technical_indicators(
-                    symbol, exchange_client=exchange_client
-                )
-                for symbol in opened_sell_order_symbols
-            }
-
+        technical_indicators_by_symbol = {
+            symbol: await self._crypto_analytics_service.calculate_technical_indicators(symbol, client=client)
+            for symbol in opened_sell_order_symbols
+        }
         return technical_indicators_by_symbol

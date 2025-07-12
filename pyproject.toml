@@ -1,6 +1,6 @@
 [project]
 name = "crypto-trailing-stop"
-version = "0.19.1"
+version = "0.20.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -13,7 +13,6 @@ dependencies = [
     "authlib>=1.6.0",
     "backoff>=2.2.1",
     "cachebox>=5.0.1",
-    "ccxt>=4.4.91",
     "fastapi>=0.115.12",
     "fastapi-cli>=0.0.7",
     "httpx>=0.28.1",
