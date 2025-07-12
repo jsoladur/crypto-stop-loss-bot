@@ -6,7 +6,6 @@ from aiogram.types import CallbackQuery
 
 from crypto_trailing_stop.config import get_dispacher
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
-from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
@@ -16,9 +15,7 @@ logger = logging.getLogger(__name__)
 dp = get_dispacher()
 session_storage_service = SessionStorageService()
 keyboards_builder = KeyboardsBuilder()
-crypto_analytics_service = CryptoAnalyticsService(
-    bit2me_remote_service=Bit2MeRemoteService(), ccxt_remote_service=CcxtRemoteService()
-)
+crypto_analytics_service = CryptoAnalyticsService(bit2me_remote_service=Bit2MeRemoteService())
 
 
 @dp.callback_query(lambda c: c.data == "current_metrics_home")

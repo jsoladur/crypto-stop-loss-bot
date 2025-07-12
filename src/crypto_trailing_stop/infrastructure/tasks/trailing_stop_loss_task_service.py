@@ -14,7 +14,6 @@ from crypto_trailing_stop.commons.constants import (
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
@@ -35,9 +34,7 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
             stop_loss_percent_service=StopLossPercentService(
                 bit2me_remote_service=self._bit2me_remote_service, global_flag_service=GlobalFlagService()
             ),
-            crypto_analytics_service=CryptoAnalyticsService(
-                bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=CcxtRemoteService()
-            ),
+            crypto_analytics_service=CryptoAnalyticsService(bit2me_remote_service=self._bit2me_remote_service),
         )
         self._trailing_stop_loss_price_decrease_threshold = 1 - TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD
 
@@ -95,6 +92,10 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
             stop_loss_percent_item,
             stop_loss_percent_decimal_value,
         ) = await self._orders_analytics_service.find_stop_loss_percent_by_sell_order(sell_order)
+        logger.info(
+            f"Stop Loss Percent for Symbol {sell_order.symbol} "
+            + f"is setup to '{stop_loss_percent_item.value} %' (Decimal: {stop_loss_percent_decimal_value})..."
+        )
         # Stop price should be the minimum of the current price and the minimum buy order amount for that symbol
         max_buy_order_amount, min_buy_order_amount = max_and_min_buy_order_amount_by_symbol[sell_order.symbol]
         tickers = current_tickers_by_symbol[sell_order.symbol]
