@@ -10,7 +10,6 @@ from pytest_httpserver.httpserver import HandlerType
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto, Profile
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
-from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import Bit2MeTickersDtoObjectMother
@@ -24,9 +23,7 @@ async def should_get_favourite_symbols_properly(
 ) -> None:
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
     _prepare_httpserver_mock_for_favourite_symbols(faker, httpserver, bit2me_api_key, bit2me_api_secret)
-    crypto_analytics_service = CryptoAnalyticsService(
-        bit2me_remote_service=Bit2MeRemoteService(), ccxt_remote_service=CcxtRemoteService()
-    )
+    crypto_analytics_service = CryptoAnalyticsService(bit2me_remote_service=Bit2MeRemoteService())
     favourite_symbols = await crypto_analytics_service.get_favourite_symbols()
     assert favourite_symbols is not None and len(favourite_symbols) > 0
     httpserver.check_assertions()
@@ -38,9 +35,7 @@ async def should_get_favourite_tickers_properly(
 ) -> None:
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
     _prepare_httpserver_mock_for_get_favourite_tickers(faker, httpserver, bit2me_api_key, bit2me_api_secret)
-    crypto_analytics_service = CryptoAnalyticsService(
-        bit2me_remote_service=Bit2MeRemoteService(), ccxt_remote_service=CcxtRemoteService()
-    )
+    crypto_analytics_service = CryptoAnalyticsService(bit2me_remote_service=Bit2MeRemoteService())
     tickers_list = await crypto_analytics_service.get_favourite_tickers()
     assert tickers_list is not None and len(tickers_list) > 0
     httpserver.check_assertions()
