@@ -200,11 +200,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             current_symbol_price, guard_metrics, auto_exit_reason, crypto_currency, fiat_currency
         )
         text_message += f"* {html.italic(details)}"
-        telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
-            notification_type=PushNotificationTypeEnum.LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT
-        )
-        for tg_chat_id in telegram_chat_ids:
-            await self._telegram_service.send_message(chat_id=tg_chat_id, text=text_message)
+        self._notify_alert_by_type(PushNotificationTypeEnum.LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT, message=text_message)
 
     def _get_notification_message_details(
         self,
