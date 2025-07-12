@@ -19,6 +19,13 @@ class AbstractService(ABC):
             session_storage_service=SessionStorageService(), keyboards_builder=KeyboardsBuilder()
         )
 
+    async def _notify_alert_by_type(self, notification_type: PushNotificationTypeEnum, message: str) -> None:
+        telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
+            notification_type=notification_type
+        )
+        for tg_chat_id in telegram_chat_ids:
+            await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
+
     async def _notify_fatal_error_via_telegram(self, e: Exception) -> None:
         try:
             telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(

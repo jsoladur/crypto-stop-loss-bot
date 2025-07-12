@@ -171,7 +171,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         # Ensure Auto-exit on sudden SELL 1H signal is enabled
         if not (await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)):
             await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
-            # Re-enable Limit Sell Order Guard, once stop loss is setup!
+        # Re-enable Limit Sell Order Guard, once stop loss is setup!
         await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
         # Notifying via Telegram
         await self._notify_success_alert(
@@ -268,16 +268,11 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         return guard_metrics, stop_loss_percent_value
 
     async def _notify_warning(self, market_signal_item: MarketSignalItem, warning_reason_message: str) -> None:
-        telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
-            notification_type=PushNotificationTypeEnum.AUTO_ENTRY_TRADER_ALERT
-        )
-        if telegram_chat_ids:
-            message = f"⚠️ {html.bold('AUTO-ENTRY TRADER WARNING')} ⚠️\n\n"
-            message += f"Stopping trading operations for {market_signal_item.symbol}, despite recent BUY 1H signal.\n"  # noqa: E501
-            message += "✴️ Reasons:\n"
-            message += warning_reason_message
-            for tg_chat_id in telegram_chat_ids:
-                await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
+        message = f"⚠️ {html.bold('AUTO-ENTRY TRADER WARNING')} ⚠️\n\n"
+        message += f"Stopping trading operations for {market_signal_item.symbol}, despite recent BUY 1H signal.\n"  # noqa: E501
+        message += "✴️ Reasons:\n"
+        message += warning_reason_message
+        await self._notify_alert_by_type(PushNotificationTypeEnum.AUTO_ENTRY_TRADER_ALERT, message)
 
     async def _notify_success_alert(
         self,
@@ -287,34 +282,35 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         guard_metrics: LimitSellOrderGuardMetrics,
         stop_loss_percent_value: float,
     ) -> None:
-        telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
-            notification_type=PushNotificationTypeEnum.AUTO_ENTRY_TRADER_ALERT
+        crypto_currency, fiat_currency = tickers.symbol.split("/")
+        message = f"✅ {html.bold('MARKET BUY ORDER FILLED')} ✅\n\n"
+        message += (
+            f"🔥 {new_buy_market_order.order_amount} {crypto_currency} "
+            + f"purchased at {tickers.close:.2f} {fiat_currency}"
         )
-        if telegram_chat_ids:
-            crypto_currency, fiat_currency = tickers.symbol.split("/")
-            message = f"✅ {html.bold('MARKET BUY ORDER FILLED')} ✅\n\n"
+        message += html.bold("\n\n⚠️ IMPORTANT CONSIDERATIONS ⚠️\n\n")
+        new_limit_sell_order_price_formatted = f"{new_limit_sell_order.price:.2f} {fiat_currency}"
+        message += (
+            f"* 🚀 A new {html.bold(new_limit_sell_order.order_type.upper() + ' Sell Order')} ("
+            + f"{new_limit_sell_order.order_amount:.2f} {crypto_currency}), "
+            + f"further sell at {html.bold(new_limit_sell_order_price_formatted)}"
+            + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
+        )
+        message += f"* 🚏 {html.bold('Stop Loss')} has been setup to {stop_loss_percent_value}%\n"
+        message += f"* 🛡️ {html.bold('Safeguard Stop Price = ' + str(guard_metrics.safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
+        message += f"* 🔰 {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ENABLED!\n"
+        message += f"* 🛑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H.description)} has been ENABLED!\n"
+        is_enabled_for_auto_exit_atr_take_profit = await self._global_flag_service.is_enabled_for(
+            GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT
+        )
+        if is_enabled_for_auto_exit_atr_take_profit:
+            message += f"* ⚡ {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} is ENABLED!"
+        else:
             message += (
-                f"🔥 {new_buy_market_order.order_amount} {crypto_currency} "
-                + f"purchased at {tickers.close:.2f} {fiat_currency}"
-            )
-            message += html.bold("\n\n⚠️ IMPORTANT CONSIDERATIONS ⚠️\n\n")
-            new_limit_sell_order_price_formatted = f"{new_limit_sell_order.price:.2f} {fiat_currency}"
-            message += (
-                f"* 🚀 A new {html.bold(new_limit_sell_order.order_type.upper() + ' Sell Order')} ("
-                + f"{new_limit_sell_order.order_amount:.2f} {crypto_currency}), "
-                + f"further sell at {html.bold(new_limit_sell_order_price_formatted)}"
-                + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
-            )
-            message += f"* 🚏 {html.bold('Stop Loss')} has been setup to {stop_loss_percent_value}%\n"
-            message += f"* 🛡️ {html.bold('Safeguard Stop Price = ' + str(guard_metrics.safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
-            message += f"* 🔰 {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ENABLED!\n"
-            message += f"* 🛑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H.description)} has been ENABLED!\n"
-            message += (
-                f"* ⚡ {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} has NOT been ENABLED! "
+                f"* ⚡ {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} is DISABLED! "
                 + "Please, consider to enable it if needed!"
             )
-            for tg_chat_id in telegram_chat_ids:
-                await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
+        await self._notify_alert_by_type(PushNotificationTypeEnum.AUTO_ENTRY_TRADER_ALERT, message)
 
     def _floor_round(self, value: float, *, ndigits: int) -> float:
         factor = 10**ndigits
