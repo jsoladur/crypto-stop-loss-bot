@@ -1,8 +1,6 @@
-import json
 import logging
 from datetime import UTC, datetime
-from os import listdir, path
-from typing import Any
+from os import listdir
 from unittest.mock import patch
 
 import pytest
@@ -23,6 +21,7 @@ from tests.helpers.background_jobs_test_utils import disable_all_background_jobs
 from tests.helpers.constants import BUY_SELL_SIGNALS_MOCK_FILES_PATH
 from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import Bit2MeTickersDtoObjectMother
+from tests.helpers.ohlcv_test_utils import load_ohlcv_result_by_filename
 
 logger = logging.getLogger(__name__)
 
@@ -42,41 +41,39 @@ async def should_send_via_telegram_notifications_after_detecting_buy_sell_signal
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
     disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.BUY_SELL_SIGNALS)
 
-    with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
-        fetch_ohlcv_return_value = json.loads(fd.read())
-        _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret, fetch_ohlcv_return_value)
+    _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret, fetch_ohlcv_return_value_filename)
 
-        task_manager = get_task_manager_instance()
+    task_manager = get_task_manager_instance()
 
-        buy_sell_signals_task_service: BuySellSignalsTaskService = task_manager.get_tasks()[
-            GlobalFlagTypeEnum.BUY_SELL_SIGNALS
-        ]
-        # Pause job since won't be paused via start(..), stop(..)
-        buy_sell_signals_task_service._job.pause()
+    buy_sell_signals_task_service: BuySellSignalsTaskService = task_manager.get_tasks()[
+        GlobalFlagTypeEnum.BUY_SELL_SIGNALS
+    ]
+    # Pause job since won't be paused via start(..), stop(..)
+    buy_sell_signals_task_service._job.pause()
 
-        # Provoke send a notification via Telegram
-        push_notification = PushNotification(
-            {
-                PushNotification.telegram_chat_id: faker.random_number(digits=9, fix_len=True),
-                PushNotification.notification_type: PushNotificationTypeEnum.BUY_SELL_STRATEGY_ALERT,
-            }
-        )
-        await push_notification.save()
+    # Provoke send a notification via Telegram
+    push_notification = PushNotification(
+        {
+            PushNotification.telegram_chat_id: faker.random_number(digits=9, fix_len=True),
+            PushNotification.notification_type: PushNotificationTypeEnum.BUY_SELL_STRATEGY_ALERT,
+        }
+    )
+    await push_notification.save()
 
-        with patch.object(
-            BuySellSignalsTaskService, "_notify_fatal_error_via_telegram"
-        ) as notify_fatal_error_via_telegram_mock:
-            if "buy_signal" in fetch_ohlcv_return_value_filename:
-                with patch.object(BuySellSignalsTaskService, "_calculate_buy_signal", return_value=True):
-                    await _run_task_service(buy_sell_signals_task_service)
-            elif "sell_signal" in fetch_ohlcv_return_value_filename:
-                with patch.object(BuySellSignalsTaskService, "_calculate_sell_signal", return_value=True):
-                    await _run_task_service(buy_sell_signals_task_service)
-            else:
+    with patch.object(
+        BuySellSignalsTaskService, "_notify_fatal_error_via_telegram"
+    ) as notify_fatal_error_via_telegram_mock:
+        if "buy_signal" in fetch_ohlcv_return_value_filename:
+            with patch.object(BuySellSignalsTaskService, "_calculate_buy_signal", return_value=True):
                 await _run_task_service(buy_sell_signals_task_service)
+        elif "sell_signal" in fetch_ohlcv_return_value_filename:
+            with patch.object(BuySellSignalsTaskService, "_calculate_sell_signal", return_value=True):
+                await _run_task_service(buy_sell_signals_task_service)
+        else:
+            await _run_task_service(buy_sell_signals_task_service)
 
-            httpserver.check_assertions()
-            notify_fatal_error_via_telegram_mock.assert_not_called()
+        httpserver.check_assertions()
+        notify_fatal_error_via_telegram_mock.assert_not_called()
 
 
 async def _run_task_service(buy_sell_signals_task_service: BuySellSignalsTaskService) -> None:
@@ -89,7 +86,7 @@ def _prepare_httpserver_mock(
     httpserver: HTTPServer,
     bit2me_api_key: str,
     bik2me_api_secret: str,
-    fetch_ohlcv_return_value: list[Any],
+    fetch_ohlcv_return_value_filename: str,
 ) -> None:
     favourite_crypto_currency = faker.random_element(["BTC", "ETH", "SOL"])
     registration_year = datetime.now(UTC).year - 1
@@ -101,6 +98,7 @@ def _prepare_httpserver_mock(
         profile=Profile(currency_code="EUR"),
     )
     # Mock OHLCV /v1/trading/candle
+    fetch_ohlcv_return_value = load_ohlcv_result_by_filename(fetch_ohlcv_return_value_filename)
     symbol = (f"{favourite_crypto_currency}/{account_info.profile.currency_code}".upper(),)
     httpserver.expect(
         Bit2MeAPIRequestMacher(
