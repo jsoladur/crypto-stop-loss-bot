@@ -1,9 +1,6 @@
 import asyncio
-import json
 import logging
 from datetime import UTC, datetime, timedelta
-from os import listdir, path
-from typing import Any
 from unittest.mock import patch
 from urllib.parse import urlencode
 
@@ -26,13 +23,13 @@ from crypto_trailing_stop.infrastructure.services.market_signal_service import M
 from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.limit_sell_order_guard_task_service import LimitSellOrderGuardTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
-from tests.helpers.constants import BUY_SELL_SIGNALS_MOCK_FILES_PATH
 from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
     Bit2MeTickersDtoObjectMother,
     SignalsEvaluationResultObjectMother,
 )
+from tests.helpers.ohlcv_test_utils import get_fetch_ohlcv_random_result
 from tests.helpers.sell_orders_test_utils import generate_trades
 
 logger = logging.getLogger(__name__)
@@ -50,49 +47,38 @@ async def should_create_market_sell_order_when_atr_take_profit_limit_price_reach
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)
 
-    fetch_ohlcv_return_value_filename = faker.random_element(
-        [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
+    opened_sell_bit2me_orders = _prepare_httpserver_mock(
+        faker, httpserver, bit2me_api_key, bit2me_api_secret, closing_crypto_currency_price_multipler=1.5
     )
-    with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
-        fetch_ohlcv_return_value = json.loads(fd.read())
 
-        opened_sell_bit2me_orders = _prepare_httpserver_mock(
-            faker,
-            httpserver,
-            bit2me_api_key,
-            bit2me_api_secret,
-            fetch_ohlcv_return_value,
-            closing_crypto_currency_price_multipler=1.5,
+    task_manager = get_task_manager_instance()
+    first_order, *_ = opened_sell_bit2me_orders
+
+    # Create fake market signals to simulate the sudden SELL 1H market signal
+    await _create_fake_market_signals(first_order)
+
+    # Provoke send a notification via Telegram
+    telegram_chat_id = faker.random_number(digits=9, fix_len=True)
+    for push_notification_type in PushNotificationTypeEnum:
+        push_notification = PushNotification(
+            {
+                PushNotification.telegram_chat_id: telegram_chat_id,
+                PushNotification.notification_type: push_notification_type,
+            }
         )
+        await push_notification.save()
 
-        task_manager = get_task_manager_instance()
-        first_order, *_ = opened_sell_bit2me_orders
+    limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
+        GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
+    ]
+    with patch.object(
+        LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
+    ) as notify_fatal_error_via_telegram_mock:
+        with patch.object(Bot, "send_message"):
+            await limit_sell_order_guard_task_service.run()
 
-        # Create fake market signals to simulate the sudden SELL 1H market signal
-        await _create_fake_market_signals(first_order)
-
-        # Provoke send a notification via Telegram
-        telegram_chat_id = faker.random_number(digits=9, fix_len=True)
-        for push_notification_type in PushNotificationTypeEnum:
-            push_notification = PushNotification(
-                {
-                    PushNotification.telegram_chat_id: telegram_chat_id,
-                    PushNotification.notification_type: push_notification_type,
-                }
-            )
-            await push_notification.save()
-
-        limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
-            GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
-        ]
-        with patch.object(
-            LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
-        ) as notify_fatal_error_via_telegram_mock:
-            with patch.object(Bot, "send_message"):
-                await limit_sell_order_guard_task_service.run()
-
-                notify_fatal_error_via_telegram_mock.assert_not_called()
-                httpserver.check_assertions()
+            notify_fatal_error_via_telegram_mock.assert_not_called()
+            httpserver.check_assertions()
 
 
 @pytest.mark.parametrize("simulate_future_sell_orders", [False, True])
@@ -108,49 +94,42 @@ async def should_create_market_sell_order_when_auto_exit_sell_1h(
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
 
-    fetch_ohlcv_return_value_filename = faker.random_element(
-        [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
+    opened_sell_bit2me_orders = _prepare_httpserver_mock(
+        faker,
+        httpserver,
+        bit2me_api_key,
+        bit2me_api_secret,
+        closing_crypto_currency_price_multipler=1.5,
+        simulate_future_sell_orders=simulate_future_sell_orders,
     )
-    with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
-        fetch_ohlcv_return_value = json.loads(fd.read())
+    first_order, *_ = opened_sell_bit2me_orders
 
-        opened_sell_bit2me_orders = _prepare_httpserver_mock(
-            faker,
-            httpserver,
-            bit2me_api_key,
-            bit2me_api_secret,
-            fetch_ohlcv_return_value,
-            closing_crypto_currency_price_multipler=1.5,
-            simulate_future_sell_orders=simulate_future_sell_orders,
+    task_manager = get_task_manager_instance()
+
+    # Create fake market signals to simulate the sudden SELL 1H market signal
+    await _create_fake_market_signals(first_order)
+
+    # Provoke send a notification via Telegram
+    telegram_chat_id = faker.random_number(digits=9, fix_len=True)
+    for push_notification_type in PushNotificationTypeEnum:
+        push_notification = PushNotification(
+            {
+                PushNotification.telegram_chat_id: telegram_chat_id,
+                PushNotification.notification_type: push_notification_type,
+            }
         )
-        first_order, *_ = opened_sell_bit2me_orders
+        await push_notification.save()
 
-        task_manager = get_task_manager_instance()
-
-        # Create fake market signals to simulate the sudden SELL 1H market signal
-        await _create_fake_market_signals(first_order)
-
-        # Provoke send a notification via Telegram
-        telegram_chat_id = faker.random_number(digits=9, fix_len=True)
-        for push_notification_type in PushNotificationTypeEnum:
-            push_notification = PushNotification(
-                {
-                    PushNotification.telegram_chat_id: telegram_chat_id,
-                    PushNotification.notification_type: push_notification_type,
-                }
-            )
-            await push_notification.save()
-
-        limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
-            GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
-        ]
-        with patch.object(
-            LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
-        ) as notify_fatal_error_via_telegram_mock:
-            with patch.object(Bot, "send_message"):
-                await limit_sell_order_guard_task_service.run()
-                notify_fatal_error_via_telegram_mock.assert_not_called()
-                httpserver.check_assertions()
+    limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
+        GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
+    ]
+    with patch.object(
+        LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
+    ) as notify_fatal_error_via_telegram_mock:
+        with patch.object(Bot, "send_message"):
+            await limit_sell_order_guard_task_service.run()
+            notify_fatal_error_via_telegram_mock.assert_not_called()
+            httpserver.check_assertions()
 
 
 @pytest.mark.parametrize("bit2me_error_status_code", [403, 500, 502])
@@ -166,49 +145,42 @@ async def should_create_market_sell_order_when_safeguard_stop_price_reached(
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
 
-    fetch_ohlcv_return_value_filename = faker.random_element(
-        [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
+    _prepare_httpserver_mock(
+        faker,
+        httpserver,
+        bit2me_api_key,
+        bit2me_api_secret,
+        bit2me_error_status_code=bit2me_error_status_code,
+        closing_crypto_currency_price_multipler=0.2,
     )
-    with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
-        fetch_ohlcv_return_value = json.loads(fd.read())
 
-        _prepare_httpserver_mock(
-            faker,
-            httpserver,
-            bit2me_api_key,
-            bit2me_api_secret,
-            fetch_ohlcv_return_value,
-            bit2me_error_status_code=bit2me_error_status_code,
-            closing_crypto_currency_price_multipler=0.2,
+    task_manager = get_task_manager_instance()
+
+    # Provoke send a notification via Telegram
+    telegram_chat_id = faker.random_number(digits=9, fix_len=True)
+    for push_notification_type in PushNotificationTypeEnum:
+        push_notification = PushNotification(
+            {
+                PushNotification.telegram_chat_id: telegram_chat_id,
+                PushNotification.notification_type: push_notification_type,
+            }
         )
+        await push_notification.save()
 
-        task_manager = get_task_manager_instance()
+    limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
+        GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
+    ]
+    with patch.object(
+        LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
+    ) as notify_fatal_error_via_telegram_mock:
+        with patch.object(Bot, "send_message"):
+            await limit_sell_order_guard_task_service.run()
+            if bit2me_error_status_code == 500:
+                notify_fatal_error_via_telegram_mock.assert_called()
+            else:
+                notify_fatal_error_via_telegram_mock.assert_not_called()
 
-        # Provoke send a notification via Telegram
-        telegram_chat_id = faker.random_number(digits=9, fix_len=True)
-        for push_notification_type in PushNotificationTypeEnum:
-            push_notification = PushNotification(
-                {
-                    PushNotification.telegram_chat_id: telegram_chat_id,
-                    PushNotification.notification_type: push_notification_type,
-                }
-            )
-            await push_notification.save()
-
-        limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
-            GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
-        ]
-        with patch.object(
-            LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
-        ) as notify_fatal_error_via_telegram_mock:
-            with patch.object(Bot, "send_message"):
-                await limit_sell_order_guard_task_service.run()
-                if bit2me_error_status_code == 500:
-                    notify_fatal_error_via_telegram_mock.assert_called()
-                else:
-                    notify_fatal_error_via_telegram_mock.assert_not_called()
-
-                httpserver.check_assertions()
+            httpserver.check_assertions()
 
 
 def _prepare_httpserver_mock(
@@ -216,7 +188,6 @@ def _prepare_httpserver_mock(
     httpserver: HTTPServer,
     bit2me_api_key: str,
     bik2me_api_secret: str,
-    fetch_ohlcv_return_value: list[list[Any]],
     bit2me_error_status_code: int | None = None,
     *,
     closing_crypto_currency_price_multipler: float,
@@ -224,6 +195,7 @@ def _prepare_httpserver_mock(
 ) -> list[Bit2MeOrderDto]:
     symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
     # Mock OHLCV /v1/trading/candle
+    fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
     httpserver.expect(
         Bit2MeAPIRequestMacher(
             "/bit2me-api/v1/trading/candle",

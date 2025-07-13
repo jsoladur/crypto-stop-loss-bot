@@ -1,10 +1,7 @@
 import asyncio
-import json
 import logging
 import math
 from datetime import UTC, datetime
-from os import listdir, path
-from typing import Any
 from unittest.mock import patch
 from urllib.parse import urlencode
 
@@ -44,7 +41,6 @@ from crypto_trailing_stop.infrastructure.services.global_flag_service import Glo
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
-from tests.helpers.constants import BUY_SELL_SIGNALS_MOCK_FILES_PATH
 from tests.helpers.enums import AutoEntryTraderWarningTypeEnum
 from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import (
@@ -52,19 +48,21 @@ from tests.helpers.object_mothers import (
     Bit2MeTickersDtoObjectMother,
     Bit2MeTradeDtoObjectMother,
 )
+from tests.helpers.ohlcv_test_utils import get_fetch_ohlcv_random_result
 
 logger = logging.getLogger(__name__)
 
+use_cases = [(boolean, warning_type) for boolean in [False, True] for warning_type in AutoEntryTraderWarningTypeEnum]
+use_cases = [(boolean, warning_type, bool(idx % 2)) for idx, (boolean, warning_type) in enumerate(use_cases)]
 
-@pytest.mark.parametrize(
-    "use_event_emitter,warning_type",
-    [(boolean, warning_type) for boolean in [False, True] for warning_type in AutoEntryTraderWarningTypeEnum],
-)
+
+@pytest.mark.parametrize("use_event_emitter,warning_type,enable_atr_auto_take_profit", use_cases)
 @pytest.mark.asyncio
 async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signal_is_triggered(
     faker: Faker,
     use_event_emitter: bool,
     warning_type: AutoEntryTraderWarningTypeEnum,
+    enable_atr_auto_take_profit: bool,
     integration_test_env: tuple[HTTPServer, str],
 ) -> None:
     """
@@ -72,64 +70,62 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
     """
     # Mock the Bit2Me API
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+
     # Disable all jobs by default for test purposes!
-    await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.AUTO_ENTRY_TRADER)
+    exclusions = [GlobalFlagTypeEnum.AUTO_ENTRY_TRADER]
+    if enable_atr_auto_take_profit:
+        exclusions.append(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)
+    await disable_all_background_jobs_except(exclusion=exclusions)
 
-    fetch_ohlcv_return_value_filename = faker.random_element(
-        [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
+    market_signal_item, _, crypto_currency, *_ = _prepare_httpserver_mock(
+        faker, httpserver, bit2me_api_key, bit2me_api_secret, warning_type=warning_type
     )
-    with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
-        fetch_ohlcv_return_value = json.loads(fd.read())
-
-        market_signal_item, _, crypto_currency, *_ = _prepare_httpserver_mock(
-            faker, httpserver, bit2me_api_key, bit2me_api_secret, fetch_ohlcv_return_value, warning_type=warning_type
+    # Provoke send a notification via Telegram
+    telegram_chat_id = faker.random_number(digits=9, fix_len=True)
+    for push_notification_type in PushNotificationTypeEnum:
+        push_notification = PushNotification(
+            {
+                PushNotification.telegram_chat_id: telegram_chat_id,
+                PushNotification.notification_type: push_notification_type,
+            }
         )
-        # Provoke send a notification via Telegram
-        telegram_chat_id = faker.random_number(digits=9, fix_len=True)
-        for push_notification_type in PushNotificationTypeEnum:
-            push_notification = PushNotification(
-                {
-                    PushNotification.telegram_chat_id: telegram_chat_id,
-                    PushNotification.notification_type: push_notification_type,
-                }
-            )
-            await push_notification.save()
+        await push_notification.save()
 
-        # Persist 100% FIAT asssigned to the symbol
-        auto_entry_trader_event_handler_service = AutoEntryTraderEventHandlerService()
-        auto_buy_trader_config_service = AutoBuyTraderConfigService()
-        global_flag_service = GlobalFlagService()
-        await auto_buy_trader_config_service.save_or_update(
-            AutoBuyTraderConfigItem(symbol=crypto_currency, fiat_wallet_percent_assigned=100)
-        )
-        # Trigger the event
-        with patch.object(GlobalFlagService, "_toggle_task") as toggle_task_mock:
-            with patch.object(
-                AutoEntryTraderEventHandlerService, "_notify_fatal_error_via_telegram"
-            ) as notify_fatal_error_via_telegram_mock:
-                with patch.object(Bot, "send_message"):
-                    if use_event_emitter:
-                        event_emitter = get_event_emitter()
-                        event_emitter.emit(TRIGGER_BUY_ACTION_EVENT_NAME, market_signal_item)
-                        await asyncio.sleep(delay=15.0)
-                    else:
-                        await auto_entry_trader_event_handler_service.on_buy_market_signal(market_signal_item)
-
-                httpserver.check_assertions()
-                notify_fatal_error_via_telegram_mock.assert_not_called()
-                if warning_type == AutoEntryTraderWarningTypeEnum.NONE:
-                    toggle_task_mock.assert_called()
-                    is_enabled_for_auto_exit_sell_1h = await global_flag_service.is_enabled_for(
-                        GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H
-                    )
-                    assert is_enabled_for_auto_exit_sell_1h is True
-
-                    is_enabled_for_limit_sell_order_guard = await global_flag_service.is_enabled_for(
-                        GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
-                    )
-                    assert is_enabled_for_limit_sell_order_guard is True
+    # Persist 100% FIAT asssigned to the symbol
+    auto_entry_trader_event_handler_service = AutoEntryTraderEventHandlerService()
+    auto_buy_trader_config_service = AutoBuyTraderConfigService()
+    global_flag_service = GlobalFlagService()
+    await auto_buy_trader_config_service.save_or_update(
+        AutoBuyTraderConfigItem(symbol=crypto_currency, fiat_wallet_percent_assigned=100)
+    )
+    # Trigger the event
+    with patch.object(GlobalFlagService, "_toggle_task") as toggle_task_mock:
+        with patch.object(
+            AutoEntryTraderEventHandlerService, "_notify_fatal_error_via_telegram"
+        ) as notify_fatal_error_via_telegram_mock:
+            with patch.object(Bot, "send_message"):
+                if use_event_emitter:
+                    event_emitter = get_event_emitter()
+                    event_emitter.emit(TRIGGER_BUY_ACTION_EVENT_NAME, market_signal_item)
+                    await asyncio.sleep(delay=15.0)
                 else:
-                    toggle_task_mock.assert_not_called()
+                    await auto_entry_trader_event_handler_service.on_buy_market_signal(market_signal_item)
+
+            httpserver.check_assertions()
+            notify_fatal_error_via_telegram_mock.assert_not_called()
+            if warning_type == AutoEntryTraderWarningTypeEnum.NONE:
+                toggle_task_mock.assert_called()
+                is_enabled_for_auto_exit_sell_1h = await global_flag_service.is_enabled_for(
+                    GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H
+                )
+                assert is_enabled_for_auto_exit_sell_1h is True
+
+                is_enabled_for_limit_sell_order_guard = await global_flag_service.is_enabled_for(
+                    GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
+                )
+                assert is_enabled_for_limit_sell_order_guard is True
+            else:
+                toggle_task_mock.assert_not_called()
 
 
 def _prepare_httpserver_mock(
@@ -137,12 +133,12 @@ def _prepare_httpserver_mock(
     httpserver: HTTPServer,
     bit2me_api_key: str,
     bik2me_api_secret: str,
-    fetch_ohlcv_return_value: list[Any],
     *,
     warning_type: AutoEntryTraderWarningTypeEnum,
 ) -> tuple[str, str, str]:
     symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
     # Mock OHLCV /v1/trading/candle
+    fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
     httpserver.expect(
         Bit2MeAPIRequestMacher(
             "/bit2me-api/v1/trading/candle",

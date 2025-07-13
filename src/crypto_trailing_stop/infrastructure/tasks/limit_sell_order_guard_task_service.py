@@ -197,7 +197,9 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             current_symbol_price, guard_metrics, auto_exit_reason, crypto_currency, fiat_currency
         )
         text_message += f"* {html.italic(details)}"
-        self._notify_alert_by_type(PushNotificationTypeEnum.LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT, message=text_message)
+        await self._notify_alert_by_type(
+            PushNotificationTypeEnum.LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT, message=text_message
+        )
 
     def _get_notification_message_details(
         self,

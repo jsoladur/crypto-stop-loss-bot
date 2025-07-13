@@ -279,6 +279,10 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         guard_metrics: LimitSellOrderGuardMetrics,
         stop_loss_percent_value: float,
     ) -> None:
+        is_enabled_for_auto_exit_atr_take_profit = await self._global_flag_service.is_enabled_for(
+            GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT
+        )
+
         crypto_currency, fiat_currency = tickers.symbol.split("/")
         message = f"✅ {html.bold('MARKET BUY ORDER FILLED')} ✅\n\n"
         message += (
@@ -295,11 +299,10 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         )
         message += f"* 🚏 {html.bold('Stop Loss')} has been setup to {stop_loss_percent_value}%\n"
         message += f"* 🛡️ {html.bold('Safeguard Stop Price = ' + str(guard_metrics.safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
+        if is_enabled_for_auto_exit_atr_take_profit:
+            message += f"* 🎯 {html.bold('ATR Take Profit Price')} = {guard_metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
         message += f"* 🔰 {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ENABLED!\n"
         message += f"* 🛑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H.description)} has been ENABLED!\n"
-        is_enabled_for_auto_exit_atr_take_profit = await self._global_flag_service.is_enabled_for(
-            GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT
-        )
         if is_enabled_for_auto_exit_atr_take_profit:
             message += f"* ⚡ {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} is ENABLED!"
         else:

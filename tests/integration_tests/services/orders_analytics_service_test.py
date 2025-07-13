@@ -1,7 +1,4 @@
-import json
 import logging
-from os import listdir, path
-from typing import Any
 from urllib.parse import urlencode
 
 import pytest
@@ -19,9 +16,9 @@ from crypto_trailing_stop.infrastructure.services.crypto_analytics_service impor
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
-from tests.helpers.constants import BUY_SELL_SIGNALS_MOCK_FILES_PATH
 from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother
+from tests.helpers.ohlcv_test_utils import get_fetch_ohlcv_random_result
 from tests.helpers.sell_orders_test_utils import generate_trades
 
 logger = logging.getLogger(__name__)
@@ -38,58 +35,47 @@ async def should_calculate_all_limit_sell_order_guard_metrics_properly(
         stop_loss_percent_service=StopLossPercentService(global_flag_service=GlobalFlagService()),
         crypto_analytics_service=CryptoAnalyticsService(bit2me_remote_service=bit2me_remote_service),
     )
-    fetch_ohlcv_return_value_filename = faker.random_element(
-        [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")]
+    opened_sell_bit2me_orders, *_ = _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
+    first_sell_order, *_ = opened_sell_bit2me_orders
+
+    limit_sell_order_guard_metrics = await orders_analytics_service.calculate_all_limit_sell_order_guard_metrics(
+        symbol=first_sell_order.symbol
     )
-    with open(path.join(BUY_SELL_SIGNALS_MOCK_FILES_PATH, fetch_ohlcv_return_value_filename)) as fd:
-        fetch_ohlcv_return_value = json.loads(fd.read())
+    for idx, sell_order in enumerate(opened_sell_bit2me_orders):
+        logger.info(repr(limit_sell_order_guard_metrics))
+        metrics = limit_sell_order_guard_metrics[idx]
+        assert metrics.sell_order.id == sell_order.id
+        assert metrics.sell_order.status == sell_order.status
+        assert metrics.sell_order.order_amount == sell_order.order_amount
+        assert metrics.sell_order.stop_price == sell_order.stop_price
+        assert metrics.sell_order.price == sell_order.price
+        assert metrics.sell_order.side == sell_order.side
+        assert metrics.sell_order.symbol == sell_order.symbol
+        assert metrics.sell_order.order_type == sell_order.order_type
 
-        opened_sell_bit2me_orders, *_ = _prepare_httpserver_mock(
-            faker, httpserver, bit2me_api_key, bit2me_api_secret, fetch_ohlcv_return_value
+        assert metrics.avg_buy_price is not None and metrics.avg_buy_price > 0
+        assert metrics.break_even_price is not None and metrics.break_even_price > metrics.avg_buy_price
+        assert metrics.safeguard_stop_price > 0 and metrics.safeguard_stop_price < metrics.avg_buy_price
+        assert metrics.stop_loss_percent_value > 0
+        assert metrics.current_attr_value > 0.0
+        assert (
+            metrics.suggested_safeguard_stop_price > 0
+            and metrics.suggested_safeguard_stop_price < metrics.avg_buy_price
         )
-        first_sell_order, *_ = opened_sell_bit2me_orders
-
-        limit_sell_order_guard_metrics = await orders_analytics_service.calculate_all_limit_sell_order_guard_metrics(
-            symbol=first_sell_order.symbol
+        assert (
+            metrics.suggested_take_profit_limit_price > 0
+            and metrics.suggested_take_profit_limit_price > metrics.avg_buy_price
         )
-        for idx, sell_order in enumerate(opened_sell_bit2me_orders):
-            logger.info(repr(limit_sell_order_guard_metrics))
-            metrics = limit_sell_order_guard_metrics[idx]
-            assert metrics.sell_order.id == sell_order.id
-            assert metrics.sell_order.status == sell_order.status
-            assert metrics.sell_order.order_amount == sell_order.order_amount
-            assert metrics.sell_order.stop_price == sell_order.stop_price
-            assert metrics.sell_order.price == sell_order.price
-            assert metrics.sell_order.side == sell_order.side
-            assert metrics.sell_order.symbol == sell_order.symbol
-            assert metrics.sell_order.order_type == sell_order.order_type
-
-            assert metrics.avg_buy_price is not None and metrics.avg_buy_price > 0
-            assert metrics.break_even_price is not None and metrics.break_even_price > metrics.avg_buy_price
-            assert metrics.safeguard_stop_price > 0 and metrics.safeguard_stop_price < metrics.avg_buy_price
-            assert metrics.stop_loss_percent_value > 0
-            assert metrics.current_attr_value > 0.0
-            assert (
-                metrics.suggested_safeguard_stop_price > 0
-                and metrics.suggested_safeguard_stop_price < metrics.avg_buy_price
-            )
-            assert (
-                metrics.suggested_take_profit_limit_price > 0
-                and metrics.suggested_take_profit_limit_price > metrics.avg_buy_price
-            )
 
     httpserver.check_assertions()
 
 
 def _prepare_httpserver_mock(
-    faker: Faker,
-    httpserver: HTTPServer,
-    bit2me_api_key: str,
-    bik2me_api_secret: str,
-    fetch_ohlcv_return_value: list[Any],
+    faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str
 ) -> tuple[list[Bit2MeOrderDto]]:
     symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
     # Mock OHLCV /v1/trading/candle
+    fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
     httpserver.expect(
         Bit2MeAPIRequestMacher(
             "/bit2me-api/v1/trading/candle",
