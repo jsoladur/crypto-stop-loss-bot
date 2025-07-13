@@ -151,6 +151,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
     def _check_signals(self, symbol: str, timeframe: Timeframe, df: pd.DataFrame) -> SignalsEvaluationResult:
         timestamp = datetime.now(tz=UTC).timestamp()
         buy_signal, sell_signal, is_choppy = False, False, False
+        atr, closing_price, ema_long_price = 0.0, 0.0, 0.0
         rsi_state = "neutral"
         if len(df) >= 3:
             prev = df.iloc[CandleStickEnum.PREV]  # Prev confirmed candle
@@ -158,6 +159,18 @@ class BuySellSignalsTaskService(AbstractTaskService):
             # Update timestamp
             timestamp = last["timestamp"].timestamp()
             # Calculate RSI Anticipation Zone (RSI)
+            atr = round(
+                last["atr"],
+                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+            )
+            closing_price = round(
+                last["close"],
+                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+            )
+            ema_long_price = round(
+                last["ema_long"],
+                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+            )
             rsi_state = self._get_rsi_state(symbol, timeframe, last)
             # Use a threshold of 0 for 1H signals to disable the proximity check
             volatility_threshold = self._get_volatility_threshold(timeframe)
@@ -187,18 +200,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
             sell=sell_signal,
             rsi_state=rsi_state,
             is_choppy=is_choppy,
-            atr=round(
-                last["atr"],
-                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
-            ),
-            closing_price=round(
-                last["close"],
-                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
-            ),
-            ema_long_price=round(
-                last["ema_long"],
-                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
-            ),
+            atr=atr,
+            closing_price=closing_price,
+            ema_long_price=ema_long_price,
         )
         return ret
 
