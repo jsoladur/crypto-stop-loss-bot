@@ -39,7 +39,7 @@ def defaults_env(faker: Faker) -> Generator[None]:
 
 @pytest.fixture(scope="session")
 def httpserver_test_env() -> Generator[tuple[HTTPServer, ...]]:
-    with HTTPServer(threaded=True) as httpserver:
+    with HTTPServer() as httpserver:
         # Set up the HTTP server for testing
         environ["BIT2ME_API_BASE_URL"] = httpserver.url_for(suffix="/bit2me-api")
         bit2me_api_key = environ["BIT2ME_API_KEY"] = str(uuid4())
