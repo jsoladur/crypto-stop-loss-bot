@@ -132,7 +132,7 @@ async def should_create_market_sell_order_when_auto_exit_sell_1h(
             httpserver.check_assertions()
 
 
-@pytest.mark.parametrize("bit2me_error_status_code", [403, 500, 502])
+@pytest.mark.parametrize("bit2me_error_status_code", [403, 429, 500, 502])
 @pytest.mark.asyncio
 async def should_create_market_sell_order_when_safeguard_stop_price_reached(
     faker: Faker, bit2me_error_status_code: int, integration_test_env: tuple[HTTPServer, str]

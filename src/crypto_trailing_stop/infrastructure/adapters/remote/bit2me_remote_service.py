@@ -193,11 +193,11 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     @backoff.on_exception(
         backoff.constant,
         exception=ValueError,
-        interval=2,
+        interval=3,
         max_tries=5,
         jitter=backoff.full_jitter,
         giveup=lambda e: not isinstance(e.__cause__, HTTPStatusError)
-        or getattr(e.__cause__.response, "status_code", None) not in [403, 502],
+        or getattr(e.__cause__.response, "status_code", None) not in [403, 429, 502],
         on_backoff=lambda details: logger.warning(
             f"[Retry {details['tries']}] " + f"Waiting {details['wait']:.2f}s due to {str(details['exception'])}"
         ),
