@@ -2,11 +2,11 @@ import logging
 from datetime import UTC, datetime
 from typing import get_args, override
 
-import ccxt.async_support as ccxt  # Notice the async_support import
 import pandas as pd
 from aiogram import html
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import (
     ANTICIPATION_ZONE_TIMEFRAMES,
@@ -19,7 +19,6 @@ from crypto_trailing_stop.commons.constants import (
 from crypto_trailing_stop.config import get_configuration_properties, get_event_emitter
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
-from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
@@ -41,9 +40,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self._bit2me_remote_service = Bit2MeRemoteService()
         self._global_flag_service = GlobalFlagService()
         self._push_notification_service = PushNotificationService()
-        self._crypto_analytics_service = CryptoAnalyticsService(
-            bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=CcxtRemoteService()
-        )
+        self._crypto_analytics_service = CryptoAnalyticsService(bit2me_remote_service=self._bit2me_remote_service)
         self._last_signal_evalutation_result_cache: dict[str, SignalsEvaluationResult] = {}
         self._job = self._create_job()
 
@@ -63,23 +60,23 @@ class BuySellSignalsTaskService(AbstractTaskService):
 
     @override
     async def _run(self) -> None:
-        favourite_tickers_list = await self._crypto_analytics_service.get_favourite_tickers()
-        current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = {
-            tickers.symbol: tickers for tickers in favourite_tickers_list
-        }
-        symbol_timeframe_tuples = [
-            (symbol, timeframe)
-            for symbol in list(current_tickers_by_symbol.keys())
-            for timeframe in get_args(Timeframe)
-        ]
-        async with self._crypto_analytics_service.get_exchange_client() as exchange_client:
+        async with await self._bit2me_remote_service.get_http_client() as client:
+            favourite_tickers_list = await self._crypto_analytics_service.get_favourite_tickers(client=client)
+            current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = {
+                tickers.symbol: tickers for tickers in favourite_tickers_list
+            }
+            symbol_timeframe_tuples = [
+                (symbol, timeframe)
+                for symbol in list(current_tickers_by_symbol.keys())
+                for timeframe in get_args(Timeframe)
+            ]
             for current_symbol, current_timeframe in symbol_timeframe_tuples:
                 try:
                     await self._eval_and_notify_signals(
                         symbol=current_symbol,
                         timeframe=current_timeframe,
                         tickers=current_tickers_by_symbol[current_symbol],
-                        exchange_client=exchange_client,
+                        client=client,
                     )
                 except Exception as e:  # pragma: no cover
                     logger.error(str(e), exc_info=True)
@@ -100,10 +97,10 @@ class BuySellSignalsTaskService(AbstractTaskService):
         return trigger
 
     async def _eval_and_notify_signals(
-        self, symbol: str, timeframe: Timeframe, tickers: Bit2MeTickersDto, exchange_client: ccxt.Exchange
+        self, symbol: str, timeframe: Timeframe, tickers: Bit2MeTickersDto, client: AsyncClient
     ) -> None:
         df_with_indicators = await self._crypto_analytics_service.calculate_technical_indicators(
-            symbol, timeframe=timeframe, exchange_client=exchange_client
+            symbol, timeframe=timeframe, client=client
         )
         # Use the default, wider threshold for 4H signals
         signals = self._check_signals(symbol, timeframe, df_with_indicators)

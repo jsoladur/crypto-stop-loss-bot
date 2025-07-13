@@ -4,11 +4,13 @@ import hmac
 import json
 import logging
 import time
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlencode
 
 import backoff
+import pandas as pd
 from httpx import URL, AsyncClient, HTTPStatusError, Response, Timeout
 from pydantic import RootModel
 
@@ -153,10 +155,39 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     async def cancel_order_by_id(self, id: str, *, client: AsyncClient | None = None) -> None:
         await self._perform_http_request(method="DELETE", url=f"/v1/trading/order/{id}", client=client)
 
+    async def fetch_ohlcv(
+        self, symbol: str, timeframe: Literal["4h", "1h", "30m"], limit: int = 251, *, client: AsyncClient | None = None
+    ) -> pd.DataFrame:
+        interval = self._convert_timeframe_to_interval(timeframe)
+        now = datetime.now(UTC)
+        start_time = now - timedelta(minutes=limit * interval)
+        response = await self._perform_http_request(
+            method="GET",
+            url="/v1/trading/candle",
+            params={
+                "symbol": symbol,
+                "interval": interval,
+                "limit": limit,
+                "startTime": int(start_time.timestamp() * 1000),
+                "endTime": int(now.timestamp() * 1000),
+            },
+            client=client,
+        )
+        ohlcv = response.json()
+        df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+        return df
+
     async def get_http_client(self) -> AsyncClient:
         return AsyncClient(
             base_url=self._base_url, headers={"X-API-KEY": self._api_key}, timeout=Timeout(10, connect=5, read=60)
         )
+
+    def _convert_timeframe_to_interval(self, timeframe: Literal["4h", "1h", "30m"]) -> int:
+        # The interval of entries in minutes: 1, 5, 15, 30, 60 (1 hour), 240 (4 hours), 1440 (1 day)
+        td = pd.Timedelta(timeframe)
+        ret = int(td.total_seconds() // 60)
+        return ret
 
     # XXX: [JMSOLA] Add backoff to retry when 403 (Invalid signature Bit2Me API error) or 502 Bad Gateway
     @backoff.on_exception(

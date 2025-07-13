@@ -13,7 +13,6 @@ from crypto_trailing_stop.commons.constants import (
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
@@ -34,9 +33,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         self._configuration_properties = get_configuration_properties()
         self._market_signal_service = MarketSignalService()
         self._global_flag_service = GlobalFlagService()
-        self._crypto_analytics_service = CryptoAnalyticsService(
-            bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=CcxtRemoteService()
-        )
+        self._crypto_analytics_service = CryptoAnalyticsService(bit2me_remote_service=self._bit2me_remote_service)
         self._orders_analytics_service = OrdersAnalyticsService(
             bit2me_remote_service=self._bit2me_remote_service,
             stop_loss_percent_service=StopLossPercentService(
@@ -67,7 +64,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
     ) -> None:
         # Refresh technical indicators if needed
-        await self._refresh_technical_indicators_by_symbol_cache_if_needed(opened_sell_orders)
+        await self._refresh_technical_indicators_by_symbol_cache_if_needed(opened_sell_orders, client=client)
         # Get current tickers for getting closing prices
         current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = await self._fetch_tickers_for_open_sell_orders(
             opened_sell_orders, client=client
@@ -228,7 +225,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         return details
 
     async def _refresh_technical_indicators_by_symbol_cache_if_needed(
-        self, opened_sell_orders: list[Bit2MeOrderDto]
+        self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
     ) -> None:
         now = datetime.now(UTC)
         open_sell_order_symbols = set([open_sell_order.symbol for open_sell_order in opened_sell_orders])
@@ -237,7 +234,9 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
                 symbol not in self._technical_indicators_by_symbol_cache
                 or self._technical_indicators_by_symbol_cache[symbol].next_update_datetime < now
             ):
-                technical_indicators = await self._crypto_analytics_service.calculate_technical_indicators(symbol)
+                technical_indicators = await self._crypto_analytics_service.calculate_technical_indicators(
+                    symbol, client=client
+                )
                 self._technical_indicators_by_symbol_cache[symbol] = TechnicalIndicatorsCacheItem(
                     technical_indicators=technical_indicators
                 )
