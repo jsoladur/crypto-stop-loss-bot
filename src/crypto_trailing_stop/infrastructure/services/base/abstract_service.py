@@ -1,5 +1,6 @@
 import logging
 from abc import ABC
+from html import escape as html_escape
 
 from aiogram import html
 
@@ -35,7 +36,7 @@ class AbstractService(ABC):
                 await self._telegram_service.send_message(
                     chat_id=tg_chat_id,
                     text=f"⚠️ [{self.__class__.__name__}] FATAL ERROR occurred! "
-                    + f"Please try again later:\n\n{html.code(str(e))}",
+                    + f"Please try again later:\n\n{html.code(html_escape(str(e)))}",
                 )
         except Exception as e:
             logger.warning(f"Unexpected error, notifying fatal error via Telegram: {str(e)}", exc_info=True)
