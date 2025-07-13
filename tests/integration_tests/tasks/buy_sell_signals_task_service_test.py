@@ -39,7 +39,7 @@ async def should_send_via_telegram_notifications_after_detecting_buy_sell_signal
     """
     # Mock the Bit2Me API
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
-    disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.BUY_SELL_SIGNALS)
+    await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.BUY_SELL_SIGNALS)
 
     _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret, fetch_ohlcv_return_value_filename)
 
