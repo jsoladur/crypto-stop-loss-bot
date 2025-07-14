@@ -1,7 +1,7 @@
 [project]
 name = "crypto-trailing-stop"
-version = "0.20.3"
-description = "Add your description here"
+version = "0.20.4"
+description = "A Python-based bot for automated cryptocurrency trading"
 readme = "README.md"
 authors = [
     { name = "José María Sola Durán", email = "josemaria.sola.duran@gmail.com" }

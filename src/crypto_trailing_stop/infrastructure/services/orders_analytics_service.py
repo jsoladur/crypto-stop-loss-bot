@@ -11,6 +11,7 @@ from crypto_trailing_stop.commons.constants import (
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
@@ -130,15 +131,13 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         last_buy_trades = await self._bit2me_remote_service.get_trades(
             side="buy", symbol=sell_order.symbol, client=client
         )
-        idx, sum_order_amount = 0, 0.0
-        correlated_filled_buy_trades = []
-        while sum_order_amount < sell_order.order_amount and idx < len(last_buy_trades):
-            current_buy_trade = last_buy_trades[idx]
-            if current_buy_trade.id not in previous_used_buy_trade_ids:
-                correlated_filled_buy_trades.append(current_buy_trade)
-                sum_order_amount += current_buy_trade.amount
-            idx += 1
-        previous_used_buy_trade_ids.update([o.id for o in correlated_filled_buy_trades])
+        correlated_filled_buy_trades = self._get_correlated_filled_buy_trades(
+            sell_order, previous_used_buy_trade_ids, last_buy_trades, use_previous_trades=False
+        )
+        if not correlated_filled_buy_trades:
+            correlated_filled_buy_trades = self._get_correlated_filled_buy_trades(
+                sell_order, previous_used_buy_trade_ids, last_buy_trades, use_previous_trades=True
+            )
         numerator = sum([o.price * o.amount for o in correlated_filled_buy_trades])
         denominator = sum([o.amount for o in correlated_filled_buy_trades])
         avg_buy_price = round(
@@ -146,6 +145,25 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
         )
         return avg_buy_price, previous_used_buy_trade_ids
+
+    def _get_correlated_filled_buy_trades(
+        self,
+        sell_order: Bit2MeOrderDto,
+        previous_used_buy_trade_ids: set[str],
+        buy_trades: list[Bit2MeTradeDto],
+        *,
+        use_previous_trades: bool = False,
+    ) -> list[Bit2MeTradeDto]:
+        idx, sum_order_amount = 0, 0.0
+        correlated_filled_buy_trades = []
+        while sum_order_amount < sell_order.order_amount and idx < len(buy_trades):
+            current_buy_trade = buy_trades[idx]
+            if use_previous_trades or current_buy_trade.id not in previous_used_buy_trade_ids:
+                correlated_filled_buy_trades.append(current_buy_trade)
+                sum_order_amount += current_buy_trade.amount
+            idx += 1
+        previous_used_buy_trade_ids.update([o.id for o in correlated_filled_buy_trades])
+        return correlated_filled_buy_trades
 
     async def _calculate_safeguard_stop_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float
