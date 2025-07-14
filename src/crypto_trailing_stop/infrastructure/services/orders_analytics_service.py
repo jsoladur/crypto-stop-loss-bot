@@ -1,5 +1,6 @@
 import logging
 
+import ccxt.async_support as ccxt
 import pandas as pd
 from httpx import AsyncClient
 
@@ -13,6 +14,7 @@ from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
@@ -26,11 +28,13 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
     def __init__(
         self,
         bit2me_remote_service: Bit2MeRemoteService,
+        ccxt_remote_service: CcxtRemoteService,
         stop_loss_percent_service: StopLossPercentService,
         crypto_analytics_service: CryptoAnalyticsService,
     ) -> None:
         self._configuration_properties = get_configuration_properties()
         self._bit2me_remote_service = bit2me_remote_service
+        self._ccxt_remote_service = ccxt_remote_service
         self._stop_loss_percent_service = stop_loss_percent_service
         self._crypto_analytics_service = crypto_analytics_service
 
@@ -44,20 +48,21 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
                 for sell_order in opened_sell_orders
                 if symbol is None or len(symbol) <= 0 or sell_order.symbol.lower().startswith(symbol.lower())
             ]
-            technical_indicators_by_symbol = await self._calculate_technical_indicators_by_opened_sell_orders(
-                opened_sell_orders, client=client
-            )
-            previous_used_buy_trade_ids: set[str] = set()
-            ret = []
-            for sell_order in opened_sell_orders:
-                guard_metrics, previous_used_buy_trade_ids = await self.calculate_guard_metrics_by_sell_order(
-                    sell_order,
-                    technical_indicators=technical_indicators_by_symbol[sell_order.symbol],
-                    previous_used_buy_trade_ids=previous_used_buy_trade_ids,
-                    client=client,
+            async with self._ccxt_remote_service.get_exchange() as exchange:
+                technical_indicators_by_symbol = await self._calculate_technical_indicators_by_opened_sell_orders(
+                    opened_sell_orders, client=client, exchange=exchange
                 )
-                ret.append(guard_metrics)
-            return ret
+                previous_used_buy_trade_ids: set[str] = set()
+                ret = []
+                for sell_order in opened_sell_orders:
+                    guard_metrics, previous_used_buy_trade_ids = await self.calculate_guard_metrics_by_sell_order(
+                        sell_order,
+                        technical_indicators=technical_indicators_by_symbol[sell_order.symbol],
+                        previous_used_buy_trade_ids=previous_used_buy_trade_ids,
+                        client=client,
+                    )
+                    ret.append(guard_metrics)
+                return ret
 
     async def calculate_guard_metrics_by_sell_order(
         self,
@@ -66,10 +71,11 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         technical_indicators: pd.DataFrame | None = None,
         previous_used_buy_trade_ids: set[str] = set(),
         client: AsyncClient | None = None,
+        exchange: ccxt.Exchange | None = None,
     ) -> tuple[LimitSellOrderGuardMetrics, set[str]]:
         if technical_indicators is None:
             technical_indicators = await self._crypto_analytics_service.calculate_technical_indicators(
-                sell_order.symbol, client=client
+                sell_order.symbol, client=client, exchange=exchange
             )
         (avg_buy_price, previous_used_buy_trade_ids) = await self._calculate_correlated_avg_buy_price(
             sell_order, previous_used_buy_trade_ids, client=client
@@ -208,12 +214,14 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         return break_even_price
 
     async def _calculate_technical_indicators_by_opened_sell_orders(
-        self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
+        self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient, exchange: ccxt.Exchange
     ) -> dict[str, pd.DataFrame]:
         opened_sell_order_symbols = set([sell_order.symbol for sell_order in opened_sell_orders])
 
         technical_indicators_by_symbol = {
-            symbol: await self._crypto_analytics_service.calculate_technical_indicators(symbol, client=client)
+            symbol: await self._crypto_analytics_service.calculate_technical_indicators(
+                symbol, client=client, exchange=exchange
+            )
             for symbol in opened_sell_order_symbols
         }
         return technical_indicators_by_symbol

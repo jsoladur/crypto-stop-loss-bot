@@ -12,6 +12,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import B
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
@@ -30,10 +31,14 @@ async def should_calculate_all_limit_sell_order_guard_metrics_properly(
 ) -> None:
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
     bit2me_remote_service = Bit2MeRemoteService()
+    ccxt_remote_service = CcxtRemoteService()
     orders_analytics_service = OrdersAnalyticsService(
         bit2me_remote_service=bit2me_remote_service,
+        ccxt_remote_service=ccxt_remote_service,
         stop_loss_percent_service=StopLossPercentService(global_flag_service=GlobalFlagService()),
-        crypto_analytics_service=CryptoAnalyticsService(bit2me_remote_service=bit2me_remote_service),
+        crypto_analytics_service=CryptoAnalyticsService(
+            bit2me_remote_service=bit2me_remote_service, ccxt_remote_service=ccxt_remote_service
+        ),
     )
     opened_sell_bit2me_orders, *_ = _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
     first_sell_order, *_ = opened_sell_bit2me_orders
