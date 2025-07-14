@@ -10,8 +10,8 @@ from typing import Any, Literal
 from urllib.parse import urlencode
 
 import backoff
-import pandas as pd
 from httpx import URL, AsyncClient, HTTPStatusError, Response, Timeout
+from pandas import Timedelta
 from pydantic import RootModel
 
 from crypto_trailing_stop.commons.patterns import SingletonMeta
@@ -157,7 +157,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
 
     async def fetch_ohlcv(
         self, symbol: str, timeframe: Literal["4h", "1h", "30m"], limit: int = 251, *, client: AsyncClient | None = None
-    ) -> pd.DataFrame:
+    ) -> list[list[Any]]:
         interval = self._convert_timeframe_to_interval(timeframe)
         now = datetime.now(UTC)
         start_time = now - timedelta(minutes=limit * interval)
@@ -174,20 +174,12 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             client=client,
         )
         ohlcv = response.json()
-        df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
-        return df
+        return ohlcv
 
     async def get_http_client(self) -> AsyncClient:
         return AsyncClient(
             base_url=self._base_url, headers={"X-API-KEY": self._api_key}, timeout=Timeout(10, connect=5, read=60)
         )
-
-    def _convert_timeframe_to_interval(self, timeframe: Literal["4h", "1h", "30m"]) -> int:
-        # The interval of entries in minutes: 1, 5, 15, 30, 60 (1 hour), 240 (4 hours), 1440 (1 day)
-        td = pd.Timedelta(timeframe)
-        ret = int(td.total_seconds() // 60)
-        return ret
 
     # XXX: [JMSOLA] Add backoff to retry when 403 (Invalid signature Bit2Me API error) or 502 Bad Gateway
     @backoff.on_exception(
@@ -268,6 +260,12 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         hmac_obj = hmac.new(self._api_secret.encode(), hash_digest, hashlib.sha512)
         hmac_digest = base64.b64encode(hmac_obj.digest()).decode()
         return hmac_digest
+
+    def _convert_timeframe_to_interval(self, timeframe: Literal["4h", "1h", "30m"]) -> int:
+        # The interval of entries in minutes: 1, 5, 15, 30, 60 (1 hour), 240 (4 hours), 1440 (1 day)
+        td = Timedelta(timeframe)
+        ret = int(td.total_seconds() // 60)
+        return ret
 
     def _build_full_url(self, path: str, query_params: dict[str, any]) -> str:
         full_url = path

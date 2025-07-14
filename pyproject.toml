@@ -1,6 +1,6 @@
 [project]
 name = "crypto-trailing-stop"
-version = "0.20.4"
+version = "0.21.0"
 description = "A Python-based bot for automated cryptocurrency trading"
 readme = "README.md"
 authors = [
@@ -13,6 +13,7 @@ dependencies = [
     "authlib>=1.6.0",
     "backoff>=2.2.1",
     "cachebox>=5.0.1",
+    "ccxt>=4.4.94",
     "fastapi>=0.115.12",
     "fastapi-cli>=0.0.7",
     "httpx>=0.28.1",

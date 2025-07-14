@@ -3,8 +3,10 @@ from importlib import import_module, reload
 from os import environ
 from tempfile import NamedTemporaryFile
 from types import ModuleType
+from unittest.mock import patch
 from uuid import uuid4
 
+import ccxt.async_support as ccxt
 import pytest
 from asgi_lifespan import LifespanManager
 from faker import Faker
@@ -68,7 +70,8 @@ async def integration_test_jobs_disabled_env(
     else:
         main_module = import_module("crypto_trailing_stop.main")
     async with LifespanManager(main_module.app) as manager:
-        yield (manager.app, httpserver, bit2me_api_key, bit2me_api_secret)
+        with patch.object(ccxt.binance, "load_markets", return_value={}):
+            yield (manager.app, httpserver, bit2me_api_key, bit2me_api_secret)
     # Cleanup
     httpserver.clear()
     reload(config)
@@ -85,7 +88,8 @@ async def integration_test_env(httpserver_test_env: tuple[HTTPServer, str]) -> A
     else:
         main_module = import_module("crypto_trailing_stop.main")
     async with LifespanManager(main_module.app) as manager:
-        yield (manager.app, httpserver, bit2me_api_key, bit2me_api_secret)
+        with patch.object(ccxt.binance, "load_markets", return_value={}):
+            yield (manager.app, httpserver, bit2me_api_key, bit2me_api_secret)
     # Cleanup
     httpserver.clear()
     reload(config)

@@ -22,6 +22,7 @@ from crypto_trailing_stop.config import get_configuration_properties, get_event_
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
 from crypto_trailing_stop.infrastructure.services.base import AbstractService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
@@ -45,14 +46,18 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         super().__init__()
         self._configuration_properties = get_configuration_properties()
         self._bit2me_remote_service = Bit2MeRemoteService()
+        self._ccxt_remote_service = CcxtRemoteService()
         self._global_flag_service = GlobalFlagService()
         self._stop_loss_percent_service = StopLossPercentService(
             bit2me_remote_service=self._bit2me_remote_service, global_flag_service=self._global_flag_service
         )
         self._global_summary_service = GlobalSummaryService(bit2me_remote_service=self._bit2me_remote_service)
-        self._crypto_analytics_service = CryptoAnalyticsService(bit2me_remote_service=self._bit2me_remote_service)
+        self._crypto_analytics_service = CryptoAnalyticsService(
+            bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=self._ccxt_remote_service
+        )
         self._orders_analytics_service = OrdersAnalyticsService(
             bit2me_remote_service=self._bit2me_remote_service,
+            ccxt_remote_service=self._ccxt_remote_service,
             stop_loss_percent_service=self._stop_loss_percent_service,
             crypto_analytics_service=self._crypto_analytics_service,
         )

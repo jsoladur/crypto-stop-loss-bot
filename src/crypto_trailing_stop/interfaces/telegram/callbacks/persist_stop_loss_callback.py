@@ -7,6 +7,7 @@ from aiogram.types import CallbackQuery
 
 from crypto_trailing_stop.config import get_dispacher
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
@@ -23,13 +24,17 @@ session_storage_service = SessionStorageService()
 keyboards_builder = KeyboardsBuilder()
 messages_formatter = MessagesFormatter()
 bit2me_remote_service = Bit2MeRemoteService()
+ccxt_remote_service = CcxtRemoteService()
 stop_loss_percent_service = StopLossPercentService(
     bit2me_remote_service=bit2me_remote_service, global_flag_service=GlobalFlagService()
 )
 orders_analytics_service = OrdersAnalyticsService(
     bit2me_remote_service=bit2me_remote_service,
+    ccxt_remote_service=ccxt_remote_service,
     stop_loss_percent_service=stop_loss_percent_service,
-    crypto_analytics_service=CryptoAnalyticsService(bit2me_remote_service=bit2me_remote_service),
+    crypto_analytics_service=CryptoAnalyticsService(
+        bit2me_remote_service=bit2me_remote_service, ccxt_remote_service=ccxt_remote_service
+    ),
 )
 
 

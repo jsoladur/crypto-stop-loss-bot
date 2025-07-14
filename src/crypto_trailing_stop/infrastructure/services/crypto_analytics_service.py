@@ -1,5 +1,6 @@
 import logging
 
+import ccxt.async_support as ccxt
 import pandas as pd
 from httpx import AsyncClient
 from ta.momentum import RSIIndicator
@@ -10,6 +11,7 @@ from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
@@ -18,9 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 class CryptoAnalyticsService(metaclass=SingletonMeta):
-    def __init__(self, bit2me_remote_service: Bit2MeRemoteService) -> None:
+    def __init__(self, bit2me_remote_service: Bit2MeRemoteService, ccxt_remote_service: CcxtRemoteService) -> None:
         self._configuration_properties = get_configuration_properties()
         self._bit2me_remote_service = bit2me_remote_service
+        self._ccxt_remote_service = ccxt_remote_service
 
     async def get_crypto_market_metrics(
         self,
@@ -29,9 +32,10 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         timeframe: Timeframe = "1h",
         over_candlestick: CandleStickEnum = CandleStickEnum.LAST,
         client: AsyncClient | None = None,
+        exchange: ccxt.Exchange | None = None,
     ) -> CryptoMarketMetrics:
         technical_indicators: pd.DataFrame = await self.calculate_technical_indicators(
-            symbol, timeframe=timeframe, client=client
+            symbol, timeframe=timeframe, client=client, exchange=exchange
         )
         selected_candlestick = technical_indicators.iloc[over_candlestick.value]
         return CryptoMarketMetrics(
@@ -45,9 +49,22 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         )
 
     async def calculate_technical_indicators(
-        self, symbol: str, *, timeframe: Timeframe = "1h", client: AsyncClient | None = None
+        self,
+        symbol: str,
+        *,
+        timeframe: Timeframe = "1h",
+        client: AsyncClient | None = None,
+        exchange: ccxt.Exchange | None = None,
     ) -> pd.DataFrame:
-        df = await self._bit2me_remote_service.fetch_ohlcv(symbol, timeframe, client=client)
+        exchange_symbols = await self._ccxt_remote_service.get_exchange_symbols_by_fiat_currency(
+            fiat_currency=symbol.split("/")[-1], exchange=exchange
+        )
+        if symbol in exchange_symbols:
+            ohlcv = await self._ccxt_remote_service.fetch_ohlcv(symbol, timeframe, exchange=exchange)
+        else:
+            ohlcv = await self._bit2me_remote_service.fetch_ohlcv(symbol, timeframe, client=client)
+        df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         df_with_indicators = self._calculate_indicators(df)
         return df_with_indicators
 
