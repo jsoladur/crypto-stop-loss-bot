@@ -60,9 +60,9 @@ class ConfigurationProperties(BaseSettings):
     buy_sell_signals_ema_long_value: int = 200
     # Market Signals parameters
     market_signal_retention_days: int = 9
-    # XXX: Other parameters
+    # XXX: ATR multipliers (RRR = 1.4)
     suggested_stop_loss_atr_multiplier: float = 2.5
-    suggested_take_profit_atr_multiplier: float = 4.6
+    suggested_take_profit_atr_multiplier: float = 3.5
     # Google OAuth configuration
     google_oauth_client_id: str
     google_oauth_client_secret: str
