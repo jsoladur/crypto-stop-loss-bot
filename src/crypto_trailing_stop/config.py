@@ -55,8 +55,8 @@ class ConfigurationProperties(BaseSettings):
     # Auto-Entry Trader configuration properties
     max_atr_percent_for_auto_entry: int = STOP_LOSS_STEPS_VALUE_LIST[-1]
     # XXX: EMA values
-    buy_sell_signals_ema_short_value: int = 7
-    buy_sell_signals_ema_mid_value: int = 18
+    buy_sell_signals_ema_short_value: int = 8
+    buy_sell_signals_ema_mid_value: int = 20
     buy_sell_signals_ema_long_value: int = 200
     # Market Signals parameters
     market_signal_retention_days: int = 9
