@@ -196,13 +196,13 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             avg_buy_price - (atr_value * self._configuration_properties.suggested_stop_loss_atr_multiplier),
             ndigits=ndigits,
         )
-        stop_loss_percent_value = round(
-            (1 - (first_suggested_safeguard_stop_price / avg_buy_price)) * 100, ndigits=ndigits
+        stop_loss_percent_value = (
+            round((1 - (first_suggested_safeguard_stop_price / avg_buy_price)) * 100, ndigits=ndigits) + 0.5
         )
         if stop_loss_percent_value < STOP_LOSS_STEPS_VALUE_LIST[-1]:
             steps = np.array(STOP_LOSS_STEPS_VALUE_LIST)
             # Summing 0.5 to the calculated Stop Loss, to ensure enough gap when ATR is very low!
-            stop_loss_percent_value = float(steps[steps >= stop_loss_percent_value].min()) + 0.5
+            stop_loss_percent_value = float(steps[steps >= stop_loss_percent_value].min())
         return (stop_loss_percent_value, atr_value, float(last["close"]))
 
     def _calculate_suggested_safeguard_stop_price(
