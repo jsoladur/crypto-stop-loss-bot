@@ -1,6 +1,7 @@
 import logging
 
 import ccxt.async_support as ccxt
+import numpy as np
 import pandas as pd
 from httpx import AsyncClient
 
@@ -8,6 +9,7 @@ from crypto_trailing_stop.commons.constants import (
     BIT2ME_MAKER_AND_TAKER_FEES_SUM,
     DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
     NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
+    STOP_LOSS_STEPS_VALUE_LIST,
 )
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
@@ -82,14 +84,17 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         (avg_buy_price, previous_used_buy_trade_ids) = await self._calculate_correlated_avg_buy_price(
             sell_order, previous_used_buy_trade_ids, client=client
         )
+        break_even_price = self._calculate_break_even_price(sell_order, avg_buy_price)
         (safeguard_stop_price, stop_loss_percent_item) = await self._calculate_safeguard_stop_price(
             sell_order, avg_buy_price
         )
-        (suggested_safeguard_stop_price, atr_value, closing_price) = self._calculate_suggested_safeguard_stop_price(
-            sell_order, avg_buy_price, technical_indicators=technical_indicators
+        (suggested_stop_loss_percent_value, atr_value, closing_price) = (
+            self._calculate_suggested_stop_loss_percent_value(
+                sell_order, avg_buy_price, technical_indicators=technical_indicators
+            )
         )
-        suggested_stop_loss_percent_value = round(
-            (1 - (suggested_safeguard_stop_price / avg_buy_price)) * 100, ndigits=ndigits
+        suggested_safeguard_stop_price = self._calculate_suggested_safeguard_stop_price(
+            sell_order, avg_buy_price, suggested_stop_loss_percent_value
         )
         (suggested_take_profit_limit_price, *_) = self._calculate_suggested_take_profit_limit_price(
             sell_order, avg_buy_price, technical_indicators=technical_indicators
@@ -97,13 +102,13 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         guard_metrics = LimitSellOrderGuardMetrics(
             sell_order=sell_order,
             avg_buy_price=avg_buy_price,
-            break_even_price=round(self._calculate_break_even_price(sell_order, avg_buy_price), ndigits=ndigits),
+            break_even_price=break_even_price,
             stop_loss_percent_value=stop_loss_percent_item.value,
             safeguard_stop_price=safeguard_stop_price,
             current_attr_value=round(atr_value, ndigits=ndigits),
             closing_price=closing_price,
-            suggested_safeguard_stop_price=suggested_safeguard_stop_price,
             suggested_stop_loss_percent_value=suggested_stop_loss_percent_value,
+            suggested_safeguard_stop_price=suggested_safeguard_stop_price,
             suggested_take_profit_limit_price=suggested_take_profit_limit_price,
         )
         return (guard_metrics, previous_used_buy_trade_ids)
@@ -143,6 +148,13 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         )
         return avg_buy_price, previous_used_buy_trade_ids
 
+    def _calculate_break_even_price(self, sell_order: Bit2MeOrderDto, avg_buy_price: float) -> float:
+        break_even_price = round(
+            avg_buy_price * (1.0 + BIT2ME_MAKER_AND_TAKER_FEES_SUM),
+            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+        )
+        return break_even_price
+
     def _get_correlated_filled_buy_trades(
         self,
         sell_order: Bit2MeOrderDto,
@@ -174,17 +186,34 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         )
         return safeguard_stop_price, stop_loss_percent_item
 
-    def _calculate_suggested_safeguard_stop_price(
+    def _calculate_suggested_stop_loss_percent_value(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float, technical_indicators: pd.DataFrame
     ) -> tuple[float, float, float]:
+        ndigits = NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE)
         last = technical_indicators.iloc[CandleStickEnum.LAST]  # Last confirmed candle
-        closing_price = last["close"]
-        atr_value = last["atr"]
+        atr_value = float(last["atr"])
+        first_suggested_safeguard_stop_price = round(
+            avg_buy_price - (atr_value * self._configuration_properties.suggested_stop_loss_atr_multiplier),
+            ndigits=ndigits,
+        )
+        stop_loss_percent_value = round(
+            (1 - (first_suggested_safeguard_stop_price / avg_buy_price)) * 100, ndigits=ndigits
+        )
+        if stop_loss_percent_value < STOP_LOSS_STEPS_VALUE_LIST[-1]:
+            steps = np.array(STOP_LOSS_STEPS_VALUE_LIST)
+            # Summing 0.5 to the calculated Stop Loss, to ensure enough gap when ATR is very low!
+            stop_loss_percent_value = float(steps[steps >= stop_loss_percent_value].min()) + 0.5
+        return (stop_loss_percent_value, atr_value, float(last["close"]))
+
+    def _calculate_suggested_safeguard_stop_price(
+        self, sell_order: Bit2MeOrderDto, avg_buy_price: float, suggested_stop_loss_percent_value: float
+    ) -> float:
+        suggested_stop_loss_decimal_value = suggested_stop_loss_percent_value / 100
         suggested_safeguard_stop_price = round(
-            avg_buy_price - (last["atr"] * self._configuration_properties.suggested_stop_loss_atr_multiplier),
+            avg_buy_price * (1 - suggested_stop_loss_decimal_value),
             ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
         )
-        return suggested_safeguard_stop_price, atr_value, closing_price
+        return suggested_safeguard_stop_price
 
     def _calculate_suggested_take_profit_limit_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float, technical_indicators: pd.DataFrame
@@ -196,13 +225,6 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
         )
         return suggested_safeguard_stop_price, atr_value
-
-    def _calculate_break_even_price(self, sell_order: Bit2MeOrderDto, avg_buy_price: float) -> float:
-        break_even_price = round(
-            avg_buy_price * (1.0 + BIT2ME_MAKER_AND_TAKER_FEES_SUM),
-            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
-        )
-        return break_even_price
 
     async def _calculate_technical_indicators_by_opened_sell_orders(
         self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient, exchange: ccxt.Exchange
