@@ -187,13 +187,13 @@ class BuySellSignalsTaskService(AbstractTaskService):
             if is_choppy:
                 logger.info(
                     f"{symbol} - ({timeframe.upper()}) :: "
-                    + f"Market too choppy (ATR {last['atr']:.2f} < Threshold {min_volatility_threshold:.2f}). "
+                    + f"Market too choppy (ATR {last['atr']} < Threshold {min_volatility_threshold}). "
                     + "Skipping signal check..."
                 )
             else:
                 logger.info(
                     f"{symbol} - ({timeframe.upper()}) :: "
-                    + f"Market is trending (ATR {last['atr']:.2f} >= Threshold {min_volatility_threshold:.2f}). "
+                    + f"Market is trending (ATR {last['atr']} >= Threshold {min_volatility_threshold}). "
                     + "Checking for signals..."
                 )
                 # A proximity_threshold of 0 effectively disables the proximity check

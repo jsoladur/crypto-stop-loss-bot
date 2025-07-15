@@ -7,6 +7,10 @@ from ta.momentum import RSIIndicator
 from ta.trend import MACD, EMAIndicator
 from ta.volatility import AverageTrueRange
 
+from crypto_trailing_stop.commons.constants import (
+    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
+    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
+)
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -38,14 +42,15 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
             symbol, timeframe=timeframe, client=client, exchange=exchange
         )
         selected_candlestick = technical_indicators.iloc[over_candlestick.value]
+        ndigits = NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE)
         return CryptoMarketMetrics(
             symbol=symbol,
-            closing_price=selected_candlestick["close"],
-            ema_short=selected_candlestick["ema_short"],
-            ema_mid=selected_candlestick["ema_mid"],
-            ema_long=selected_candlestick["ema_long"],
-            rsi=selected_candlestick["rsi"],
-            atr=selected_candlestick["atr"],
+            closing_price=round(selected_candlestick["close"], ndigits=ndigits),
+            ema_short=round(selected_candlestick["ema_short"], ndigits=ndigits),
+            ema_mid=round(selected_candlestick["ema_mid"], ndigits=ndigits),
+            ema_long=round(selected_candlestick["ema_long"], ndigits=ndigits),
+            rsi=round(selected_candlestick["rsi"], ndigits=2),
+            atr=round(selected_candlestick["atr"], ndigits=ndigits),
         )
 
     async def calculate_technical_indicators(

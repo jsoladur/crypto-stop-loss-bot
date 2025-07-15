@@ -74,6 +74,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         client: AsyncClient | None = None,
         exchange: ccxt.Exchange | None = None,
     ) -> tuple[LimitSellOrderGuardMetrics, set[str]]:
+        ndigits = NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE)
         if technical_indicators is None:
             technical_indicators = await self._crypto_analytics_service.calculate_technical_indicators(
                 sell_order.symbol, client=client, exchange=exchange
@@ -88,8 +89,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             sell_order, avg_buy_price, technical_indicators=technical_indicators
         )
         suggested_stop_loss_percent_value = round(
-            (1 - (suggested_safeguard_stop_price / avg_buy_price)) * 100,
-            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+            (1 - (suggested_safeguard_stop_price / avg_buy_price)) * 100, ndigits=ndigits
         )
         (suggested_take_profit_limit_price, *_) = self._calculate_suggested_take_profit_limit_price(
             sell_order, avg_buy_price, technical_indicators=technical_indicators
@@ -97,20 +97,10 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         guard_metrics = LimitSellOrderGuardMetrics(
             sell_order=sell_order,
             avg_buy_price=avg_buy_price,
-            break_even_price=round(
-                self._calculate_break_even_price(sell_order, avg_buy_price),
-                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
-                    sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
-                ),
-            ),
+            break_even_price=round(self._calculate_break_even_price(sell_order, avg_buy_price), ndigits=ndigits),
             stop_loss_percent_value=stop_loss_percent_item.value,
             safeguard_stop_price=safeguard_stop_price,
-            current_attr_value=round(
-                atr_value,
-                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
-                    sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
-                ),
-            ),
+            current_attr_value=round(atr_value, ndigits=ndigits),
             closing_price=closing_price,
             suggested_safeguard_stop_price=suggested_safeguard_stop_price,
             suggested_stop_loss_percent_value=suggested_stop_loss_percent_value,

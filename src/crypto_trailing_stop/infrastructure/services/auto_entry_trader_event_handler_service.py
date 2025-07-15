@@ -297,13 +297,13 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         message = f"✅ {html.bold('MARKET BUY ORDER FILLED')} ✅\n\n"
         message += (
             f"🔥 {new_buy_market_order.order_amount} {crypto_currency} "
-            + f"purchased at {tickers.close:.2f} {fiat_currency}"
+            + f"purchased at {tickers.close} {fiat_currency}"
         )
         message += html.bold("\n\n⚠️ IMPORTANT CONSIDERATIONS ⚠️\n\n")
-        new_limit_sell_order_price_formatted = f"{new_limit_sell_order.price:.2f} {fiat_currency}"
+        new_limit_sell_order_price_formatted = f"{new_limit_sell_order.price} {fiat_currency}"
         message += (
             f"* 🚀 A new {html.bold(new_limit_sell_order.order_type.upper() + ' Sell Order')} ("
-            + f"{new_limit_sell_order.order_amount:.2f} {crypto_currency}), "
+            + f"{new_limit_sell_order.order_amount} {crypto_currency}), "
             + f"further sell at {html.bold(new_limit_sell_order_price_formatted)}"
             + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
         )
