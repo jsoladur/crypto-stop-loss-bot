@@ -3,6 +3,10 @@ from zoneinfo import ZoneInfo
 import pydash
 from aiogram import html
 
+from crypto_trailing_stop.commons.constants import (
+    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
+    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
+)
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
@@ -25,12 +29,12 @@ class MessagesFormatter(metaclass=SingletonMeta):
         *_, fiat_currency = metrics.symbol.split("/")
         header = f"🧮 {html.bold('CURRENT METRICS')} for {html.bold(metrics.symbol)} 🧮\n\n"
         message_lines = [
-            f"💰 {html.bold('Current Price')} = {html.code(f'{metrics.closing_price:.2f} {fiat_currency}')}",
-            f"📈 {html.bold('EMA Short')} = {metrics.ema_short:.2f} {fiat_currency}",
-            f"📉 {html.bold('EMA Mid')} = {metrics.ema_mid:.2f} {fiat_currency}",
-            f"📐 {html.bold('EMA Long')} = {metrics.ema_long:.2f} {fiat_currency}",
-            f"🎢 {html.bold('ATR')} = ±{metrics.atr:.2f} {fiat_currency} (±{metrics.atr_percent}%)",
-            f"📊 {html.bold('RSI')} = {html.italic(pydash.start_case(metrics.rsi_state))} ({metrics.rsi:.2f})",
+            f"💰 {html.bold('Current Price')} = {html.code(f'{metrics.closing_price} {fiat_currency}')}",
+            f"📈 {html.bold('EMA Short')} = {metrics.ema_short} {fiat_currency}",
+            f"📉 {html.bold('EMA Mid')} = {metrics.ema_mid} {fiat_currency}",
+            f"📐 {html.bold('EMA Long')} = {metrics.ema_long} {fiat_currency}",
+            f"🎢 {html.bold('ATR')} = ±{metrics.atr} {fiat_currency} (±{metrics.atr_percent}%)",
+            f"📊 {html.bold('RSI')} = {html.italic(pydash.start_case(metrics.rsi_state))} ({metrics.rsi})",
         ]
         ret = header + "\n".join(message_lines)
         return ret
@@ -81,6 +85,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
         return answer_text
 
     def format_market_signals_message(self, symbol: str, market_signals: list[MarketSignalItem]) -> str:
+        ndigits = NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE)
         header = f"🚥 {html.bold('LAST MARKET SIGNALS')} for {html.bold(symbol)} 🚥\n\n"
         message_lines = []
         if not market_signals:
@@ -105,12 +110,15 @@ class MessagesFormatter(metaclass=SingletonMeta):
                     else:  # sell
                         line = f"🔴 - 🔚 {html.bold('SELL SIGNAL (1H)')}"
                 # Append additional details
+                formatted_atr = round(signal.atr, ndigits=ndigits)
+                formatted_closing_price = round(signal.closing_price, ndigits=ndigits)
+                formatted_ema_long_price = round(signal.ema_long_price, ndigits=ndigits)
                 line += (
                     f"\n  * 🕒 {html.code(formatted_timestamp)}"
                     f"\n  * 📊 RSI: {html.italic(rsi_state)}"
-                    f"\n  * 🎢 ATR: ±{html.bold(f'{signal.atr:.2f} {fiat_currency} (±{signal.atr_percent}%)')}"
-                    f"\n  * 💰 Closing Price: {html.code(f'{signal.closing_price:.2f} {fiat_currency}')}"
-                    f"\n  * 📐 EMA Long: {html.code(f'{signal.ema_long_price:.2f} {fiat_currency}')}"
+                    f"\n  * 🎢 ATR: ±{html.bold(f'{formatted_atr} {fiat_currency} (±{signal.atr_percent}%)')}"
+                    f"\n  * 💰 Closing Price: {html.code(f'{formatted_closing_price} {fiat_currency}')}"
+                    f"\n  * 📐 EMA Long: {html.code(f'{formatted_ema_long_price} {fiat_currency}')}"
                 )
                 message_lines.append(line)
         ret = header + "\n\n".join(message_lines)

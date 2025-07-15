@@ -114,7 +114,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             + f"Break-Even Price = {guard_metrics.break_even_price} {fiat_currency} / "
             + f"Safeguard Stop Price = {guard_metrics.safeguard_stop_price} {fiat_currency} / "
             + f"ATR Take Profit Limit price = {guard_metrics.suggested_take_profit_limit_price} {fiat_currency} / "
-            + f"ATR value = {guard_metrics.current_attr_value:.2f} {fiat_currency} / "
+            + f"ATR value = {guard_metrics.current_attr_value} {fiat_currency} / "
             + f"Current Price = {tickers_close_formatted} {fiat_currency}"
         )
         auto_exit_reason = await self._is_moment_to_exit(sell_order, tickers, guard_metrics)
