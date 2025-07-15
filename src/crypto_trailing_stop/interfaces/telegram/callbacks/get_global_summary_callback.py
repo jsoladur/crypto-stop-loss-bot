@@ -1,4 +1,5 @@
 import logging
+from html import escape as html_escape
 
 from aiogram import html
 from aiogram.fsm.context import FSMContext
@@ -35,11 +36,12 @@ async def set_stop_loss_percent_callback_handler(callback_query: CallbackQuery, 
                 f"🤑 NET REVENUE: {(global_summary.net_revenue):.2f} EUR",
                 "===========================",
             ]
-            await callback_query.message.answer(text="\n".join(message_lines))
+            message = "\n".join(message_lines)
+            await callback_query.message.answer(text=message)
         except Exception as e:
             logger.error(f"Error fetching global summary: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ An error occurred while fetching the global summary. Please try again later:\n\n{html.code(str(e))}"
+                f"⚠️ An error occurred while fetching the global summary. Please try again later:\n\n{html.code(html_escape(str(e)))}"  # noqa: E501
             )
     else:
         await callback_query.message.answer(

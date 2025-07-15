@@ -1,5 +1,6 @@
 import logging
 import re
+from html import escape as html_escape
 
 from aiogram import F, html
 from aiogram.fsm.context import FSMContext
@@ -34,7 +35,7 @@ async def show_last_market_signals_callback_handler(callback_query: CallbackQuer
             logger.error(f"Error fetching last market signals: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 "⚠️ An error occurred while fetching last market signals. "
-                + f"Please try again later:\n\n{html.code(str(e))}"
+                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
             )
     else:
         await callback_query.message.answer(

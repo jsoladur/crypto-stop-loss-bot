@@ -1,4 +1,5 @@
 import logging
+from html import escape as html_escape
 
 from aiogram import html
 from aiogram.fsm.context import FSMContext
@@ -34,7 +35,7 @@ async def current_metrics_home_callback_handler(callback_query: CallbackQuery, s
         except Exception as e:
             logger.error(f"Error retrieving favourite symbols: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ An error occurred while retrieving favourite symbols. Please try again later:\n\n{html.code(str(e))}"  # noqa: E501
+                f"⚠️ An error occurred while retrieving favourite symbols. Please try again later:\n\n{html.code(html_escape(str(e)))}"  # noqa: E501
             )
     else:
         await callback_query.message.answer(

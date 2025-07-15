@@ -1,5 +1,6 @@
 import logging
 import re
+from html import escape as html_escape
 
 from aiogram import F, html
 from aiogram.fsm.context import FSMContext
@@ -66,7 +67,7 @@ async def auto_entry_trader_config_for_symbol_callback_handler(
             logger.error(f"Error retrieving current crypto metrics: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 f"⚠️ An error occurred while retrieving current crypto metrics for {symbol}. "
-                + f"Please try again later:\n\n{html.code(str(e))}"
+                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
             )
     else:
         await callback_query.message.answer(
