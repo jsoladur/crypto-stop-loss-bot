@@ -1,4 +1,5 @@
 import logging
+from html import escape as html_escape
 
 from aiogram import html
 from aiogram.fsm.context import FSMContext
@@ -35,7 +36,7 @@ async def push_notifications_home_callback(callback_query: CallbackQuery, state:
             )
             await callback_query.message.answer(
                 "⚠️ An error occurred while retrieving push notifications items. "
-                + f"Please try again later:\n\n{html.code(str(e))}"
+                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
             )
     else:
         await callback_query.message.answer(

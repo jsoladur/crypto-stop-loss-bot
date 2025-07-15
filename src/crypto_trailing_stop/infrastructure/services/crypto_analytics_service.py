@@ -28,6 +28,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         self._configuration_properties = get_configuration_properties()
         self._bit2me_remote_service = bit2me_remote_service
         self._ccxt_remote_service = ccxt_remote_service
+        self._exchange = self._ccxt_remote_service.get_exchange()
 
     async def get_crypto_market_metrics(
         self,
@@ -61,6 +62,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         client: AsyncClient | None = None,
         exchange: ccxt.Exchange | None = None,
     ) -> pd.DataFrame:
+        exchange = exchange or self._exchange
         exchange_symbols = await self._ccxt_remote_service.get_exchange_symbols_by_fiat_currency(
             fiat_currency=symbol.split("/")[-1], exchange=exchange
         )

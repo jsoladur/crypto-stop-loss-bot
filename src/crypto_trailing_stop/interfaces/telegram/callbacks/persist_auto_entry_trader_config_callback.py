@@ -1,5 +1,6 @@
 import logging
 import re
+from html import escape as html_escape
 
 from aiogram import F, html
 from aiogram.fsm.context import FSMContext
@@ -42,7 +43,7 @@ async def handle_persist_stop_loss_callback(callback_query: CallbackQuery, state
             logger.error(f"Error persisting Auto-Entry trader config: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 "⚠️ An error occurred while persisting an Auto-Entry Trader configuration. "
-                + f"Please try again later:\n\n{html.code(str(e))}"
+                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
             )
     else:
         await callback_query.message.answer(

@@ -1,5 +1,6 @@
 import logging
 import re
+from html import escape as html_escape
 
 from aiogram import F, html
 from aiogram.fsm.context import FSMContext
@@ -35,7 +36,7 @@ async def toggle_push_notification_callback_handler(callback_query: CallbackQuer
         except Exception as e:
             logger.error(f"Error trying to toggle push notifications for this chat: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ An error occurred while toggling push notifications. Please try again later:\n\n{html.code(str(e))}"
+                f"⚠️ An error occurred while toggling push notifications. Please try again later:\n\n{html.code(html_escape(str(e)))}"  # noqa: E501
             )
     else:
         await callback_query.message.answer(
