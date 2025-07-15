@@ -46,6 +46,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self._crypto_analytics_service = CryptoAnalyticsService(
             bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=self._ccxt_remote_service
         )
+        self._exchange = self._ccxt_remote_service.get_exchange()
         self._last_signal_evalutation_result_cache: dict[str, SignalsEvaluationResult] = {}
         self._job = self._create_job()
 
@@ -75,7 +76,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 for symbol in list(current_tickers_by_symbol.keys())
                 for timeframe in get_args(Timeframe)
             ]
-            async with self._ccxt_remote_service.get_exchange() as exchange:
+            async with self._exchange as exchange:
                 for current_symbol, current_timeframe in symbol_timeframe_tuples:
                     try:
                         await self._eval_and_notify_signals(

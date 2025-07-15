@@ -46,6 +46,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             ),
             crypto_analytics_service=self._crypto_analytics_service,
         )
+        self._exchange = self._ccxt_remote_service.get_exchange()
         self._technical_indicators_by_symbol_cache: dict[str, TechnicalIndicatorsCacheItem] = {}
 
     @override
@@ -236,7 +237,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
     ) -> None:
         now = datetime.now(UTC)
         open_sell_order_symbols = set([open_sell_order.symbol for open_sell_order in opened_sell_orders])
-        async with self._ccxt_remote_service.get_exchange() as exchange:
+        async with self._exchange as exchange:
             for symbol in open_sell_order_symbols:
                 if (
                     symbol not in self._technical_indicators_by_symbol_cache

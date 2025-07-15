@@ -14,11 +14,11 @@ logger = logging.getLogger(__name__)
 class CcxtRemoteService:
     @backoff.on_exception(
         backoff.constant,
-        exception=ccxt.ExchangeError,
+        exception=ccxt.BaseError,
         interval=2,
         max_tries=5,
         jitter=backoff.full_jitter,
-        giveup=lambda e: isinstance(e, ccxt.BadRequest),
+        giveup=lambda e: isinstance(e, ccxt.BadRequest) or isinstance(e, ccxt.AuthenticationError),
         on_backoff=lambda details: logger.warning(
             f"[Retry {details['tries']}] " + f"Waiting {details['wait']:.2f}s due to {str(details['exception'])}"
         ),
@@ -53,11 +53,11 @@ class CcxtRemoteService:
     )
     @backoff.on_exception(
         backoff.constant,
-        exception=ccxt.ExchangeError,
+        exception=ccxt.BaseError,
         interval=2,
         max_tries=5,
         jitter=backoff.full_jitter,
-        giveup=lambda e: isinstance(e, ccxt.BadRequest),
+        giveup=lambda e: isinstance(e, ccxt.BadRequest) or isinstance(e, ccxt.AuthenticationError),
         on_backoff=lambda details: logger.warning(
             f"[Retry {details['tries']}] " + f"Waiting {details['wait']:.2f}s due to {str(details['exception'])}"
         ),

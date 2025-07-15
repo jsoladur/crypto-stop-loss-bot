@@ -37,6 +37,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         self._ccxt_remote_service = ccxt_remote_service
         self._stop_loss_percent_service = stop_loss_percent_service
         self._crypto_analytics_service = crypto_analytics_service
+        self._exchange = self._ccxt_remote_service.get_exchange()
 
     async def calculate_all_limit_sell_order_guard_metrics(
         self, *, symbol: str | None = None
@@ -48,7 +49,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
                 for sell_order in opened_sell_orders
                 if symbol is None or len(symbol) <= 0 or sell_order.symbol.lower().startswith(symbol.lower())
             ]
-            async with self._ccxt_remote_service.get_exchange() as exchange:
+            async with self._exchange as exchange:
                 technical_indicators_by_symbol = await self._calculate_technical_indicators_by_opened_sell_orders(
                     opened_sell_orders, client=client, exchange=exchange
                 )
