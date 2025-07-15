@@ -1,5 +1,6 @@
 import logging
 import re
+from html import escape as html_escape
 
 from aiogram import F, html
 from aiogram.fsm.context import FSMContext
@@ -37,7 +38,7 @@ async def trigger_auto_entry_trader_callback_handler(callback_query: CallbackQue
             logger.error(f"Error triggering Auto-Entry Trader: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 f"⚠️ An error occurred while triggering Auto-Entry Trader for {symbol}. "
-                + f"Please try again later:\n\n{html.code(str(e))}"
+                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
             )
     else:
         await callback_query.message.answer(

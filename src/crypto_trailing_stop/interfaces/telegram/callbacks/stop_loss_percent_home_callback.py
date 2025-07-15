@@ -1,4 +1,5 @@
 import logging
+from html import escape as html_escape
 
 from aiogram import html
 from aiogram.fsm.context import FSMContext
@@ -34,7 +35,7 @@ async def stop_loss_percent_home_callback_handler(callback_query: CallbackQuery,
         except Exception as e:
             logger.error(f"Error retrieving stop loss items: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ An error occurred while retrieving stop loss items. Please try again later:\n\n{html.code(str(e))}"
+                f"⚠️ An error occurred while retrieving stop loss items. Please try again later:\n\n{html.code(html_escape(str(e)))}"  # noqa: E501
             )
     else:
         await callback_query.message.answer(
