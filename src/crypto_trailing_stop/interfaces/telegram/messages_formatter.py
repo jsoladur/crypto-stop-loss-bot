@@ -50,8 +50,14 @@ class MessagesFormatter(metaclass=SingletonMeta):
                 + "Please, enable it after double-check everything out!"
             )
         )
+        answer_text += f"\n\n{self.format_limit_sell_order_guard_metrics(limit_sell_order_guard_metrics_list)}"
+        return answer_text
+
+    def format_limit_sell_order_guard_metrics(
+        self, limit_sell_order_guard_metrics_list: list[LimitSellOrderGuardMetrics]
+    ) -> str:
         if limit_sell_order_guard_metrics_list:
-            answer_text += f"\n\n🔨🔨{html.bold('Order Guard Metrics')} 🔨🔨\n\n"
+            answer_text = f"📤📤 {html.bold('SELL Orders')} 📤📤\n\n"
             for idx, metrics in enumerate(limit_sell_order_guard_metrics_list):
                 crypto_currency, fiat_currency = metrics.sell_order.symbol.split("/")
                 answer_text += (
@@ -82,6 +88,8 @@ class MessagesFormatter(metaclass=SingletonMeta):
                 )
                 if idx + 1 < len(limit_sell_order_guard_metrics_list):
                     answer_text += "\n\n"
+        else:
+            answer_text = "ℹ️ There are no currently opened SELL orders."
         return answer_text
 
     def format_market_signals_message(self, symbol: str, market_signals: list[MarketSignalItem]) -> str:

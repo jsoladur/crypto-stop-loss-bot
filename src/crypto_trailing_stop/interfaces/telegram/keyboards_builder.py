@@ -40,13 +40,14 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
     def get_home_keyboard(self) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
         builder.row(InlineKeyboardButton(text="📈 Summary", callback_data="get_global_summary"))
+        builder.row(InlineKeyboardButton(text="📤 Sell Orders", callback_data="get_sell_orders_info"))
         builder.row(
             InlineKeyboardButton(text="💵 Prices", callback_data="get_current_prices"),
             InlineKeyboardButton(text="🧮 Metrics", callback_data="current_metrics_home"),
         )
         builder.row(
             InlineKeyboardButton(text="🚏 Stop Loss %", callback_data="stop_loss_percent_home"),
-            InlineKeyboardButton(text="⚙️ Auto-Entry Trader", callback_data="auto_entry_trader_config_home"),
+            InlineKeyboardButton(text="⚙️ Auto-Entry", callback_data="auto_entry_trader_config_home"),
         )
         builder.row(
             InlineKeyboardButton(text="🕹️ Toggles", callback_data="global_flags_home"),
