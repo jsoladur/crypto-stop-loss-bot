@@ -298,10 +298,9 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             + f"further sell at {html.bold(new_limit_sell_order_price_formatted)}"
             + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
         )
-        message += (
-            f"* 🚏 {html.bold('Stop Loss')} has been setup to {guard_metrics.suggested_stop_loss_percent_value}%\n"  # noqa: E501
-        )
-        message += f"* 🛡️ {html.bold('Safeguard Stop Price = ' + str(guard_metrics.safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
+        message += f"* ⚖️ {html.bold('Break-even Price')} = {guard_metrics.break_even_price} {fiat_currency}\n"
+        message += f"* 🚏 {html.bold('Stop Loss')} updated to {guard_metrics.suggested_stop_loss_percent_value}%\n"
+        message += f"* 🛡️ {html.bold('Safeguard Stop Price = ' + str(guard_metrics.suggested_safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
         if is_enabled_for_auto_exit_atr_take_profit:
             message += f"* 🎯 {html.bold('ATR Take Profit Price')} = {guard_metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
         message += f"* 🔰 {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ENABLED!\n"
