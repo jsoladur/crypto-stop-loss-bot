@@ -89,7 +89,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
                 if idx + 1 < len(limit_sell_order_guard_metrics_list):
                     answer_text += "\n\n"
         else:
-            answer_text = "ℹ️ There are no currently opened SELL orders."
+            answer_text = "✳️ There are no currently opened SELL orders."
         return answer_text
 
     def format_market_signals_message(self, symbol: str, market_signals: list[MarketSignalItem]) -> str:
