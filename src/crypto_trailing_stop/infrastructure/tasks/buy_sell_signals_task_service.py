@@ -4,6 +4,7 @@ from typing import get_args, override
 
 import ccxt.async_support as ccxt
 import pandas as pd
+import pydash
 from aiogram import html
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -112,7 +113,8 @@ class BuySellSignalsTaskService(AbstractTaskService):
         )
         # Use the default, wider threshold for 4H signals
         signals = self._check_signals(symbol, timeframe, df_with_indicators)
-        if self._are_new_signals(signals):
+        is_new_signals, previous_signals = self._is_new_signals(signals)
+        if is_new_signals:
             try:
                 is_enabled_for = await self._global_flag_service.is_enabled_for(self.get_global_flag_type())
                 if is_enabled_for:
@@ -128,6 +130,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
                         if timeframe in ANTICIPATION_ZONE_TIMEFRAMES:
                             await self._notify_anticipation_zone_alerts(
                                 signals,
+                                previous_signals,
                                 telegram_chat_ids=telegram_chat_ids,
                                 timeframe=timeframe,
                                 tickers=tickers,
@@ -147,14 +150,15 @@ class BuySellSignalsTaskService(AbstractTaskService):
         else:  # pragma: no cover
             logger.info("Calculated signals were already notified previously!")
 
-    def _are_new_signals(self, current_signals: SignalsEvaluationResult) -> bool:
+    def _is_new_signals(self, current_signals: SignalsEvaluationResult) -> tuple[bool, SignalsEvaluationResult | None]:
         is_new_signals = current_signals.cache_key not in self._last_signal_evalutation_result_cache
+        previous_signals: SignalsEvaluationResult | None = None
         if not is_new_signals:  # pragma: no cover
             previous_signals = self._last_signal_evalutation_result_cache[current_signals.cache_key]
             is_new_signals = previous_signals != current_signals
             logger.info(f"Previous ({repr(previous_signals)}) != Current ({repr(current_signals)}) ? {is_new_signals}")
         self._last_signal_evalutation_result_cache[current_signals.cache_key] = current_signals
-        return is_new_signals
+        return is_new_signals, previous_signals
 
     def _check_signals(self, symbol: str, timeframe: Timeframe, df: pd.DataFrame) -> SignalsEvaluationResult:
         timestamp = datetime.now(tz=UTC).timestamp()
@@ -253,14 +257,22 @@ class BuySellSignalsTaskService(AbstractTaskService):
     async def _notify_anticipation_zone_alerts(
         self,
         signals: SignalsEvaluationResult,
+        previous_signals: SignalsEvaluationResult | None,
         *,
         telegram_chat_ids: list[str],
         timeframe: Timeframe,
         tickers: Bit2MeTickersDto,
         base_symbol: str,
     ) -> None:
-        if signals.rsi_state != "neutral":
-            await self._notify_rsi_state_alert(signals.rsi_state, base_symbol, telegram_chat_ids, timeframe, tickers)
+        if signals.rsi_state != "neutral" or (previous_signals and previous_signals.rsi_state != "neutral"):
+            await self._notify_rsi_state_alert(
+                rsi_state=signals.rsi_state,
+                previous_rsi_state=previous_signals.rsi_state if previous_signals else None,
+                base_symbol=base_symbol,
+                telegram_chat_ids=telegram_chat_ids,
+                timeframe=timeframe,
+                tickers=tickers,
+            )
         else:
             logger.info(f"Neutral market for {base_symbol} on {timeframe}.")
 
@@ -292,15 +304,27 @@ class BuySellSignalsTaskService(AbstractTaskService):
 
     async def _notify_rsi_state_alert(
         self,
+        *,
         rsi_state: RSIState,
+        previous_rsi_state: RSIState | None,
         base_symbol: str,
         telegram_chat_ids: list[str],
         timeframe: Timeframe,
         tickers: Bit2MeTickersDto,
     ) -> None:
+        if rsi_state == "neutral":
+            icon = "🧘"
+            message_title = "RSI BACK TO NEUTRAL 🧘"
+            description = (
+                f"RSI transitioned from {html.bold(pydash.start_case(previous_rsi_state))} to "
+                + f"{html.bold(pydash.start_case(rsi_state))}. "
+                + f"{html.bold('No strong momentum currently detected')}."
+            )
+            if previous_rsi_state in {"bullish_momentum", "overbought"}:
+                description += f"\n⚠️ {html.bold('If you bought during the uptrend, consider taking profits, as the momentum is fading.')}"  # noqa: E501
         if rsi_state == "bullish_momentum":
             icon = "💪"
-            message_title = "💪 BULLISH MOMENTUM ANTICIPATION 💪"
+            message_title = "BULLISH MOMENTUM ANTICIPATION 💪"
             description = (
                 "🔥 Bullish Momentum! RSI is high in a strong uptrend. 🔥"
                 + f" {html.bold('This confirms trend strength. DO NOT SELL.')}"
@@ -319,7 +343,10 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 "🥶 Market is Oversold (RSI &lt; 30). Selling may be exhausted 🥶."
                 + f" {html.bold('Get ready for a potential BUY signal')}."
             )
-        message = f"{icon} {html.bold(message_title + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}\n{description}"  # noqa: E501
+        message = (
+            f"{icon} {html.bold(message_title + ' (' + timeframe.upper() + ')')} "
+            + f"for {html.bold(base_symbol)}\n{description}"
+        )
         await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
 
     async def _notify_buy_alert(
