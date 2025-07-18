@@ -55,8 +55,8 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         ret = Bit2MeAccountInfoDto.model_validate_json(response.content)
         return ret
 
-    async def get_trading_wallet_balance(
-        self, symbols: list[str] | str, *, client: AsyncClient | None = None
+    async def get_trading_wallet_balances(
+        self, symbols: list[str] | str | None = None, *, client: AsyncClient | None = None
     ) -> list[Bit2MeTradingWalletBalanceDto]:
         params = {}
         if symbols:
