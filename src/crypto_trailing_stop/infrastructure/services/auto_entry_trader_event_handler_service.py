@@ -184,7 +184,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             fiat_currency, client=client
         )
         portfolio_assigned_amount = math.floor(total_portfolio_fiat_amount * fiat_wallet_assigned_decimal_value)
-        eur_wallet_balance, *_ = await self._bit2me_remote_service.get_trading_wallet_balance(
+        eur_wallet_balance, *_ = await self._bit2me_remote_service.get_trading_wallet_balances(
             symbols=fiat_currency.upper(), client=client
         )
         amount_to_invest = min(math.floor(eur_wallet_balance.balance), portfolio_assigned_amount)
@@ -223,7 +223,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         # we are now creating a LIMIT SELL ORDER to pass
         # the responsibility to the Limit Sell Order Guard for selling,
         # at some further favorable point!
-        crypto_currency_wallet, *_ = await self._bit2me_remote_service.get_trading_wallet_balance(
+        crypto_currency_wallet, *_ = await self._bit2me_remote_service.get_trading_wallet_balances(
             symbols=crypto_currency, client=client
         )
         new_limit_sell_order_amount = self._floor_round(
