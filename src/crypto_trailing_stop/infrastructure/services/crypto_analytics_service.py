@@ -94,10 +94,21 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
     async def _internal_get_favourite_symbols(self, *, client: AsyncClient) -> list[str]:
         favourite_crypto_currencies = await self._bit2me_remote_service.get_favourite_crypto_currencies(client=client)
         bit2me_account_info = await self._bit2me_remote_service.get_account_info(client=client)
-        symbols = [
+        symbols = {
             f"{crypto_currency}/{bit2me_account_info.profile.currency_code}"
             for crypto_currency in favourite_crypto_currencies
-        ]
+        }
+        # XXX: [JMSOLA] Include also as temporal favourite symbols those symbols we have positive balance
+        trading_wallet_balances = await self._bit2me_remote_service.get_trading_wallet_balances(client=client)
+        symbols.update(
+            {
+                f"{trading_wallet_balance.currency}/{bit2me_account_info.profile.currency_code}"
+                for trading_wallet_balance in trading_wallet_balances
+                if trading_wallet_balance.currency.lower() != bit2me_account_info.profile.currency_code.lower()
+                # XXX: Minimal balance to consider potential losses is 0.1
+                and (trading_wallet_balance.balance > 0.1 or trading_wallet_balance.blocked_balance > 0.1)
+            }
+        )
         return symbols
 
     def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:

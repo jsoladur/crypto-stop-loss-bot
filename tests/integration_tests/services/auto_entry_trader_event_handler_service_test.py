@@ -47,6 +47,7 @@ from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
     Bit2MeTickersDtoObjectMother,
     Bit2MeTradeDtoObjectMother,
+    Bit2MeTradingWalletBalanceDtoObjectMother,
 )
 from tests.helpers.ohlcv_test_utils import get_fetch_ohlcv_random_result
 
@@ -204,8 +205,8 @@ def _prepare_httpserver_mock(
         ).respond_with_json(
             RootModel[list[Bit2MeTradingWalletBalanceDto]](
                 [
-                    Bit2MeTradingWalletBalanceDto(
-                        id=faker.uuid4(), currency=fiat_currency, balance=round(bit2me_pro_balance, ndigits=2)
+                    Bit2MeTradingWalletBalanceDtoObjectMother.create(
+                        currency=fiat_currency, balance=round(bit2me_pro_balance, ndigits=2)
                     )
                 ]
             ).model_dump(mode="json", by_alias=True)
@@ -267,8 +268,8 @@ def _prepare_httpserver_mock(
             ).respond_with_json(
                 RootModel[list[Bit2MeTradingWalletBalanceDto]](
                     [
-                        Bit2MeTradingWalletBalanceDto(
-                            id=faker.uuid4(), currency=crypto_currency, balance=buy_order_amount_after_feeds
+                        Bit2MeTradingWalletBalanceDtoObjectMother.create(
+                            currency=crypto_currency, balance=round(buy_order_amount_after_feeds, ndigits=2)
                         )
                     ]
                 ).model_dump(mode="json", by_alias=True)

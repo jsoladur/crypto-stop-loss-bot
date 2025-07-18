@@ -264,7 +264,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
         tickers: Bit2MeTickersDto,
         base_symbol: str,
     ) -> None:
-        if signals.rsi_state != "neutral" or (previous_signals and previous_signals.rsi_state != "neutral"):
+        if (previous_signals is None and signals.rsi_state != "neutral") or (
+            previous_signals is not None and signals.rsi_state != previous_signals.rsi_state
+        ):
             await self._notify_rsi_state_alert(
                 rsi_state=signals.rsi_state,
                 previous_rsi_state=previous_signals.rsi_state if previous_signals else None,
