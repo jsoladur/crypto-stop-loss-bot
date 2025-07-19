@@ -117,9 +117,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         self, sell_order: Bit2MeOrderDto
     ) -> tuple[StopLossPercentItem, float]:
         crypto_currency_symbol = sell_order.symbol.split("/")[0].strip().upper()
-        stop_loss_percent_item = await self._stop_loss_percent_service.find_stop_loss_percent_by_symbol(
-            symbol=crypto_currency_symbol
-        )
+        stop_loss_percent_item = await self._stop_loss_percent_service.find_symbol(symbol=crypto_currency_symbol)
         stop_loss_percent_decimal_value = stop_loss_percent_item.value / 100
         return stop_loss_percent_item, stop_loss_percent_decimal_value
 
