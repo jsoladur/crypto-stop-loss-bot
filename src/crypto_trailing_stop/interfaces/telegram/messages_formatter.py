@@ -9,6 +9,7 @@ from crypto_trailing_stop.commons.constants import (
 )
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
+from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
@@ -38,6 +39,17 @@ class MessagesFormatter(metaclass=SingletonMeta):
         ]
         ret = header + "\n".join(message_lines)
         return ret
+
+    def format_buy_sell_signals_config_message(self, item: BuySellSignalsConfigItem) -> str:
+        buy_sell_signals_config_formatted = (
+            f"📈 EMA Short Value = {html.code(item.ema_short_value)}\n"
+            + f"📉 EMA Mid Value = {html.code(item.ema_mid_value)}\n"
+            + f"📐 EMA Long Value = {html.code(item.ema_long_value)}\n"
+            + f"🚨 Auto-Exit SELL 1h enabled? = {'🟢' if item.auto_exit_sell_1h else '🟥'}\n"
+            + f"🎯 Auto-Exit Take Profit enabled? = {'🟢' if item.auto_exit_atr_take_profit else '🟥'}\n\n"
+        )
+
+        return buy_sell_signals_config_formatted
 
     def format_persist_stop_loss_message(
         self, symbol: str, percent_value: float, limit_sell_order_guard_metrics_list: list[LimitSellOrderGuardMetrics]

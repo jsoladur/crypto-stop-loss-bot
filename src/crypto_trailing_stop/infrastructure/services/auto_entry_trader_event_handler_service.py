@@ -23,6 +23,7 @@ from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service i
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
 from crypto_trailing_stop.infrastructure.services.base import AbstractService
+from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
@@ -32,6 +33,7 @@ from crypto_trailing_stop.infrastructure.services.global_summary_service import 
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
+from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
@@ -46,17 +48,23 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         self._bit2me_remote_service = Bit2MeRemoteService()
         self._ccxt_remote_service = CcxtRemoteService()
         self._global_flag_service = GlobalFlagService()
+        self._buy_sell_signals_config_service = BuySellSignalsConfigService(
+            bit2me_remote_service=self._bit2me_remote_service
+        )
         self._stop_loss_percent_service = StopLossPercentService(
             bit2me_remote_service=self._bit2me_remote_service, global_flag_service=self._global_flag_service
         )
         self._global_summary_service = GlobalSummaryService(bit2me_remote_service=self._bit2me_remote_service)
         self._crypto_analytics_service = CryptoAnalyticsService(
-            bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=self._ccxt_remote_service
+            bit2me_remote_service=self._bit2me_remote_service,
+            ccxt_remote_service=self._ccxt_remote_service,
+            buy_sell_signals_config_service=self._buy_sell_signals_config_service,
         )
         self._orders_analytics_service = OrdersAnalyticsService(
             bit2me_remote_service=self._bit2me_remote_service,
             ccxt_remote_service=self._ccxt_remote_service,
             stop_loss_percent_service=self._stop_loss_percent_service,
+            buy_sell_signals_config_service=self._buy_sell_signals_config_service,
             crypto_analytics_service=self._crypto_analytics_service,
         )
         self._auto_buy_trader_config_service = AutoBuyTraderConfigService(
@@ -142,7 +150,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         # XXX: [JMSOLA] Get the current tickers.close price for calculate the order_amount
         tickers = await self._bit2me_remote_service.get_tickers_by_symbol(market_signal_item.symbol)
         # XXX: [JMSOLA] Calculate buy order amount
-
+        buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
         buy_order_amount = self._floor_round(
             initial_amount_to_invest / tickers.close,
             ndigits=NUMBER_OF_DECIMALS_IN_QUANTITY_BY_SYMBOL.get(
@@ -167,12 +175,14 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         )
         guard_metrics = await self._update_stop_loss(new_limit_sell_order, crypto_currency, client=client)
         # Ensure Auto-exit on sudden SELL 1H signal is enabled
-        if not (await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)):
-            await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
+        buy_sell_signals_config.auto_exit_sell_1h = True
+        await self._buy_sell_signals_config_service.save_or_update(buy_sell_signals_config)
         # Re-enable Limit Sell Order Guard, once stop loss is setup!
         await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
         # Notifying via Telegram
-        await self._notify_success_alert(new_buy_market_order, new_limit_sell_order, tickers, guard_metrics)
+        await self._notify_success_alert(
+            new_buy_market_order, new_limit_sell_order, tickers, guard_metrics, buy_sell_signals_config
+        )
 
     async def _calculate_total_amount_to_invest(
         self, buy_trader_config: AutoBuyTraderConfigItem, fiat_currency: str, client: AsyncClient
@@ -279,11 +289,8 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         new_limit_sell_order: Bit2MeOrderDto,
         tickers: Bit2MeTickersDto,
         guard_metrics: LimitSellOrderGuardMetrics,
+        buy_sell_signals_config: BuySellSignalsConfigItem,
     ) -> None:
-        is_enabled_for_auto_exit_atr_take_profit = await self._global_flag_service.is_enabled_for(
-            GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT
-        )
-
         crypto_currency, fiat_currency = tickers.symbol.split("/")
         message = f"✅ {html.bold('MARKET BUY ORDER FILLED')} ✅\n\n"
         message += (
@@ -301,15 +308,15 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         message += f"* ⚖️ {html.bold('Break-even Price')} = {guard_metrics.break_even_price} {fiat_currency}\n"
         message += f"* 🚏 {html.bold('Stop Loss')} updated to {guard_metrics.suggested_stop_loss_percent_value}%\n"
         message += f"* 🛡️ {html.bold('Safeguard Stop Price = ' + str(guard_metrics.suggested_safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
-        if is_enabled_for_auto_exit_atr_take_profit:
+        if buy_sell_signals_config.auto_exit_atr_take_profit:
             message += f"* 🎯 {html.bold('ATR Take Profit Price')} = {guard_metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
         message += f"* 🔰 {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ENABLED!\n"
-        message += f"* 🛑 {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H.description)} has been ENABLED!\n"
-        if is_enabled_for_auto_exit_atr_take_profit:
-            message += f"* ⚡ {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} is ENABLED!"
+        message += f"* 🛑 {html.bold('Auto SELL 1H Exit')} has been ENABLED!\n"
+        if buy_sell_signals_config.auto_exit_atr_take_profit:
+            message += f"* ⚡ {html.bold('Auto ATR Take-Profit Exit')} is ENABLED!"
         else:
             message += (
-                f"* ⚡ {html.bold(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT.description)} is DISABLED! "
+                f"* ⚡ {html.bold('Auto ATR Take-Profit Exit')} is DISABLED! "
                 + "Please, consider to enable it if needed!"
             )
         await self._notify_alert_by_type(PushNotificationTypeEnum.AUTO_ENTRY_TRADER_ALERT, message)

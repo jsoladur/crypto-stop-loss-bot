@@ -10,6 +10,7 @@ from crypto_trailing_stop.config import get_dispacher
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
+from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
@@ -28,7 +29,9 @@ bit2me_remote_service = Bit2MeRemoteService()
 global_flag_service = GlobalFlagService()
 auto_buy_trader_config_service = AutoBuyTraderConfigService(bit2me_remote_service=bit2me_remote_service)
 crypto_analytics_service = CryptoAnalyticsService(
-    bit2me_remote_service=Bit2MeRemoteService(), ccxt_remote_service=CcxtRemoteService()
+    bit2me_remote_service=Bit2MeRemoteService(),
+    ccxt_remote_service=CcxtRemoteService(),
+    buy_sell_signals_config_service=BuySellSignalsConfigService(bit2me_remote_service=bit2me_remote_service),
 )
 
 
@@ -56,8 +59,8 @@ async def auto_entry_trader_config_for_symbol_callback_handler(
                     "ℹ️️ Would you like to trigger a buy trade operation via Auto-Entry Trader manually, "
                     + "given the current market situation?"
                 )
-                inline_keyboard_markup = keyboards_builder.get_first_confirmation_trigger_auto_entry_trader_keyboard(
-                    symbol
+                inline_keyboard_markup = keyboards_builder.get_yes_no_keyboard(
+                    yes_button_callback_data=f"auto_entry_trader_manual_trigger_confirmation$${symbol}"
                 )
             else:
                 message += f"💡 {html.italic('Enable Auto-Entry Trader and assign capital to ' + symbol + ' to allow manual buys.')}"  # noqa: E501

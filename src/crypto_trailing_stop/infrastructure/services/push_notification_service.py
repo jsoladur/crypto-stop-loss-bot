@@ -61,7 +61,7 @@ class PushNotificationService(metaclass=SingletonMeta):
         push_notifications = (
             await PushNotification.objects()
             .where(PushNotification.notification_type == notification_type.value)
-            .where(PushNotification.activated == True)  # noqa: E712
+            .where(PushNotification.activated.eq(True))
         )
         ret = [push_notification.telegram_chat_id for push_notification in push_notifications]
         return ret

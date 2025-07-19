@@ -35,10 +35,12 @@ from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service
 from crypto_trailing_stop.infrastructure.services.auto_entry_trader_event_handler_service import (
     AutoEntryTraderEventHandlerService,
 )
+from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_enum import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
+from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.enums import AutoEntryTraderWarningTypeEnum
@@ -73,14 +75,21 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
 
     # Disable all jobs by default for test purposes!
-    exclusions = [GlobalFlagTypeEnum.AUTO_ENTRY_TRADER]
-    if enable_atr_auto_take_profit:
-        exclusions.append(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)
-    await disable_all_background_jobs_except(exclusion=exclusions)
+    await disable_all_background_jobs_except(exclusion=[GlobalFlagTypeEnum.AUTO_ENTRY_TRADER])
+
+    auto_entry_trader_event_handler_service = AutoEntryTraderEventHandlerService()
+    auto_buy_trader_config_service = AutoBuyTraderConfigService()
+    buy_sell_signals_config_service = BuySellSignalsConfigService()
+    global_flag_service = GlobalFlagService()
 
     market_signal_item, _, crypto_currency, *_ = _prepare_httpserver_mock(
         faker, httpserver, bit2me_api_key, bit2me_api_secret, warning_type=warning_type
     )
+    if not enable_atr_auto_take_profit:
+        await buy_sell_signals_config_service.save_or_update(
+            BuySellSignalsConfigItem(symbol=crypto_currency, auto_exit_atr_take_profit=False)
+        )
+
     # Provoke send a notification via Telegram
     telegram_chat_id = faker.random_number(digits=9, fix_len=True)
     for push_notification_type in PushNotificationTypeEnum:
@@ -93,9 +102,6 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
         await push_notification.save()
 
     # Persist 100% FIAT asssigned to the symbol
-    auto_entry_trader_event_handler_service = AutoEntryTraderEventHandlerService()
-    auto_buy_trader_config_service = AutoBuyTraderConfigService()
-    global_flag_service = GlobalFlagService()
     await auto_buy_trader_config_service.save_or_update(
         AutoBuyTraderConfigItem(symbol=crypto_currency, fiat_wallet_percent_assigned=100)
     )
@@ -116,15 +122,14 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
             notify_fatal_error_via_telegram_mock.assert_not_called()
             if warning_type == AutoEntryTraderWarningTypeEnum.NONE:
                 toggle_task_mock.assert_called()
-                is_enabled_for_auto_exit_sell_1h = await global_flag_service.is_enabled_for(
-                    GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H
-                )
-                assert is_enabled_for_auto_exit_sell_1h is True
 
                 is_enabled_for_limit_sell_order_guard = await global_flag_service.is_enabled_for(
                     GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
                 )
                 assert is_enabled_for_limit_sell_order_guard is True
+
+                buy_sell_signals_config = await buy_sell_signals_config_service.find_by_symbol(crypto_currency)
+                assert buy_sell_signals_config.auto_exit_sell_1h is True
             else:
                 toggle_task_mock.assert_not_called()
 
@@ -194,6 +199,9 @@ def _prepare_httpserver_mock(
             if warning_type == AutoEntryTraderWarningTypeEnum.NOT_ENOUGH_FUNDS
             else (global_portfolio_balance * 0.9)
         )
+        eur_wallet_balance = Bit2MeTradingWalletBalanceDtoObjectMother.create(
+            currency=fiat_currency, balance=round(bit2me_pro_balance, ndigits=2)
+        )
         # Trading Wallet Balance for FIAT currency
         httpserver.expect(
             Bit2MeAPIRequestMacher(
@@ -203,13 +211,7 @@ def _prepare_httpserver_mock(
             ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
             handler_type=HandlerType.ONESHOT,
         ).respond_with_json(
-            RootModel[list[Bit2MeTradingWalletBalanceDto]](
-                [
-                    Bit2MeTradingWalletBalanceDtoObjectMother.create(
-                        currency=fiat_currency, balance=round(bit2me_pro_balance, ndigits=2)
-                    )
-                ]
-            ).model_dump(mode="json", by_alias=True)
+            RootModel[list[Bit2MeTradingWalletBalanceDto]]([eur_wallet_balance]).model_dump(mode="json", by_alias=True)
         )
         if warning_type != AutoEntryTraderWarningTypeEnum.NOT_ENOUGH_FUNDS:
             # Mock tickers

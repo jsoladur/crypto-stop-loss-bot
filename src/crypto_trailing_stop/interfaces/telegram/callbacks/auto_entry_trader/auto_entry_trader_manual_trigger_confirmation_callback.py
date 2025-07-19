@@ -29,7 +29,9 @@ async def auto_entry_trader_manual_trigger_confirmation_callback_handler(
         symbol = match.group(1)
         await callback_query.message.answer(
             "🛑 CONFIRM ACTION: This operation CANNOT be undone. Are you SURE you want to PROCEED?",
-            reply_markup=keyboards_builder.get_second_confirmation_trigger_auto_entry_trader_keyboard(symbol),
+            reply_markup=keyboards_builder.get_yes_no_keyboard(
+                yes_button_callback_data=f"trigger_auto_entry_trader$${symbol}"
+            ),
         )
     else:
         await callback_query.message.answer(

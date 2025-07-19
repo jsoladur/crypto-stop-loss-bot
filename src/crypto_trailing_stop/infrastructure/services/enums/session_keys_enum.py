@@ -7,3 +7,4 @@ class SessionKeysEnum(str, Enum):
     """
 
     USER_CONTEXT = "user_ctx"
+    BUY_SELL_SIGNALS_SYMBOL_FORM = "buy_sell_signals_symbol_form"
