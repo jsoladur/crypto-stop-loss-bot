@@ -43,6 +43,14 @@ async def should_set_buy_sell_signals_config_properly(
     assert (
         returned_buy_sell_signals_config_item.ema_long_value == configuration_properties.buy_sell_signals_ema_long_value
     )
+    assert (
+        returned_buy_sell_signals_config_item.stop_loss_atr_multiplier
+        == configuration_properties.suggested_stop_loss_atr_multiplier
+    )
+    assert (
+        returned_buy_sell_signals_config_item.take_profit_atr_multiplier
+        == configuration_properties.suggested_take_profit_atr_multiplier
+    )
     assert returned_buy_sell_signals_config_item.auto_exit_sell_1h is True
     assert returned_buy_sell_signals_config_item.auto_exit_atr_take_profit is True
 
@@ -53,6 +61,8 @@ async def should_set_buy_sell_signals_config_properly(
         ema_long_value=faker.pyint(min_value=200, max_value=250),
         auto_exit_sell_1h=faker.pybool(),
         auto_exit_atr_take_profit=faker.pybool(),
+        stop_loss_atr_multiplier=faker.pyfloat(min_value=2.5, max_value=6.5),
+        take_profit_atr_multiplier=faker.pyfloat(min_value=2.5, max_value=6.5),
     )
     await buy_sell_signals_config_service.save_or_update(expected_buy_sell_signals_config_item)
     buy_sell_signals_config_list = await buy_sell_signals_config_service.find_all()
@@ -66,6 +76,14 @@ async def should_set_buy_sell_signals_config_properly(
     )
     assert returned_buy_sell_signals_config_item.ema_mid_value == expected_buy_sell_signals_config_item.ema_mid_value
     assert returned_buy_sell_signals_config_item.ema_long_value == expected_buy_sell_signals_config_item.ema_long_value
+    assert (
+        returned_buy_sell_signals_config_item.stop_loss_atr_multiplier
+        == expected_buy_sell_signals_config_item.stop_loss_atr_multiplier
+    )
+    assert (
+        returned_buy_sell_signals_config_item.take_profit_atr_multiplier
+        == expected_buy_sell_signals_config_item.take_profit_atr_multiplier
+    )
     assert (
         returned_buy_sell_signals_config_item.auto_exit_sell_1h
         is expected_buy_sell_signals_config_item.auto_exit_sell_1h

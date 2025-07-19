@@ -26,6 +26,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
                 ema_short_value=current.ema_short_value,
                 ema_mid_value=current.ema_mid_value,
                 ema_long_value=current.ema_long_value,
+                stop_loss_atr_multiplier=current.stop_loss_atr_multiplier,
+                take_profit_atr_multiplier=current.take_profit_atr_multiplier,
                 auto_exit_sell_1h=current.auto_exit_sell_1h,
                 auto_exit_atr_take_profit=current.auto_exit_atr_take_profit,
             )
@@ -46,6 +48,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
                 ema_short_value=config.ema_short_value,
                 ema_mid_value=config.ema_mid_value,
                 ema_long_value=config.ema_long_value,
+                stop_loss_atr_multiplier=config.stop_loss_atr_multiplier,
+                take_profit_atr_multiplier=config.take_profit_atr_multiplier,
                 auto_exit_sell_1h=config.auto_exit_sell_1h,
                 auto_exit_atr_take_profit=config.auto_exit_atr_take_profit,
             )
@@ -64,6 +68,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             config.ema_long_value = item.ema_long_value
             config.auto_exit_sell_1h = item.auto_exit_sell_1h
             config.auto_exit_atr_take_profit = item.auto_exit_atr_take_profit
+            config.stop_loss_atr_multiplier = (item.stop_loss_atr_multiplier,)
+            config.take_profit_atr_multiplier = (item.take_profit_atr_multiplier,)
         else:
             config = BuySellSignalsConfig(
                 {
@@ -73,6 +79,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
                     BuySellSignalsConfig.ema_long_value: item.ema_long_value,
                     BuySellSignalsConfig.auto_exit_sell_1h: item.auto_exit_sell_1h,
                     BuySellSignalsConfig.auto_exit_atr_take_profit: item.auto_exit_atr_take_profit,
+                    BuySellSignalsConfig.stop_loss_atr_multiplier: item.stop_loss_atr_multiplier,
+                    BuySellSignalsConfig.take_profit_atr_multiplier: item.take_profit_atr_multiplier,
                 }
             )
         await config.save()
