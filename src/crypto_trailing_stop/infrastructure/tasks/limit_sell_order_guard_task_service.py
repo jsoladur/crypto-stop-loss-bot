@@ -14,12 +14,14 @@ from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
+from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTradingTaskService
 from crypto_trailing_stop.infrastructure.tasks.vo.auto_exit_reason import AutoExitReason
@@ -33,16 +35,20 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         super().__init__()
         self._configuration_properties = get_configuration_properties()
         self._market_signal_service = MarketSignalService()
-        self._global_flag_service = GlobalFlagService()
         self._ccxt_remote_service = CcxtRemoteService()
+        self._buy_sell_signals_config_service = BuySellSignalsConfigService(
+            bit2me_remote_service=self._bit2me_remote_service
+        )
         self._crypto_analytics_service = CryptoAnalyticsService(
-            bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=self._ccxt_remote_service
+            bit2me_remote_service=self._bit2me_remote_service,
+            ccxt_remote_service=self._ccxt_remote_service,
+            buy_sell_signals_config_service=self._buy_sell_signals_config_service,
         )
         self._orders_analytics_service = OrdersAnalyticsService(
             bit2me_remote_service=self._bit2me_remote_service,
             ccxt_remote_service=self._ccxt_remote_service,
             stop_loss_percent_service=StopLossPercentService(
-                bit2me_remote_service=self._bit2me_remote_service, global_flag_service=self._global_flag_service
+                bit2me_remote_service=self._bit2me_remote_service, global_flag_service=GlobalFlagService()
             ),
             crypto_analytics_service=self._crypto_analytics_service,
         )
@@ -150,11 +156,15 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         safeguard_stop_price_reached = tickers.close <= guard_metrics.safeguard_stop_price
         auto_exit_sell_1h, atr_take_profit_limit_price_reached = False, False
         if not safeguard_stop_price_reached:
+            crypto_currency, *_ = sell_order.symbol.split("/")
+            buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
             # Calculate auto_exit_sell_1h
-            auto_exit_sell_1h = await self._is_auto_exit_due_to_sell_1h(sell_order)
+            auto_exit_sell_1h = await self._is_auto_exit_due_to_sell_1h(sell_order, buy_sell_signals_config)
             if not auto_exit_sell_1h:
                 atr_take_profit_limit_price_reached = (
-                    await self._is_auto_exit_due_to_atr_take_profit_limit_price_reached(tickers, guard_metrics)
+                    await self._is_auto_exit_due_to_atr_take_profit_limit_price_reached(
+                        tickers, guard_metrics, buy_sell_signals_config
+                    )
                 )
         return AutoExitReason(
             safeguard_stop_price_reached=safeguard_stop_price_reached,
@@ -162,10 +172,11 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             atr_take_profit_limit_price_reached=atr_take_profit_limit_price_reached,
         )
 
-    async def _is_auto_exit_due_to_sell_1h(self, sell_order: Bit2MeOrderDto) -> bool:
+    async def _is_auto_exit_due_to_sell_1h(
+        self, sell_order: Bit2MeOrderDto, buy_sell_signals_config: BuySellSignalsConfigItem
+    ) -> bool:
         auto_exit_sell_1h = False
-        is_enabled_for = await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
-        if is_enabled_for:
+        if buy_sell_signals_config.auto_exit_sell_1h:
             last_market_1h_signal = await self._market_signal_service.find_last_market_signal(sell_order.symbol)
             auto_exit_sell_1h = bool(
                 last_market_1h_signal is not None
@@ -175,11 +186,13 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         return auto_exit_sell_1h
 
     async def _is_auto_exit_due_to_atr_take_profit_limit_price_reached(
-        self, tickers: Bit2MeTickersDto, guard_metrics: LimitSellOrderGuardMetrics
+        self,
+        tickers: Bit2MeTickersDto,
+        guard_metrics: LimitSellOrderGuardMetrics,
+        buy_sell_signals_config: BuySellSignalsConfigItem,
     ) -> bool:
         atr_take_profit_limit_price_reached = False
-        is_enabled_for = await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)
-        if is_enabled_for:
+        if buy_sell_signals_config.auto_exit_atr_take_profit:
             # Ensuring we are not selling below the break even price,
             # regardless what the ATR Take profit limit price is!
             atr_take_profit_limit_price_reached = bool(

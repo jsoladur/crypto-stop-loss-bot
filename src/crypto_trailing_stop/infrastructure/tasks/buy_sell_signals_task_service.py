@@ -22,6 +22,7 @@ from crypto_trailing_stop.config import get_configuration_properties, get_event_
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
@@ -45,7 +46,11 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self._global_flag_service = GlobalFlagService()
         self._push_notification_service = PushNotificationService()
         self._crypto_analytics_service = CryptoAnalyticsService(
-            bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=self._ccxt_remote_service
+            bit2me_remote_service=self._bit2me_remote_service,
+            ccxt_remote_service=self._ccxt_remote_service,
+            buy_sell_signals_config_service=BuySellSignalsConfigService(
+                bit2me_remote_service=self._bit2me_remote_service
+            ),
         )
         self._exchange = self._ccxt_remote_service.get_exchange()
         self._last_signal_evalutation_result_cache: dict[str, SignalsEvaluationResult] = {}

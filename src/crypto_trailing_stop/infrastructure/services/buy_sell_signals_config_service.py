@@ -51,6 +51,7 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             )
         else:
             ret = BuySellSignalsConfigItem(symbol=symbol.upper())
+        logger.info(f"Using {repr(ret)} for {symbol}...")
         return ret
 
     async def save_or_update(self, item: BuySellSignalsConfigItem) -> None:

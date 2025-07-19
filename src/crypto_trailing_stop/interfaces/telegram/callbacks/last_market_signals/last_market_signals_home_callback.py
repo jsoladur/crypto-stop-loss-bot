@@ -8,6 +8,7 @@ from aiogram.types import CallbackQuery
 from crypto_trailing_stop.config import get_dispacher
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
@@ -20,7 +21,9 @@ session_storage_service = SessionStorageService()
 keyboards_builder = KeyboardsBuilder()
 market_signal_service = MarketSignalService()
 crypto_analytics_service = CryptoAnalyticsService(
-    bit2me_remote_service=Bit2MeRemoteService(), ccxt_remote_service=CcxtRemoteService()
+    bit2me_remote_service=Bit2MeRemoteService(),
+    ccxt_remote_service=CcxtRemoteService(),
+    buy_sell_signals_config_service=BuySellSignalsConfigService(bit2me_remote_service=Bit2MeRemoteService()),
 )
 
 

@@ -17,9 +17,11 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
 from crypto_trailing_stop.infrastructure.database.models.push_notification import PushNotification
+from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_enum import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
+from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.limit_sell_order_guard_task_service import LimitSellOrderGuardTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
@@ -45,7 +47,7 @@ async def should_create_market_sell_order_when_atr_take_profit_limit_price_reach
     # Mock the Bit2Me API
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
     # Disable all jobs by default for test purposes!
-    await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.AUTO_EXIT_ATR_TAKE_PROFIT)
+    await disable_all_background_jobs_except()
 
     opened_sell_bit2me_orders = _prepare_httpserver_mock(
         faker, httpserver, bit2me_api_key, bit2me_api_secret, closing_crypto_currency_price_multipler=1.5
@@ -92,7 +94,7 @@ async def should_create_market_sell_order_when_auto_exit_sell_1h(
     # Mock the Bit2Me API
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
     # Disable all jobs by default for test purposes!
-    await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
+    await disable_all_background_jobs_except()
 
     opened_sell_bit2me_orders = _prepare_httpserver_mock(
         faker,
@@ -103,7 +105,10 @@ async def should_create_market_sell_order_when_auto_exit_sell_1h(
         simulate_future_sell_orders=simulate_future_sell_orders,
     )
     first_order, *_ = opened_sell_bit2me_orders
-
+    crypto_currency, *_ = first_order.symbol.split("/")
+    await BuySellSignalsConfigService().save_or_update(
+        BuySellSignalsConfigItem(symbol=crypto_currency, auto_exit_atr_take_profit=False)
+    )
     task_manager = get_task_manager_instance()
 
     # Create fake market signals to simulate the sudden SELL 1H market signal
@@ -143,9 +148,8 @@ async def should_create_market_sell_order_when_safeguard_stop_price_reached(
     # Mock the Bit2Me API
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
     # Disable all jobs by default for test purposes!
-    await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.AUTO_EXIT_SELL_1H)
-
-    _prepare_httpserver_mock(
+    await disable_all_background_jobs_except()
+    opened_sell_bit2me_orders = _prepare_httpserver_mock(
         faker,
         httpserver,
         bit2me_api_key,
@@ -153,6 +157,11 @@ async def should_create_market_sell_order_when_safeguard_stop_price_reached(
         bit2me_error_status_code=bit2me_error_status_code,
         closing_crypto_currency_price_multipler=0.2,
     )
+    for current_order in opened_sell_bit2me_orders:
+        crypto_currency, *_ = current_order.symbol.split("/")
+        await BuySellSignalsConfigService().save_or_update(
+            BuySellSignalsConfigItem(symbol=crypto_currency, auto_exit_sell_1h=False, auto_exit_atr_take_profit=False)
+        )
 
     task_manager = get_task_manager_instance()
 

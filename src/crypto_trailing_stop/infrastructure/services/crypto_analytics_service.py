@@ -12,10 +12,10 @@ from crypto_trailing_stop.commons.constants import (
     NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
 )
 from crypto_trailing_stop.commons.patterns import SingletonMeta
-from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
@@ -24,10 +24,15 @@ logger = logging.getLogger(__name__)
 
 
 class CryptoAnalyticsService(metaclass=SingletonMeta):
-    def __init__(self, bit2me_remote_service: Bit2MeRemoteService, ccxt_remote_service: CcxtRemoteService) -> None:
-        self._configuration_properties = get_configuration_properties()
+    def __init__(
+        self,
+        bit2me_remote_service: Bit2MeRemoteService,
+        ccxt_remote_service: CcxtRemoteService,
+        buy_sell_signals_config_service: BuySellSignalsConfigService,
+    ) -> None:
         self._bit2me_remote_service = bit2me_remote_service
         self._ccxt_remote_service = ccxt_remote_service
+        self._buy_sell_signals_config_service = buy_sell_signals_config_service
         self._exchange = self._ccxt_remote_service.get_exchange()
 
     async def get_crypto_market_metrics(
@@ -72,7 +77,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
             ohlcv = await self._bit2me_remote_service.fetch_ohlcv(symbol, timeframe, client=client)
         df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
-        df_with_indicators = self._calculate_indicators(df)
+        df_with_indicators = await self._calculate_indicators(symbol, df)
         return df_with_indicators
 
     async def get_favourite_tickers(self, *, client: AsyncClient | None = None) -> list[Bit2MeTickersDto]:
@@ -111,20 +116,16 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         )
         return sorted(set(symbols))
 
-    def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
+    async def _calculate_indicators(self, symbol: str, df: pd.DataFrame) -> pd.DataFrame:
         logger.debug("Calculating indicators...")
+        crypto_currency, *_ = symbol.split("/")
+        buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
         # Exponential Moving Average (EMA) 9
-        df["ema_short"] = EMAIndicator(
-            df["close"], window=self._configuration_properties.buy_sell_signals_ema_short_value
-        ).ema_indicator()
+        df["ema_short"] = EMAIndicator(df["close"], window=buy_sell_signals_config.ema_short_value).ema_indicator()
         # Exponential Moving Average (EMA) 21
-        df["ema_mid"] = EMAIndicator(
-            df["close"], window=self._configuration_properties.buy_sell_signals_ema_mid_value
-        ).ema_indicator()
+        df["ema_mid"] = EMAIndicator(df["close"], window=buy_sell_signals_config.ema_mid_value).ema_indicator()
         # Exponential Moving Average (EMA) 200
-        df["ema_long"] = EMAIndicator(
-            df["close"], window=self._configuration_properties.buy_sell_signals_ema_long_value
-        ).ema_indicator()
+        df["ema_long"] = EMAIndicator(df["close"], window=buy_sell_signals_config.ema_long_value).ema_indicator()
         # Moving Average Convergence Divergence (MACD)
         macd = MACD(df["close"], window_slow=26, window_fast=12, window_sign=9)
         df["macd_hist"] = macd.macd_diff()
