@@ -25,16 +25,18 @@ keyboards_builder = KeyboardsBuilder()
 messages_formatter = MessagesFormatter()
 bit2me_remote_service = Bit2MeRemoteService()
 ccxt_remote_service = CcxtRemoteService()
+buy_sell_signals_config_service = BuySellSignalsConfigService(bit2me_remote_service=bit2me_remote_service)
 orders_analytics_service = OrdersAnalyticsService(
     bit2me_remote_service=bit2me_remote_service,
     ccxt_remote_service=ccxt_remote_service,
     stop_loss_percent_service=StopLossPercentService(
         bit2me_remote_service=bit2me_remote_service, global_flag_service=GlobalFlagService()
     ),
+    buy_sell_signals_config_service=buy_sell_signals_config_service,
     crypto_analytics_service=CryptoAnalyticsService(
         bit2me_remote_service=bit2me_remote_service,
         ccxt_remote_service=ccxt_remote_service,
-        buy_sell_signals_config_service=BuySellSignalsConfigService(bit2me_remote_service=bit2me_remote_service),
+        buy_sell_signals_config_service=buy_sell_signals_config_service,
     ),
 )
 

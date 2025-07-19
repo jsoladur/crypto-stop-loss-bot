@@ -50,6 +50,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             stop_loss_percent_service=StopLossPercentService(
                 bit2me_remote_service=self._bit2me_remote_service, global_flag_service=GlobalFlagService()
             ),
+            buy_sell_signals_config_service=self._buy_sell_signals_config_service,
             crypto_analytics_service=self._crypto_analytics_service,
         )
         self._exchange = self._ccxt_remote_service.get_exchange()

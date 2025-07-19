@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 class TrailingStopLossTaskService(AbstractTradingTaskService):
     def __init__(self):
         super().__init__()
+        buy_sell_signals_config_service = BuySellSignalsConfigService(bit2me_remote_service=self._bit2me_remote_service)
         self._configuration_properties = get_configuration_properties()
         self._ccxt_remote_service = CcxtRemoteService()
         self._orders_analytics_service = OrdersAnalyticsService(
@@ -38,12 +39,11 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
             stop_loss_percent_service=StopLossPercentService(
                 bit2me_remote_service=self._bit2me_remote_service, global_flag_service=GlobalFlagService()
             ),
+            buy_sell_signals_config_service=buy_sell_signals_config_service,
             crypto_analytics_service=CryptoAnalyticsService(
                 bit2me_remote_service=self._bit2me_remote_service,
                 ccxt_remote_service=CcxtRemoteService(),
-                buy_sell_signals_config_service=BuySellSignalsConfigService(
-                    bit2me_remote_service=self._bit2me_remote_service
-                ),
+                buy_sell_signals_config_service=buy_sell_signals_config_service,
             ),
         )
         self._trailing_stop_loss_price_decrease_threshold = 1 - TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD

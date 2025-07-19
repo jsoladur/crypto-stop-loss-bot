@@ -64,6 +64,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             bit2me_remote_service=self._bit2me_remote_service,
             ccxt_remote_service=self._ccxt_remote_service,
             stop_loss_percent_service=self._stop_loss_percent_service,
+            buy_sell_signals_config_service=self._buy_sell_signals_config_service,
             crypto_analytics_service=self._crypto_analytics_service,
         )
         self._auto_buy_trader_config_service = AutoBuyTraderConfigService(
