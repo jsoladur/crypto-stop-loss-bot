@@ -23,7 +23,7 @@ class StopLossPercentService(metaclass=SingletonMeta):
         self._global_flag_service = global_flag_service
         self._lock = Lock()
 
-    async def find_all_stop_loss_percent(self) -> list[StopLossPercentItem]:
+    async def find_all(self) -> list[StopLossPercentItem]:
         async with self._lock:
             stored_stop_loss_percent_list = await StopLossPercent.objects()
             ret = [
@@ -42,7 +42,7 @@ class StopLossPercentService(metaclass=SingletonMeta):
             ret = pydash.order_by(ret, ["symbol"])
             return ret
 
-    async def find_stop_loss_percent_by_symbol(self, symbol: str) -> StopLossPercentItem:
+    async def find_symbol(self, symbol: str) -> StopLossPercentItem:
         async with self._lock:
             stop_loss_percent = await StopLossPercent.objects().where(StopLossPercent.symbol == symbol.upper()).first()
             if stop_loss_percent:

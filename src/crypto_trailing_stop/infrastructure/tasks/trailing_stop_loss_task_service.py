@@ -15,6 +15,7 @@ from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 class TrailingStopLossTaskService(AbstractTradingTaskService):
     def __init__(self):
         super().__init__()
+        buy_sell_signals_config_service = BuySellSignalsConfigService(bit2me_remote_service=self._bit2me_remote_service)
         self._configuration_properties = get_configuration_properties()
         self._ccxt_remote_service = CcxtRemoteService()
         self._orders_analytics_service = OrdersAnalyticsService(
@@ -37,8 +39,11 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
             stop_loss_percent_service=StopLossPercentService(
                 bit2me_remote_service=self._bit2me_remote_service, global_flag_service=GlobalFlagService()
             ),
+            buy_sell_signals_config_service=buy_sell_signals_config_service,
             crypto_analytics_service=CryptoAnalyticsService(
-                bit2me_remote_service=self._bit2me_remote_service, ccxt_remote_service=CcxtRemoteService()
+                bit2me_remote_service=self._bit2me_remote_service,
+                ccxt_remote_service=CcxtRemoteService(),
+                buy_sell_signals_config_service=buy_sell_signals_config_service,
             ),
         )
         self._trailing_stop_loss_price_decrease_threshold = 1 - TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD

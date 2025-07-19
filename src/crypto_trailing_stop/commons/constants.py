@@ -26,3 +26,7 @@ BIT2ME_MAKER_AND_TAKER_FEES_SUM = BIT2ME_MAKER_FEES + BIT2ME_TAKER_FEES
 # Auto-Entry Trader
 AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST = 25.0
 AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST = np.arange(0, 125, 25).tolist()
+# Buy Sell Signals Config
+EMA_SHORT_MID_PAIRS = [f"{ema_short}/{ema_mid}" for ema_short, ema_mid in [(7, 18), (8, 20), (9, 21)]]
+EMA_LONG_VALUES = [150, 200, 233]
+YES_NO_VALUES = ["Yes", "No"]

@@ -9,6 +9,7 @@ ENV \
 # Install bash for connecting via TTY
 RUN apt-get update && apt-get install -y --no-install-recommends \
         bash \
+        sqlite3 \
         && rm -rf /var/lib/apt/lists/*
 # ==================================================================
 FROM base as build

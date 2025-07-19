@@ -9,6 +9,7 @@ from crypto_trailing_stop.commons.constants import AUTO_ENTRY_TRADER_CONFIG_STEP
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
+from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.global_flag_item import GlobalFlagItem
 from crypto_trailing_stop.infrastructure.services.vo.push_notification_item import PushNotificationItem
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
@@ -39,20 +40,23 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
 
     def get_home_keyboard(self) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
-        builder.row(InlineKeyboardButton(text="📈 Summary", callback_data="get_global_summary"))
-        builder.row(InlineKeyboardButton(text="📤 Sell Orders", callback_data="get_sell_orders_info"))
+        builder.row(
+            InlineKeyboardButton(text="📈 Summary", callback_data="get_global_summary"),
+            InlineKeyboardButton(text="📤 Sell Orders", callback_data="get_sell_orders_info"),
+        )
         builder.row(
             InlineKeyboardButton(text="💵 Prices", callback_data="get_current_prices"),
             InlineKeyboardButton(text="🧮 Metrics", callback_data="current_metrics_home"),
         )
         builder.row(
-            InlineKeyboardButton(text="🚏 Stop Loss %", callback_data="stop_loss_percent_home"),
-            InlineKeyboardButton(text="⚙️ Auto-Entry", callback_data="auto_entry_trader_config_home"),
+            InlineKeyboardButton(text="⚡ Buy-Sell", callback_data="buy_sell_config_home"),
+            InlineKeyboardButton(text="🧠 Auto-Entry", callback_data="auto_entry_trader_config_home"),
         )
         builder.row(
             InlineKeyboardButton(text="🕹️ Toggles", callback_data="global_flags_home"),
             InlineKeyboardButton(text="🔔 Alerts", callback_data="push_notificacions_home"),
         )
+        builder.row(InlineKeyboardButton(text="🚏 Stop Loss %", callback_data="stop_loss_percent_home"))
         builder.row(InlineKeyboardButton(text="🚥 Market Signals", callback_data="last_market_signals_home"))
         builder.row(InlineKeyboardButton(text="📴 Logout", callback_data="logout"))
         return builder.as_markup()
@@ -71,12 +75,22 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 
+    def get_buy_sell_signals_config_keyboard(self, items: list[BuySellSignalsConfigItem]) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        for item in items:
+            builder.row(
+                InlineKeyboardButton(
+                    text=f"⚡ {item.symbol}", callback_data=f"set_buy_sell_signals_config$${item.symbol}"
+                )
+            )
+        return builder.as_markup()
+
     def get_auto_entry_trader_config_keyboard(self, items: list[AutoBuyTraderConfigItem]) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
         for item in items:
             builder.row(
                 InlineKeyboardButton(
-                    text=f"{item.symbol} • 💰 {item.fiat_wallet_percent_assigned}%",
+                    text=f"🧠 {item.symbol} • 💰 {item.fiat_wallet_percent_assigned}%",
                     callback_data=f"set_auto_entry_trader_config$${item.symbol}",
                 )
             )
@@ -120,20 +134,10 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="auto_entry_trader_config_home"))
         return builder.as_markup()
 
-    def get_first_confirmation_trigger_auto_entry_trader_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
+    def get_yes_no_keyboard(self, *, yes_button_callback_data: str) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
         builder.row(
-            InlineKeyboardButton(
-                text="☑️ Yes", callback_data=f"auto_entry_trader_manual_trigger_confirmation$${symbol}"
-            ),
-            InlineKeyboardButton(text="🔙 No", callback_data="go_back_home"),
-        )
-        return builder.as_markup()
-
-    def get_second_confirmation_trigger_auto_entry_trader_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
-        builder = InlineKeyboardBuilder()
-        builder.row(
-            InlineKeyboardButton(text="☑️ Yes", callback_data=f"trigger_auto_entry_trader$${symbol}"),
+            InlineKeyboardButton(text="☑️ Yes", callback_data=yes_button_callback_data),
             InlineKeyboardButton(text="🔙 No", callback_data="go_back_home"),
         )
         return builder.as_markup()
@@ -156,23 +160,7 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
 
     def get_global_flags_home_keyboard(self, global_flags_items: list[GlobalFlagItem]) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
-
-        # First button (alone)
-        first_item = global_flags_items[0]
-        action_icon = "⏸️" if first_item.value else "▶️"
-        state_icon = "🟢" if first_item.value else "🟥"
-        builder.row(
-            InlineKeyboardButton(
-                text=f"{state_icon} {action_icon} {first_item.name.description}",
-                callback_data=f"toggle_global_flag$${first_item.name.value}",
-            )
-        )
-
-        # Divider
-        builder.row(InlineKeyboardButton(text="─" * 10, callback_data="noop"))
-
-        # Next 3 buttons (each in separate rows)
-        for item in global_flags_items[1:4]:
+        for item in global_flags_items:
             action_icon = "⏸️" if item.value else "▶️"
             state_icon = "🟢" if item.value else "🟥"
             builder.row(
@@ -181,24 +169,6 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
                     callback_data=f"toggle_global_flag$${item.name.value}",
                 )
             )
-
-        # Divider
-        builder.row(InlineKeyboardButton(text="─" * 10, callback_data="noop"))
-
-        # Rest of buttons (remaining ones, each in separate rows)
-        for item in global_flags_items[4:]:
-            action_icon = "⏸️" if item.value else "▶️"
-            state_icon = "🟢" if item.value else "🟥"
-            builder.row(
-                InlineKeyboardButton(
-                    text=f"{state_icon} {action_icon} {item.name.description}",
-                    callback_data=f"toggle_global_flag$${item.name.value}",
-                )
-            )
-
-        # Divider
-        builder.row(InlineKeyboardButton(text="─" * 10, callback_data="noop"))
-
         # Back button
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()

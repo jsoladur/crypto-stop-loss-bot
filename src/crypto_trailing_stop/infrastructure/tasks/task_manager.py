@@ -101,7 +101,7 @@ class _TaskManager:
         if file_path.is_file():
             if file_path.suffix != ".py" or file_path.stem == "__init__":
                 return False
-        # path.is_dir == True
+        # path.is_dir is True
         elif not deeply or file_path.name == "__pycache__":
             return False
         return True

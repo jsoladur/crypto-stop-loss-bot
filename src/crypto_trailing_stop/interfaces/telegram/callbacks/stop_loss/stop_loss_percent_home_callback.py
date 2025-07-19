@@ -27,7 +27,7 @@ async def stop_loss_percent_home_callback_handler(callback_query: CallbackQuery,
     is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:
-            stop_loss_percent_items = await stop_loss_percent_service.find_all_stop_loss_percent()
+            stop_loss_percent_items = await stop_loss_percent_service.find_all()
             await callback_query.message.answer(
                 "ℹ️ Click into a symbol for changing its stop loss percent value",
                 reply_markup=keyboards_builder.get_stop_loss_percent_items_keyboard(stop_loss_percent_items),
