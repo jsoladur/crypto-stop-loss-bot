@@ -56,8 +56,8 @@ async def auto_entry_trader_config_for_symbol_callback_handler(
                     "ℹ️️ Would you like to trigger a buy trade operation via Auto-Entry Trader manually, "
                     + "given the current market situation?"
                 )
-                inline_keyboard_markup = keyboards_builder.get_first_confirmation_trigger_auto_entry_trader_keyboard(
-                    symbol
+                inline_keyboard_markup = keyboards_builder.get_yes_no_keyboard(
+                    yes_button_callback_data=f"auto_entry_trader_manual_trigger_confirmation$${symbol}"
                 )
             else:
                 message += f"💡 {html.italic('Enable Auto-Entry Trader and assign capital to ' + symbol + ' to allow manual buys.')}"  # noqa: E501

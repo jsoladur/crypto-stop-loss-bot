@@ -109,7 +109,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
                 and (trading_wallet_balance.balance > 0.1 or trading_wallet_balance.blocked_balance > 0.1)
             }
         )
-        return list(symbols)
+        return sorted(set(symbols))
 
     def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         logger.debug("Calculating indicators...")

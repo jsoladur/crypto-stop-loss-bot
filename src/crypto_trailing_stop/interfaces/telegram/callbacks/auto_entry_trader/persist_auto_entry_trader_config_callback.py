@@ -24,7 +24,7 @@ auto_buy_trader_config_service = AutoBuyTraderConfigService(bit2me_remote_servic
 
 
 @dp.callback_query(F.data.regexp(r"^persist_auto_entry_trader_config\$\$(.+?)\$\$(.+)$"))
-async def handle_persist_stop_loss_callback(callback_query: CallbackQuery, state: FSMContext):
+async def persist_auto_entry_trader_config_callback_handler(callback_query: CallbackQuery, state: FSMContext):
     is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:

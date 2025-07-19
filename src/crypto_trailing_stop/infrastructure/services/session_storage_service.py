@@ -12,6 +12,7 @@ class SessionStorageService(metaclass=SingletonMeta):
     def __init__(self):
         self._configuration_properties = get_configuration_properties()
         self._dispacher = get_dispacher()
+        self._in_memory_storage_by_chat_id: dict[str, dict[str, Any]] = {}
 
     async def get_or_create_fsm_context(self, *, bot_id: int, chat_id: int, user_id: int) -> FSMContext:
         return FSMContext(
@@ -31,6 +32,17 @@ class SessionStorageService(metaclass=SingletonMeta):
         data = await state.get_data()
         data[SessionKeysEnum.USER_CONTEXT.value] = userinfo
         await state.set_data(data)
+
+    async def get_buy_sell_signals_symbol_form(self, chat_id: int) -> str:
+        data = self._in_memory_storage_by_chat_id.setdefault(chat_id, {})
+        if SessionKeysEnum.BUY_SELL_SIGNALS_SYMBOL_FORM.value not in data:
+            return ValueError("Missing buy/sell signals symbol form")
+        symbol = data.pop(SessionKeysEnum.BUY_SELL_SIGNALS_SYMBOL_FORM.value)
+        return symbol
+
+    async def set_buy_sell_signals_symbol_form(self, state: FSMContext, symbol: str) -> None:
+        data = self._in_memory_storage_by_chat_id.setdefault(state.key.chat_id, {})
+        data[SessionKeysEnum.BUY_SELL_SIGNALS_SYMBOL_FORM.value] = symbol
 
     async def perform_logout(self, state: FSMContext) -> bool:
         data = await state.get_data()

@@ -41,6 +41,15 @@ wheels = [
 ]
 
 [[package]]
+name = "aiogram3-form"
+version = "2.0.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1d/e8/3ac5ef9c3367cf1bc2d3941d97b29d621bb6836dbba01ee48e3e78d944f7/aiogram3_form-2.0.5.tar.gz", hash = "sha256:4d2d9f8814edbac6cb69e912eef53d7ac913aaaf3d00f0dd0c5004534caef778", size = 6140, upload-time = "2025-02-12T17:19:00.839Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f5/1d/64029a8184cfd9247a7f1c77244091d660d154272ccb662cac1a31bbccb8/aiogram3_form-2.0.5-py3-none-any.whl", hash = "sha256:9d40ebdb395a60c51b18ca88523ce9b6ee94ec54c8e8fe2c60e3832d18c5fe1a", size = 7921, upload-time = "2025-02-12T17:18:59.543Z" },
+]
+
+[[package]]
 name = "aiohappyeyeballs"
 version = "2.6.1"
 source = { registry = "https://pypi.org/simple" }
@@ -362,6 +371,7 @@ version = "0.23.2"
 source = { editable = "." }
 dependencies = [
     { name = "aiogram" },
+    { name = "aiogram3-form" },
     { name = "apscheduler" },
     { name = "authlib" },
     { name = "backoff" },
@@ -399,6 +409,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiogram", specifier = ">=3.20.0.post0" },
+    { name = "aiogram3-form", specifier = ">=2.0.5" },
     { name = "apscheduler", specifier = ">=3.11.0" },
     { name = "authlib", specifier = ">=1.6.0" },
     { name = "backoff", specifier = ">=2.2.1" },
