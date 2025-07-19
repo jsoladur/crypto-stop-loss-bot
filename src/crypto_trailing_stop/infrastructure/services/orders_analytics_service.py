@@ -53,26 +53,27 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
                 for sell_order in opened_sell_orders
                 if symbol is None or len(symbol) <= 0 or sell_order.symbol.lower().startswith(symbol.lower())
             ]
-            buy_sell_signals_config_by_symbol = await self._calculate_buy_sell_signals_config_by_opened_sell_orders(
-                opened_sell_orders
-            )
-            async with self._exchange as exchange:
-                technical_indicators_by_symbol = await self._calculate_technical_indicators_by_opened_sell_orders(
-                    opened_sell_orders, client=client, exchange=exchange
+            ret = []
+            if opened_sell_orders is not None and len(opened_sell_orders) > 0:
+                buy_sell_signals_config_by_symbol = await self._calculate_buy_sell_signals_config_by_opened_sell_orders(
+                    opened_sell_orders
                 )
-                previous_used_buy_trade_ids: set[str] = set()
-                ret = []
-                for sell_order in opened_sell_orders:
-                    crypto_currency, *_ = sell_order.symbol.split("/")
-                    guard_metrics, previous_used_buy_trade_ids = await self.calculate_guard_metrics_by_sell_order(
-                        sell_order,
-                        buy_sell_signals_config=buy_sell_signals_config_by_symbol[crypto_currency],
-                        technical_indicators=technical_indicators_by_symbol[sell_order.symbol],
-                        previous_used_buy_trade_ids=previous_used_buy_trade_ids,
-                        client=client,
+                async with self._exchange as exchange:
+                    technical_indicators_by_symbol = await self._calculate_technical_indicators_by_opened_sell_orders(
+                        opened_sell_orders, client=client, exchange=exchange
                     )
-                    ret.append(guard_metrics)
-                return ret
+                    previous_used_buy_trade_ids: set[str] = set()
+                    for sell_order in opened_sell_orders:
+                        crypto_currency, *_ = sell_order.symbol.split("/")
+                        guard_metrics, previous_used_buy_trade_ids = await self.calculate_guard_metrics_by_sell_order(
+                            sell_order,
+                            buy_sell_signals_config=buy_sell_signals_config_by_symbol[crypto_currency],
+                            technical_indicators=technical_indicators_by_symbol[sell_order.symbol],
+                            previous_used_buy_trade_ids=previous_used_buy_trade_ids,
+                            client=client,
+                        )
+                        ret.append(guard_metrics)
+            return ret
 
     async def calculate_guard_metrics_by_sell_order(
         self,
