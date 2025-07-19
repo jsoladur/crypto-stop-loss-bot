@@ -160,23 +160,7 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
 
     def get_global_flags_home_keyboard(self, global_flags_items: list[GlobalFlagItem]) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
-
-        # First button (alone)
-        first_item = global_flags_items[0]
-        action_icon = "⏸️" if first_item.value else "▶️"
-        state_icon = "🟢" if first_item.value else "🟥"
-        builder.row(
-            InlineKeyboardButton(
-                text=f"{state_icon} {action_icon} {first_item.name.description}",
-                callback_data=f"toggle_global_flag$${first_item.name.value}",
-            )
-        )
-
-        # Divider
-        builder.row(InlineKeyboardButton(text="─" * 10, callback_data="noop"))
-
-        # Next 3 buttons (each in separate rows)
-        for item in global_flags_items[1:4]:
+        for item in global_flags_items:
             action_icon = "⏸️" if item.value else "▶️"
             state_icon = "🟢" if item.value else "🟥"
             builder.row(
@@ -185,24 +169,6 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
                     callback_data=f"toggle_global_flag$${item.name.value}",
                 )
             )
-
-        # Divider
-        builder.row(InlineKeyboardButton(text="─" * 10, callback_data="noop"))
-
-        # Rest of buttons (remaining ones, each in separate rows)
-        for item in global_flags_items[4:]:
-            action_icon = "⏸️" if item.value else "▶️"
-            state_icon = "🟢" if item.value else "🟥"
-            builder.row(
-                InlineKeyboardButton(
-                    text=f"{state_icon} {action_icon} {item.name.description}",
-                    callback_data=f"toggle_global_flag$${item.name.value}",
-                )
-            )
-
-        # Divider
-        builder.row(InlineKeyboardButton(text="─" * 10, callback_data="noop"))
-
         # Back button
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
