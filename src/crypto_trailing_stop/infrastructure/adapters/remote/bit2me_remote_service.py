@@ -10,7 +10,7 @@ from typing import Any, Literal
 from urllib.parse import urlencode
 
 import backoff
-from httpx import URL, AsyncClient, HTTPStatusError, Response, Timeout, TimeoutException
+from httpx import URL, AsyncClient, HTTPStatusError, ReadTimeout, Response, Timeout, TimeoutException
 from pandas import Timedelta
 from pydantic import RootModel
 
@@ -181,6 +181,18 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             base_url=self._base_url, headers={"X-API-KEY": self._api_key}, timeout=Timeout(10, connect=5, read=60)
         )
 
+    def _backoff_giveup_handler(e: Exception) -> bool:
+        should_give_up = False
+        if isinstance(e, ReadTimeout):
+            method = getattr(e.request, "method", "GET").upper()
+            should_give_up = method != "GET"
+        elif isinstance(e, ValueError):
+            cause = e.__cause__
+            should_give_up = not isinstance(cause, HTTPStatusError) or getattr(
+                cause.response, "status_code", None
+            ) not in [403, 429, 502]
+        return should_give_up
+
     # XXX: [JMSOLA] Add backoff to retry when:
     # - 403 (Invalid signature Bit2Me API error)
     # - 429 (Too many requests)
@@ -192,12 +204,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         interval=3,
         max_tries=5,
         jitter=backoff.full_jitter,
-        giveup=lambda e: (
-            not isinstance(e.__cause__, HTTPStatusError)
-            or getattr(e.__cause__.response, "status_code", None) not in [403, 429, 502]
-        )
-        if isinstance(e, ValueError)
-        else False,  # Don't give up on ConnectTimeout
+        giveup=_backoff_giveup_handler,
         on_backoff=lambda details: logger.warning(
             f"[Retry {details['tries']}] " + f"Waiting {details['wait']:.2f}s due to {str(details['exception'])}"
         ),
