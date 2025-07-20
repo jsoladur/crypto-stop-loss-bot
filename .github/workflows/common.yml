@@ -32,6 +32,11 @@ jobs:
       - name: Run tests
         run: |
           uv run task test:coverage
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          format: cobertura
+          file: coverage.xml
   deploy:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest

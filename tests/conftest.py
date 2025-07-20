@@ -35,6 +35,9 @@ def defaults_env(faker: Faker) -> Generator[None]:
     environ["TELEGRAM_BOT_ENABLED"] = "false"
     environ["TELEGRAM_BOT_TOKEN"] = f"{faker.pyint()}:{str(uuid4()).replace('-', '_')}"
     # Google OAuth credentials are not used in the tests, but they are required for the application to run
+    environ["AUTHORIZED_GOOGLE_USER_EMAILS_COMMA_SEPARATED"] = ",".join(
+        [faker.email(domain="gmail.com") for _ in range(faker.pyint(min_value=1, max_value=3))]
+    )
     environ["GOOGLE_OAUTH_CLIENT_ID"] = str(uuid4())
     environ["GOOGLE_OAUTH_CLIENT_SECRET"] = str(uuid4())
 
