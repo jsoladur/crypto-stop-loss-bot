@@ -46,6 +46,8 @@ class MessagesFormatter(metaclass=SingletonMeta):
             f"📈 EMA Short Value = {html.code(item.ema_short_value)}\n"
             + f"📉 EMA Mid Value = {html.code(item.ema_mid_value)}\n"
             + f"📐 EMA Long Value = {html.code(item.ema_long_value)}\n"
+            + f"🛡️ Stop Loss ATR Factor = {html.code(item.stop_loss_atr_multiplier)}\n"
+            + f"🏁 Take Profit ATR Factor = {html.code(item.take_profit_atr_multiplier)}\n"
             + f"🚨 Auto-Exit SELL 1h enabled? = {'🟢' if item.auto_exit_sell_1h else '🟥'}\n"
             + f"🎯 Auto-Exit Take Profit enabled? = {'🟢' if item.auto_exit_atr_take_profit else '🟥'}\n\n"
         )
