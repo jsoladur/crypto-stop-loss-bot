@@ -4,7 +4,7 @@ import ccxt.async_support as ccxt
 import pandas as pd
 from httpx import AsyncClient
 from ta.momentum import RSIIndicator
-from ta.trend import MACD, EMAIndicator
+from ta.trend import MACD, ADXIndicator, EMAIndicator
 from ta.volatility import AverageTrueRange
 
 from crypto_trailing_stop.commons.constants import (
@@ -57,6 +57,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
             ema_long=round(selected_candlestick["ema_long"], ndigits=ndigits),
             rsi=round(selected_candlestick["rsi"], ndigits=2),
             atr=round(selected_candlestick["atr"], ndigits=ndigits),
+            adx=round(selected_candlestick["adx"], ndigits=2),
         )
 
     async def calculate_technical_indicators(
@@ -133,6 +134,9 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         df["rsi"] = RSIIndicator(df["close"], window=14).rsi()
         # Average True Range (ATR)
         df["atr"] = AverageTrueRange(df["high"], df["low"], df["close"], window=14).average_true_range()
+        # Calculate Average Directional Index (ADX)
+        adx_indicator = ADXIndicator(high=df["high"], low=df["low"], close=df["close"], window=14)
+        df["adx"] = adx_indicator.adx()
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)
         logger.debug("Indicator calculation complete.")

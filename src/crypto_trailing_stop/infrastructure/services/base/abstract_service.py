@@ -28,6 +28,7 @@ class AbstractService(ABC):
             await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
 
     async def _notify_fatal_error_via_telegram(self, e: Exception) -> None:
+        exception_text = f"{e.__class__.__name__} :: {str(e)}" if str(e) else e.__class__.__name__
         try:
             telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
                 notification_type=PushNotificationTypeEnum.BACKGROUND_JOB_FALTAL_ERRORS
@@ -36,7 +37,7 @@ class AbstractService(ABC):
                 await self._telegram_service.send_message(
                     chat_id=tg_chat_id,
                     text=f"⚠️ [{self.__class__.__name__}] FATAL ERROR occurred! "
-                    + f"Please try again later:\n\n{html.code(html_escape(str(e)))}",
+                    + f"Please try again later:\n\n{html.code(html_escape(exception_text))}",
                 )
         except Exception as e:
-            logger.warning(f"Unexpected error, notifying fatal error via Telegram: {str(e)}", exc_info=True)
+            logger.warning(f"Unexpected error, notifying fatal error via Telegram: {exception_text}", exc_info=True)

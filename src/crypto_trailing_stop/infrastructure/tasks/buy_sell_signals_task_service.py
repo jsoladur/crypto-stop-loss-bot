@@ -188,7 +188,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 last["ema_long"],
                 ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
             )
-            rsi_state = self._get_rsi_state(symbol, timeframe, last)
+            rsi_state = self._get_rsi_state(symbol, last)
             # Use a threshold of 0 for 1H signals to disable the proximity check
             volatility_threshold = self._get_volatility_threshold(timeframe)
             min_volatility_threshold = last["close"] * volatility_threshold
@@ -235,7 +235,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
 
         return bool(sell_signal)
 
-    def _get_rsi_state(self, symbol: str, timeframe: Timeframe, last: pd.Series) -> RSIState:
+    def _get_rsi_state(self, symbol: str, last: pd.Series) -> RSIState:
         crypto_market_metrics = CryptoMarketMetrics(
             symbol=symbol,
             closing_price=last["close"],
@@ -244,6 +244,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             ema_long=last["ema_long"],
             rsi=last["rsi"],
             atr=last["atr"],
+            adx=last["adx"],
         )
         return crypto_market_metrics.rsi_state
 
