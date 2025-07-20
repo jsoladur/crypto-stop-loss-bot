@@ -25,6 +25,12 @@ class BuySellSignalsConfigForm(Form):
         .add(*(KeyboardButton(text=str(value)) for value in EMA_LONG_VALUES))
         .as_markup(),
     )
+    filter_noise_using_adx: str = FormField(
+        enter_message_text="📶 Filter Noise using ADX?",
+        error_message_text=f"❌ Invalid value. Valid values: {', '.join(YES_NO_VALUES)}",
+        filter=F.text.in_(YES_NO_VALUES) & F.text,
+        reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
+    )
     auto_exit_sell_1h: str = FormField(
         enter_message_text="🚨 Auto-Exit SELL 1H enabled?",
         error_message_text=f"❌ Invalid value. Valid values: {', '.join(YES_NO_VALUES)}",
@@ -45,6 +51,7 @@ class BuySellSignalsConfigForm(Form):
             ema_short_value=ema_short_value,
             ema_mid_value=ema_mid_value,
             ema_long_value=int(self.ema_long),
+            filter_noise_using_adx=bool(self.filter_noise_using_adx.lower() == "yes"),
             auto_exit_sell_1h=bool(self.auto_exit_sell_1h.lower() == "yes"),
             auto_exit_atr_take_profit=bool(self.auto_exit_atr_take_profit.lower() == "yes"),
         )
