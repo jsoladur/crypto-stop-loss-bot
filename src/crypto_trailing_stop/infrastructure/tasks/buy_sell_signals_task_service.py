@@ -28,6 +28,7 @@ from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnu
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
+from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import SignalsEvaluationResult
@@ -113,11 +114,14 @@ class BuySellSignalsTaskService(AbstractTaskService):
     async def _eval_and_notify_signals(
         self, symbol: str, timeframe: Timeframe, tickers: Bit2MeTickersDto, client: AsyncClient, exchange: ccxt.Exchange
     ) -> None:
-        df_with_indicators = await self._crypto_analytics_service.calculate_technical_indicators(
+        (
+            df_with_indicators,
+            buy_sell_signals_config,
+        ) = await self._crypto_analytics_service.calculate_technical_indicators(
             symbol, timeframe=timeframe, client=client, exchange=exchange
         )
         # Use the default, wider threshold for 4H signals
-        signals = self._check_signals(symbol, timeframe, df_with_indicators)
+        signals = self._check_signals(symbol, timeframe, df_with_indicators, buy_sell_signals_config)
         is_new_signals, previous_signals = self._is_new_signals(signals)
         if is_new_signals:
             try:
@@ -165,7 +169,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self._last_signal_evalutation_result_cache[current_signals.cache_key] = current_signals
         return is_new_signals, previous_signals
 
-    def _check_signals(self, symbol: str, timeframe: Timeframe, df: pd.DataFrame) -> SignalsEvaluationResult:
+    def _check_signals(
+        self, symbol: str, timeframe: Timeframe, df: pd.DataFrame, buy_sell_signals_config: BuySellSignalsConfigItem
+    ) -> SignalsEvaluationResult:
         timestamp = datetime.now(tz=UTC).timestamp()
         buy_signal, sell_signal, is_choppy = False, False, False
         atr, closing_price, ema_long_price = 0.0, 0.0, 0.0
@@ -206,9 +212,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
                     + "Checking for signals..."
                 )
                 # A proximity_threshold of 0 effectively disables the proximity check
-                buy_signal = self._calculate_buy_signal(prev, last)
+                buy_signal = self._calculate_buy_signal(prev, last, buy_sell_signals_config)
                 # Sell Signal Logic
-                sell_signal = self._calculate_sell_signal(prev, last)
+                sell_signal = self._calculate_sell_signal(prev, last, buy_sell_signals_config)
         ret = SignalsEvaluationResult(
             timestamp=timestamp,
             symbol=symbol,
@@ -223,15 +229,27 @@ class BuySellSignalsTaskService(AbstractTaskService):
         )
         return ret
 
-    def _calculate_buy_signal(self, prev: pd.Series, last: pd.Series) -> bool:
+    def _calculate_buy_signal(
+        self, prev: pd.Series, last: pd.Series, buy_sell_signals_config: BuySellSignalsConfigItem
+    ) -> bool:
         # Buy Signal Logic
         ema_bullish_cross = prev["ema_short"] <= prev["ema_mid"] and last["ema_short"] > last["ema_mid"]
-        buy_signal = ema_bullish_cross and last["macd_hist"] > 0
+        is_strong_trend = (
+            not buy_sell_signals_config.filter_noise_using_adx
+            or last["adx"] > self._configuration_properties.buy_sell_signals_adx_threshold
+        )
+        buy_signal = ema_bullish_cross and last["macd_hist"] > 0 and is_strong_trend
         return bool(buy_signal)
 
-    def _calculate_sell_signal(self, prev: pd.Series, last: pd.Series) -> bool:
+    def _calculate_sell_signal(
+        self, prev: pd.Series, last: pd.Series, buy_sell_signals_config: BuySellSignalsConfigItem
+    ) -> bool:
         ema_bearish_cross = prev["ema_short"] >= prev["ema_mid"] and last["ema_short"] < last["ema_mid"]
-        sell_signal = ema_bearish_cross and last["macd_hist"] < 0
+        is_strong_trend = (
+            not buy_sell_signals_config.filter_noise_using_adx
+            or last["adx"] > self._configuration_properties.buy_sell_signals_adx_threshold
+        )
+        sell_signal = ema_bearish_cross and last["macd_hist"] < 0 and is_strong_trend
 
         return bool(sell_signal)
 

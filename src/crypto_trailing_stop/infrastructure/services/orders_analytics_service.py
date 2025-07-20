@@ -90,7 +90,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             crypto_currency, *_ = sell_order.symbol.split("/")
             buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
         if technical_indicators is None:
-            technical_indicators = await self._crypto_analytics_service.calculate_technical_indicators(
+            technical_indicators, *_ = await self._crypto_analytics_service.calculate_technical_indicators(
                 sell_order.symbol, client=client, exchange=exchange
             )
         (avg_buy_price, previous_used_buy_trade_ids) = await self._calculate_correlated_avg_buy_price(
@@ -268,11 +268,10 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient, exchange: ccxt.Exchange
     ) -> dict[str, pd.DataFrame]:
         opened_sell_order_symbols = set([sell_order.symbol for sell_order in opened_sell_orders])
-
-        technical_indicators_by_symbol = {
-            symbol: await self._crypto_analytics_service.calculate_technical_indicators(
+        technical_indicators_by_symbol = {}
+        for symbol in opened_sell_order_symbols:
+            technical_indicators, *_ = await self._crypto_analytics_service.calculate_technical_indicators(
                 symbol, client=client, exchange=exchange
             )
-            for symbol in opened_sell_order_symbols
-        }
+            technical_indicators_by_symbol[symbol] = technical_indicators
         return technical_indicators_by_symbol
