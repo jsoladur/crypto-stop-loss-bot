@@ -257,7 +257,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
                     symbol not in self._technical_indicators_by_symbol_cache
                     or self._technical_indicators_by_symbol_cache[symbol].next_update_datetime < now
                 ):
-                    technical_indicators = await self._crypto_analytics_service.calculate_technical_indicators(
+                    technical_indicators, *_ = await self._crypto_analytics_service.calculate_technical_indicators(
                         symbol, client=client, exchange=exchange
                     )
                     self._technical_indicators_by_symbol_cache[symbol] = TechnicalIndicatorsCacheItem(

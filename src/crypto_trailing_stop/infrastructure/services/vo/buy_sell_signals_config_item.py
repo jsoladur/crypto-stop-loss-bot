@@ -17,6 +17,7 @@ class BuySellSignalsConfigItem:
     take_profit_atr_multiplier: float = field(
         default_factory=lambda: get_configuration_properties().suggested_take_profit_atr_multiplier
     )
+    filter_noise_using_adx: bool = False
     auto_exit_sell_1h: bool = True
     auto_exit_atr_take_profit: bool = True
 

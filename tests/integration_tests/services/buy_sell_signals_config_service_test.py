@@ -51,6 +51,7 @@ async def should_set_buy_sell_signals_config_properly(
         returned_buy_sell_signals_config_item.take_profit_atr_multiplier
         == configuration_properties.suggested_take_profit_atr_multiplier
     )
+    assert returned_buy_sell_signals_config_item.filter_noise_using_adx is False
     assert returned_buy_sell_signals_config_item.auto_exit_sell_1h is True
     assert returned_buy_sell_signals_config_item.auto_exit_atr_take_profit is True
 
@@ -59,8 +60,9 @@ async def should_set_buy_sell_signals_config_properly(
         ema_short_value=faker.pyint(min_value=5, max_value=9),
         ema_mid_value=faker.pyint(min_value=18, max_value=30),
         ema_long_value=faker.pyint(min_value=200, max_value=250),
-        auto_exit_sell_1h=faker.pybool(),
-        auto_exit_atr_take_profit=faker.pybool(),
+        filter_noise_using_adx=faker.pybool(truth_probability=99),
+        auto_exit_sell_1h=faker.pybool(truth_probability=1),
+        auto_exit_atr_take_profit=faker.pybool(truth_probability=1),
         stop_loss_atr_multiplier=faker.pyfloat(min_value=2.5, max_value=6.5),
         take_profit_atr_multiplier=faker.pyfloat(min_value=2.5, max_value=6.5),
     )
@@ -76,6 +78,10 @@ async def should_set_buy_sell_signals_config_properly(
     )
     assert returned_buy_sell_signals_config_item.ema_mid_value == expected_buy_sell_signals_config_item.ema_mid_value
     assert returned_buy_sell_signals_config_item.ema_long_value == expected_buy_sell_signals_config_item.ema_long_value
+    assert (
+        returned_buy_sell_signals_config_item.filter_noise_using_adx
+        == expected_buy_sell_signals_config_item.filter_noise_using_adx
+    )
     assert (
         returned_buy_sell_signals_config_item.stop_loss_atr_multiplier
         == expected_buy_sell_signals_config_item.stop_loss_atr_multiplier

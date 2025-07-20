@@ -52,6 +52,8 @@ class ConfigurationProperties(BaseSettings):
     buy_sell_signals_1h_volatility_threshold: float = 0.004
     buy_sell_signals_rsi_overbought: int = 70
     buy_sell_signals_rsi_oversold: int = 30
+    # XXX: ADX threshold
+    buy_sell_signals_adx_threshold: int = 20
     # Auto-Entry Trader configuration properties
     max_atr_percent_for_auto_entry: int = STOP_LOSS_STEPS_VALUE_LIST[-1]
     # XXX: EMA values
