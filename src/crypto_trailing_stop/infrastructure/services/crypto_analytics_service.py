@@ -4,7 +4,7 @@ import ccxt.async_support as ccxt
 import pandas as pd
 from httpx import AsyncClient
 from ta.momentum import RSIIndicator
-from ta.trend import MACD, EMAIndicator
+from ta.trend import MACD, ADXIndicator, EMAIndicator
 from ta.volatility import AverageTrueRange
 
 from crypto_trailing_stop.commons.constants import (
@@ -17,6 +17,7 @@ from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service i
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
+from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
 
@@ -44,7 +45,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         client: AsyncClient | None = None,
         exchange: ccxt.Exchange | None = None,
     ) -> CryptoMarketMetrics:
-        technical_indicators: pd.DataFrame = await self.calculate_technical_indicators(
+        technical_indicators, *_ = await self.calculate_technical_indicators(
             symbol, timeframe=timeframe, client=client, exchange=exchange
         )
         selected_candlestick = technical_indicators.iloc[over_candlestick.value]
@@ -57,6 +58,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
             ema_long=round(selected_candlestick["ema_long"], ndigits=ndigits),
             rsi=round(selected_candlestick["rsi"], ndigits=2),
             atr=round(selected_candlestick["atr"], ndigits=ndigits),
+            adx=round(selected_candlestick["adx"], ndigits=2),
         )
 
     async def calculate_technical_indicators(
@@ -66,7 +68,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         timeframe: Timeframe = "1h",
         client: AsyncClient | None = None,
         exchange: ccxt.Exchange | None = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, BuySellSignalsConfigItem]:
         exchange = exchange or self._exchange
         exchange_symbols = await self._ccxt_remote_service.get_exchange_symbols_by_fiat_currency(
             fiat_currency=symbol.split("/")[-1], exchange=exchange
@@ -77,8 +79,8 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
             ohlcv = await self._bit2me_remote_service.fetch_ohlcv(symbol, timeframe, client=client)
         df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
-        df_with_indicators = await self._calculate_indicators(symbol, df)
-        return df_with_indicators
+        df_with_indicators, buy_sell_signals_config = await self._calculate_indicators(symbol, df)
+        return df_with_indicators, buy_sell_signals_config
 
     async def get_favourite_tickers(self, *, client: AsyncClient | None = None) -> list[Bit2MeTickersDto]:
         favourite_symbols = await self.get_favourite_symbols(client=client)
@@ -116,7 +118,9 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         )
         return sorted(set(symbols))
 
-    async def _calculate_indicators(self, symbol: str, df: pd.DataFrame) -> pd.DataFrame:
+    async def _calculate_indicators(
+        self, symbol: str, df: pd.DataFrame
+    ) -> tuple[pd.DataFrame, BuySellSignalsConfigItem]:
         logger.debug("Calculating indicators...")
         crypto_currency, *_ = symbol.split("/")
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
@@ -133,7 +137,10 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         df["rsi"] = RSIIndicator(df["close"], window=14).rsi()
         # Average True Range (ATR)
         df["atr"] = AverageTrueRange(df["high"], df["low"], df["close"], window=14).average_true_range()
+        # Calculate Average Directional Index (ADX)
+        adx_indicator = ADXIndicator(high=df["high"], low=df["low"], close=df["close"], window=14)
+        df["adx"] = adx_indicator.adx()
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)
         logger.debug("Indicator calculation complete.")
-        return df
+        return df, buy_sell_signals_config

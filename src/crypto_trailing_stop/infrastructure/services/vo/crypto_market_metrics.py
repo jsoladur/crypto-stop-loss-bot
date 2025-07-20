@@ -17,6 +17,7 @@ class CryptoMarketMetrics:
     ema_long: float
     rsi: float | int
     atr: float
+    adx: float
 
     @property
     def rsi_state(self) -> RSIState:
