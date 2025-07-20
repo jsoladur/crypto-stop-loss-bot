@@ -4,7 +4,6 @@ from urllib.parse import urlparse, urlunparse
 
 from fastapi import APIRouter, Query, Request, Response, status
 
-from crypto_trailing_stop.commons.constants import AUTHORIZED_GOOGLE_USER_EMAILS
 from crypto_trailing_stop.config import get_configuration_properties, get_oauth_context
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.dtos.login_dto import LoginDto
@@ -66,7 +65,7 @@ async def login_callback(request: Request) -> Response:
         google_auth = oauth_context.create_client("google")
         token = await google_auth.authorize_access_token(request)
         userinfo = request.session["userinfo"] = token["userinfo"]
-        if userinfo["email"] not in AUTHORIZED_GOOGLE_USER_EMAILS:
+        if userinfo["email"] not in configuration_properties.authorized_google_user_emails_comma_separated:
             logger.warning(f"Unauthorized user: {userinfo['email']}")
             await telegram_service.send_message(
                 chat_id=login_query_params.tg_chat_id, text="Unauthorized user. Please contact the administrator."

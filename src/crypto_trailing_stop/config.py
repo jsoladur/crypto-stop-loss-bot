@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from uuid import uuid4
 
 from aiogram import Bot, Dispatcher
@@ -9,7 +10,8 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from authlib.integrations.starlette_client import OAuth
 from pydantic import AnyUrl, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic.fields import FieldInfo
+from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict
 from pyee.asyncio import AsyncIOEventEmitter
 
 from crypto_trailing_stop.commons.constants import (
@@ -25,13 +27,22 @@ _telegram_bot: Bot | None = None
 _dispacher: Dispatcher | None = None
 
 
+class _CustomEnvSettingsSource(EnvSettingsSource):
+    def prepare_field_value(self, field_name: str, field: FieldInfo, value: Any, value_is_complex: bool) -> Any:
+        if field_name == "authorized_google_user_emails_comma_separated":
+            ret = [str(v).strip().lower() for v in value.split(",")]
+        else:
+            ret = super().prepare_field_value(field_name, field, value, value_is_complex)
+        return ret
+
+
 class ConfigurationProperties(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", validate_default=False, extra="allow")
     # Application configuration
     background_tasks_enabled: bool = True
     telegram_bot_enabled: bool = True
     public_domain: str = "http://localhost:8000"
-    session_secret_key: str = Field(default_factory=uuid4)
+    session_secret_key: str = Field(default_factory=lambda: str(uuid4()))
     login_enabled: bool = True
     # CORS enabled
     cors_enabled: bool = False
@@ -66,12 +77,19 @@ class ConfigurationProperties(BaseSettings):
     suggested_stop_loss_atr_multiplier: float = 2.5
     suggested_take_profit_atr_multiplier: float = 3.5
     # Google OAuth configuration
+    authorized_google_user_emails_comma_separated: list[str]
     google_oauth_client_id: str
     google_oauth_client_secret: str
     # Trailing stop loss configuration
     trailing_stop_loss_percent: float | int = DEFAULT_TRAILING_STOP_LOSS_PERCENT
     # Jobs configuration
     job_interval_seconds: int = DEFAULT_JOB_INTERVAL_SECONDS
+
+    @classmethod
+    def settings_customise_sources(
+        cls, settings_cls: type[BaseSettings], *_, **__
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (_CustomEnvSettingsSource(settings_cls),)
 
 
 def get_configuration_properties() -> ConfigurationProperties:
