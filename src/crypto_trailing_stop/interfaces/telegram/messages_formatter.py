@@ -9,6 +9,9 @@ from crypto_trailing_stop.commons.constants import (
 )
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
+    Bit2MeTradingWalletBalanceDto,
+)
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
@@ -16,6 +19,30 @@ from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import M
 
 
 class MessagesFormatter(metaclass=SingletonMeta):
+    def format_trading_wallet_balances(self, trading_wallet_balances: list[Bit2MeTradingWalletBalanceDto]) -> str:
+        # Filter no effective wallet balances
+        trading_wallet_balances = pydash.order_by(
+            [
+                trading_wallet_balance
+                for trading_wallet_balance in trading_wallet_balances
+                if trading_wallet_balance.is_effective
+            ],
+            "currency",
+        )
+        message_lines = ["===========================", "🪙 PRO WALLET BALANCES 🪙", "==========================="]
+        for idx, wallet_balance in enumerate(trading_wallet_balances):
+            balance = round(wallet_balance.balance, ndigits=4)
+            blocked_balance = round(wallet_balance.blocked_balance, ndigits=4)
+            total_balance = round(wallet_balance.total_balance, ndigits=4)
+            message_lines.append(
+                f"🏷️ {html.bold(wallet_balance.currency)} \n"
+                f"   💰 Available: {html.code(balance)}\n"
+                f"   🔒 Blocked: {html.code(blocked_balance)}\n"
+                f"   ➕ {html.bold('TOTAL')}: {html.code(total_balance)}"
+            )
+        ret = "\n".join(message_lines)
+        return ret
+
     def format_current_prices_message(self, tickers_list: Bit2MeTickersDto) -> str:
         message_lines = ["===========================", "💵 CURRENT PRICES 💵", "==========================="]
         for tickers in tickers_list:
