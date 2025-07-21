@@ -8,6 +8,7 @@ from crypto_trailing_stop.commons.constants import (
     NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
 )
 from crypto_trailing_stop.commons.patterns import SingletonMeta
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
     Bit2MeTradingWalletBalanceDto,
@@ -19,13 +20,16 @@ from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import M
 
 
 class MessagesFormatter(metaclass=SingletonMeta):
-    def format_trading_wallet_balances(self, trading_wallet_balances: list[Bit2MeTradingWalletBalanceDto]) -> str:
+    def format_trading_wallet_balances(
+        self, account_info: Bit2MeAccountInfoDto, trading_wallet_balances: list[Bit2MeTradingWalletBalanceDto]
+    ) -> str:
         # Filter no effective wallet balances
         trading_wallet_balances = pydash.order_by(
             [
                 trading_wallet_balance
                 for trading_wallet_balance in trading_wallet_balances
                 if trading_wallet_balance.is_effective
+                or trading_wallet_balance.currency.lower() == account_info.profile.currency_code.lower()
             ],
             "currency",
         )
