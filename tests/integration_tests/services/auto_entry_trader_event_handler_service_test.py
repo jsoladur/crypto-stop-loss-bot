@@ -19,6 +19,7 @@ from crypto_trailing_stop.commons.constants import (
     TRIGGER_BUY_ACTION_EVENT_NAME,
 )
 from crypto_trailing_stop.config import get_event_emitter
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_dto import (
     Bit2MePortfolioBalanceDto,
@@ -52,6 +53,7 @@ from tests.helpers.object_mothers import (
     Bit2MeTradingWalletBalanceDtoObjectMother,
 )
 from tests.helpers.ohlcv_test_utils import get_fetch_ohlcv_random_result
+from tests.helpers.sell_orders_test_utils import generate_trades
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +156,7 @@ def _prepare_httpserver_mock(
                 additional_required_query_params=["startTime", "endTime"],
             ),
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
+        handler_type=HandlerType.PERMANENT,
     ).respond_with_json(fetch_ohlcv_return_value)
 
     crypto_currency, fiat_currency = symbol.split("/")
@@ -173,6 +175,11 @@ def _prepare_httpserver_mock(
     )
     if warning_type != AutoEntryTraderWarningTypeEnum.ATR_TOO_HIGH:
         global_portfolio_balance = faker.pyfloat(min_value=2_500, max_value=2_700)
+        bit2me_pro_balance = (
+            faker.pyfloat(min_value=1, max_value=20)
+            if warning_type == AutoEntryTraderWarningTypeEnum.NOT_ENOUGH_FUNDS
+            else (global_portfolio_balance * 0.9)
+        )
         # Global portfolio
         httpserver.expect(
             Bit2MeAPIRequestMacher(
@@ -194,11 +201,71 @@ def _prepare_httpserver_mock(
                 ]
             ).model_dump(mode="json", by_alias=True)
         )
-        bit2me_pro_balance = (
-            faker.pyfloat(min_value=1, max_value=20)
-            if warning_type == AutoEntryTraderWarningTypeEnum.NOT_ENOUGH_FUNDS
-            else (global_portfolio_balance * 0.9)
+
+        # Mock tickers
+        tickers = Bit2MeTickersDtoObjectMother.create(symbol=symbol, close=closing_price * 1.02)
+        # Simulate previous orders
+        previous_order_avg_buy_price = closing_price * 0.85
+        opened_sell_bit2me_orders = [
+            Bit2MeOrderDtoObjectMother.create(
+                created_at=faker.past_datetime(tzinfo=UTC),
+                side="sell",
+                symbol=symbol,
+                order_type="limit",
+                order_amount=_floor_round(
+                    (bit2me_pro_balance * 0.01) / previous_order_avg_buy_price,
+                    ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
+                        market_signal_item.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
+                    ),
+                ),
+                price=(closing_price * 0.9) * 2,
+                status=faker.random_element(["open", "inactive"]),
+            ),
+            Bit2MeOrderDtoObjectMother.create(
+                created_at=faker.past_datetime(tzinfo=UTC),
+                side="sell",
+                symbol=symbol,
+                order_type="limit",
+                order_amount=_floor_round(
+                    (bit2me_pro_balance * 0.02) / previous_order_avg_buy_price,
+                    ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
+                        market_signal_item.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
+                    ),
+                ),
+                price=(closing_price * 0.92) * 2,
+                status=faker.random_element(["open", "inactive"]),
+            ),
+        ]
+        # Mock call to /v1/trading/order to get opened sell orders
+        httpserver.expect(
+            Bit2MeAPIRequestMacher(
+                "/bit2me-api/v1/trading/order",
+                method="GET",
+                query_string=urlencode(
+                    {"direction": "desc", "status_in": "open,inactive", "side": "sell"}, doseq=False
+                ),
+            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+            handler_type=HandlerType.ONESHOT,
+        ).respond_with_json(
+            RootModel[list[Bit2MeOrderDto]](opened_sell_bit2me_orders).model_dump(mode="json", by_alias=True)
         )
+
+        buy_trades = generate_trades(faker, opened_sell_bit2me_orders, number_of_trades=1)
+        for _ in range(len(opened_sell_bit2me_orders)):
+            # Mock trades /v1/trading/trade
+            httpserver.expect(
+                Bit2MeAPIRequestMacher(
+                    "/bit2me-api/v1/trading/trade",
+                    method="GET",
+                    query_string=urlencode({"direction": "desc", "side": "buy", "symbol": symbol}, doseq=False),
+                ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(
+                Bit2MePaginationResultDto[Bit2MeTradeDto](
+                    data=buy_trades, total=faker.pyint(min_value=len(buy_trades), max_value=len(buy_trades) * 10)
+                ).model_dump(mode="json", by_alias=True)
+            )
+
         eur_wallet_balance = Bit2MeTradingWalletBalanceDtoObjectMother.create(
             currency=fiat_currency, balance=round(bit2me_pro_balance, ndigits=2)
         )
@@ -214,8 +281,6 @@ def _prepare_httpserver_mock(
             RootModel[list[Bit2MeTradingWalletBalanceDto]]([eur_wallet_balance]).model_dump(mode="json", by_alias=True)
         )
         if warning_type != AutoEntryTraderWarningTypeEnum.NOT_ENOUGH_FUNDS:
-            # Mock tickers
-            tickers = Bit2MeTickersDtoObjectMother.create(symbol=symbol, close=closing_price * 1.02)
             httpserver.expect(
                 Bit2MeAPIRequestMacher(
                     "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": symbol}

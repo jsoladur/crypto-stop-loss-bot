@@ -124,7 +124,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
     ) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:
             initial_amount_to_invest = await self._calculate_total_amount_to_invest(
-                buy_trader_config, fiat_currency, client
+                buy_trader_config, crypto_currency, fiat_currency, client
             )
             # XXX: [JMSOLA] Investing less than 25.0 EUR is not worthly
             if initial_amount_to_invest > AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST:
@@ -185,7 +185,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         )
 
     async def _calculate_total_amount_to_invest(
-        self, buy_trader_config: AutoBuyTraderConfigItem, fiat_currency: str, client: AsyncClient
+        self, buy_trader_config: AutoBuyTraderConfigItem, crypto_currency: str, fiat_currency: str, client: AsyncClient
     ) -> float | int:
         fiat_wallet_assigned_decimal_value = buy_trader_config.fiat_wallet_percent_assigned / 100.0
         # 1.) Call to GlobalSummaryService.calculate_portfolio_total_fiat_amount(..),
@@ -194,10 +194,27 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             fiat_currency, client=client
         )
         portfolio_assigned_amount = math.floor(total_portfolio_fiat_amount * fiat_wallet_assigned_decimal_value)
+
+        # XXX: [JMSOLA] Calculate already invested amount to not invest more the percent assigned in overall
+        current_guard_metrics_list = await self._orders_analytics_service.calculate_all_limit_sell_order_guard_metrics(
+            symbol=crypto_currency
+        )
+        already_invested_amount = math.ceil(
+            sum(
+                [
+                    (guard_metrics.sell_order.order_amount * guard_metrics.avg_buy_price)
+                    for guard_metrics in current_guard_metrics_list
+                ]
+            )
+        )
+        remaining_to_invest = portfolio_assigned_amount - already_invested_amount
+
         eur_wallet_balance, *_ = await self._bit2me_remote_service.get_trading_wallet_balances(
             symbols=fiat_currency.upper(), client=client
         )
-        amount_to_invest = min(math.floor(eur_wallet_balance.balance), portfolio_assigned_amount)
+        amount_to_invest = min(
+            math.floor(eur_wallet_balance.balance), math.floor(remaining_to_invest) if remaining_to_invest > 0 else 0
+        )
         return amount_to_invest
 
     async def _create_new_buy_market_order_and_wait_until_filled(
