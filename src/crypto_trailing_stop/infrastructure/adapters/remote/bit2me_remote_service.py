@@ -190,7 +190,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             cause = e.__cause__
             should_give_up = not isinstance(cause, HTTPStatusError) or getattr(
                 cause.response, "status_code", None
-            ) not in [403, 429, 502]
+            ) not in [403, 412, 429, 502]
         return should_give_up
 
     # XXX: [JMSOLA] Add backoff to retry when:
