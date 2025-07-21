@@ -25,8 +25,10 @@ async def get_pro_wallet_balances_callback(callback_query: CallbackQuery, state:
     is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:
-            trading_wallet_balances = await bit2me_remote_service.get_trading_wallet_balances()
-            message = messages_formatter.format_trading_wallet_balances(trading_wallet_balances)
+            async with await bit2me_remote_service.get_http_client() as client:
+                account_info = await bit2me_remote_service.get_account_info(client=client)
+                trading_wallet_balances = await bit2me_remote_service.get_trading_wallet_balances(client=client)
+            message = messages_formatter.format_trading_wallet_balances(account_info, trading_wallet_balances)
             await callback_query.message.answer(text=message)
         except Exception as e:
             logger.error(f"Error fetching get Bit2Me Pro Wallet balances: {str(e)}", exc_info=True)
