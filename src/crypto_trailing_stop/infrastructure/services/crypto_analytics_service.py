@@ -112,8 +112,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
                 f"{trading_wallet_balance.currency}/{bit2me_account_info.profile.currency_code}"
                 for trading_wallet_balance in trading_wallet_balances
                 if trading_wallet_balance.currency.lower() != bit2me_account_info.profile.currency_code.lower()
-                # XXX: Minimal balance to consider potential losses is 0.1
-                and (trading_wallet_balance.balance > 0.1 or trading_wallet_balance.blocked_balance > 0.1)
+                and trading_wallet_balance.is_effective
             }
         )
         return sorted(set(symbols))
