@@ -56,6 +56,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
             ema_short=round(selected_candlestick["ema_short"], ndigits=ndigits),
             ema_mid=round(selected_candlestick["ema_mid"], ndigits=ndigits),
             ema_long=round(selected_candlestick["ema_long"], ndigits=ndigits),
+            macd_hist=round(selected_candlestick["macd_hist"], ndigits=4),
             rsi=round(selected_candlestick["rsi"], ndigits=2),
             atr=round(selected_candlestick["atr"], ndigits=ndigits),
             adx=round(selected_candlestick["adx"], ndigits=2),

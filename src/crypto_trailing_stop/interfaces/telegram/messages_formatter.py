@@ -59,12 +59,19 @@ class MessagesFormatter(metaclass=SingletonMeta):
 
     def format_current_crypto_metrics_message(self, metrics: CryptoMarketMetrics) -> str:
         *_, fiat_currency = metrics.symbol.split("/")
+        if metrics.macd_hist > 0:
+            macd_hist_icon = "🟢"  # Upward momentum
+        elif metrics.macd_hist < 0:
+            macd_hist_icon = "🔻"  # Downward momentum
+        else:
+            macd_hist_icon = "🟰"  # Neutral / crossover point
         header = f"🧮 {html.bold('CURRENT METRICS')} for {html.bold(metrics.symbol)} 🧮\n\n"
         message_lines = [
             f"💰 {html.bold('Current Price')} = {html.code(f'{metrics.closing_price} {fiat_currency}')}",
             f"📈 {html.bold('EMA Short')} = {metrics.ema_short} {fiat_currency}",
             f"📉 {html.bold('EMA Mid')} = {metrics.ema_mid} {fiat_currency}",
             f"📐 {html.bold('EMA Long')} = {metrics.ema_long} {fiat_currency}",
+            f"♊ {html.bold('MACD Hist')} = {macd_hist_icon} {metrics.macd_hist}",
             f"🎢 {html.bold('ATR')} = ±{metrics.atr} {fiat_currency} (±{metrics.atr_percent}%)",
             f"📊 {html.bold('RSI')} = {html.italic(pydash.start_case(metrics.rsi_state))} ({metrics.rsi})",
             f"📶 {html.bold('ADX')} = {metrics.adx}",

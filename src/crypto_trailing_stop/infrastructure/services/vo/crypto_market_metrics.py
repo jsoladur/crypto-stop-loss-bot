@@ -15,6 +15,7 @@ class CryptoMarketMetrics:
     ema_short: float
     ema_mid: float
     ema_long: float
+    macd_hist: float | int
     rsi: float | int
     atr: float
     adx: float

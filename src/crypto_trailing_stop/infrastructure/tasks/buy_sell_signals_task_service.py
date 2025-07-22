@@ -260,6 +260,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             ema_short=last["ema_short"],
             ema_mid=last["ema_mid"],
             ema_long=last["ema_long"],
+            macd_hist=last["macd_hist"],
             rsi=last["rsi"],
             atr=last["atr"],
             adx=last["adx"],
