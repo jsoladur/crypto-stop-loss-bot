@@ -1,9 +1,7 @@
 import logging
 
-import cachebox
 import pydash
 
-from crypto_trailing_stop.commons.constants import DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
@@ -21,7 +19,7 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
     async def find_all(self) -> list[BuySellSignalsConfigItem]:
         stored_config_list = await BuySellSignalsConfig.objects()
         ret = [self._convert_to_value_object(current) for current in stored_config_list]
-        additional_crypto_currencies = await self._get_additional_crypto_currencies()
+        additional_crypto_currencies = await self._bit2me_remote_service.get_favourite_crypto_currencies()
         for additional_crypto_currency in additional_crypto_currencies:
             if not any(current.symbol.lower() == additional_crypto_currency.lower() for current in ret):
                 ret.append(BuySellSignalsConfigItem(symbol=additional_crypto_currency.upper()))
@@ -93,7 +91,3 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             auto_exit_sell_1h=buy_sell_signals_config.auto_exit_sell_1h,
             auto_exit_atr_take_profit=buy_sell_signals_config.auto_exit_atr_take_profit,
         )
-
-    @cachebox.cachedmethod(cachebox.TTLCache(0, ttl=DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS))
-    async def _get_additional_crypto_currencies(self) -> list[str]:
-        return await self._bit2me_remote_service.get_favourite_crypto_currencies()
