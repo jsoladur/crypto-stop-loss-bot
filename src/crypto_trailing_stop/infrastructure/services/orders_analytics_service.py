@@ -21,6 +21,7 @@ from crypto_trailing_stop.infrastructure.services.crypto_analytics_service impor
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
+from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
 
@@ -85,7 +86,6 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         client: AsyncClient | None = None,
         exchange: ccxt.Exchange | None = None,
     ) -> tuple[LimitSellOrderGuardMetrics, set[str]]:
-        ndigits = NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE)
         if buy_sell_signals_config is None:
             crypto_currency, *_ = sell_order.symbol.split("/")
             buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
@@ -93,6 +93,10 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             technical_indicators, *_ = await self._crypto_analytics_service.calculate_technical_indicators(
                 sell_order.symbol, client=client, exchange=exchange
             )
+        last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
+            sell_order.symbol,
+            candlestick=technical_indicators.iloc[CandleStickEnum.LAST],  # Last confirmed candle
+        )
         (avg_buy_price, previous_used_buy_trade_ids) = await self._calculate_correlated_avg_buy_price(
             sell_order, previous_used_buy_trade_ids, client=client
         )
@@ -100,22 +104,20 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         (safeguard_stop_price, stop_loss_percent_item) = await self._calculate_safeguard_stop_price(
             sell_order, avg_buy_price
         )
-        (suggested_stop_loss_percent_value, atr_value, closing_price) = (
-            self._calculate_suggested_stop_loss_percent_value(
-                sell_order,
-                avg_buy_price,
-                buy_sell_signals_config=buy_sell_signals_config,
-                technical_indicators=technical_indicators,
-            )
+        suggested_stop_loss_percent_value = self._calculate_suggested_stop_loss_percent_value(
+            sell_order,
+            avg_buy_price,
+            buy_sell_signals_config=buy_sell_signals_config,
+            last_candle_market_metrics=last_candle_market_metrics,
         )
         suggested_safeguard_stop_price = self._calculate_suggested_safeguard_stop_price(
             sell_order, avg_buy_price, suggested_stop_loss_percent_value
         )
-        (suggested_take_profit_limit_price, *_) = self._calculate_suggested_take_profit_limit_price(
+        suggested_take_profit_limit_price = self._calculate_suggested_take_profit_limit_price(
             sell_order,
             avg_buy_price,
             buy_sell_signals_config=buy_sell_signals_config,
-            technical_indicators=technical_indicators,
+            last_candle_market_metrics=last_candle_market_metrics,
         )
         guard_metrics = LimitSellOrderGuardMetrics(
             sell_order=sell_order,
@@ -123,8 +125,8 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             break_even_price=break_even_price,
             stop_loss_percent_value=stop_loss_percent_item.value,
             safeguard_stop_price=safeguard_stop_price,
-            current_attr_value=round(atr_value, ndigits=ndigits),
-            closing_price=closing_price,
+            current_attr_value=last_candle_market_metrics.rounded().atr,
+            closing_price=last_candle_market_metrics.closing_price,
             suggested_stop_loss_percent_value=suggested_stop_loss_percent_value,
             suggested_safeguard_stop_price=suggested_safeguard_stop_price,
             suggested_take_profit_limit_price=suggested_take_profit_limit_price,
@@ -207,13 +209,12 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         sell_order: Bit2MeOrderDto,
         avg_buy_price: float,
         buy_sell_signals_config: BuySellSignalsConfigItem,
-        technical_indicators: pd.DataFrame,
-    ) -> tuple[float, float, float]:
+        last_candle_market_metrics: CryptoMarketMetrics,
+    ) -> float:
         ndigits = NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE)
-        last = technical_indicators.iloc[CandleStickEnum.LAST]  # Last confirmed candle
-        atr_value = float(last["atr"])
         first_suggested_safeguard_stop_price = round(
-            avg_buy_price - (atr_value * buy_sell_signals_config.stop_loss_atr_multiplier), ndigits=ndigits
+            avg_buy_price - (last_candle_market_metrics.atr * buy_sell_signals_config.stop_loss_atr_multiplier),
+            ndigits=ndigits,
         )
         stop_loss_percent_value = (
             round((1 - (first_suggested_safeguard_stop_price / avg_buy_price)) * 100, ndigits=ndigits) + 0.5
@@ -222,7 +223,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             steps = np.array(STOP_LOSS_STEPS_VALUE_LIST)
             # Summing 0.5 to the calculated Stop Loss, to ensure enough gap when ATR is very low!
             stop_loss_percent_value = float(steps[steps >= stop_loss_percent_value].min())
-        return (stop_loss_percent_value, atr_value, float(last["close"]))
+        return stop_loss_percent_value
 
     def _calculate_suggested_safeguard_stop_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float, suggested_stop_loss_percent_value: float
@@ -239,15 +240,13 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         sell_order: Bit2MeOrderDto,
         avg_buy_price: float,
         buy_sell_signals_config: BuySellSignalsConfigItem,
-        technical_indicators: pd.DataFrame,
-    ) -> tuple[float, float]:
-        last = technical_indicators.iloc[CandleStickEnum.LAST]  # Last confirmed candle
-        atr_value = last["atr"]
+        last_candle_market_metrics: CryptoMarketMetrics,
+    ) -> float:
         suggested_safeguard_stop_price = round(
-            avg_buy_price + (last["atr"] * buy_sell_signals_config.take_profit_atr_multiplier),
+            avg_buy_price + (last_candle_market_metrics.atr * buy_sell_signals_config.take_profit_atr_multiplier),
             ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
         )
-        return suggested_safeguard_stop_price, atr_value
+        return suggested_safeguard_stop_price
 
     async def _calculate_buy_sell_signals_config_by_opened_sell_orders(
         self, opened_sell_orders: list[Bit2MeOrderDto]
