@@ -28,4 +28,5 @@ AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST = np.arange(0, 125, 25).tolist()
 # Buy Sell Signals Config
 EMA_SHORT_MID_PAIRS = [f"{ema_short}/{ema_mid}" for ema_short, ema_mid in [(7, 18), (8, 20), (9, 21)]]
 EMA_LONG_VALUES = [150, 200, 233]
+ADX_THRESHOLD_VALUES = [15, 20, 25]
 YES_NO_VALUES = ["Yes", "No"]

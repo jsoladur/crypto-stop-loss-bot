@@ -83,6 +83,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
             + f"🛡️ Stop Loss ATR Factor = {html.code(item.stop_loss_atr_multiplier)}\n"
             + f"🏁 Take Profit ATR Factor = {html.code(item.take_profit_atr_multiplier)}\n"
             + f"📶 Filter Noise using ADX? = {'🟢' if item.filter_noise_using_adx else '🟥'}\n"
+            + f"🔦 ADX Threshold = {html.code(item.adx_threshold) if item.filter_noise_using_adx else html.italic('(not applicable)')}\n"  # noqa: E501
             + f"🚨 Auto-Exit SELL 1h enabled? = {'🟢' if item.auto_exit_sell_1h else '🟥'}\n"
             + f"🎯 Auto-Exit Take Profit enabled? = {'🟢' if item.auto_exit_atr_take_profit else '🟥'}\n\n"
         )

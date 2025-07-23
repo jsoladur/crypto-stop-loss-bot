@@ -243,7 +243,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             # NOTE: +DI > -DI
             last_candle_market_metrics.adx_pos > last_candle_market_metrics.adx_neg
             # NOTE: ADX > 20
-            and last_candle_market_metrics.adx > self._configuration_properties.buy_sell_signals_adx_threshold
+            and last_candle_market_metrics.adx > buy_sell_signals_config.adx_threshold
         )
         buy_signal = ema_bullish_cross and last_candle_market_metrics.macd_hist > 0 and is_strong_trend
         return bool(buy_signal)
