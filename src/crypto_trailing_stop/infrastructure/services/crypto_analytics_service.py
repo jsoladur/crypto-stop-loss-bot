@@ -7,10 +7,6 @@ from ta.momentum import RSIIndicator
 from ta.trend import MACD, ADXIndicator, EMAIndicator
 from ta.volatility import AverageTrueRange
 
-from crypto_trailing_stop.commons.constants import (
-    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
-    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
-)
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
@@ -49,18 +45,8 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
             symbol, timeframe=timeframe, client=client, exchange=exchange
         )
         selected_candlestick = technical_indicators.iloc[over_candlestick.value]
-        ndigits = NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE)
-        return CryptoMarketMetrics(
-            symbol=symbol,
-            closing_price=round(selected_candlestick["close"], ndigits=ndigits),
-            ema_short=round(selected_candlestick["ema_short"], ndigits=ndigits),
-            ema_mid=round(selected_candlestick["ema_mid"], ndigits=ndigits),
-            ema_long=round(selected_candlestick["ema_long"], ndigits=ndigits),
-            macd_hist=round(selected_candlestick["macd_hist"], ndigits=4),
-            rsi=round(selected_candlestick["rsi"], ndigits=2),
-            atr=round(selected_candlestick["atr"], ndigits=ndigits),
-            adx=round(selected_candlestick["adx"], ndigits=2),
-        )
+        ret = CryptoMarketMetrics.from_candlestick(symbol, selected_candlestick, apply_round=True)
+        return ret
 
     async def calculate_technical_indicators(
         self,
@@ -140,6 +126,8 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         # Calculate Average Directional Index (ADX)
         adx_indicator = ADXIndicator(high=df["high"], low=df["low"], close=df["close"], window=14)
         df["adx"] = adx_indicator.adx()
+        df["adx_pos"] = adx_indicator.adx_pos()
+        df["adx_neg"] = adx_indicator.adx_neg()
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)
         logger.debug("Indicator calculation complete.")
