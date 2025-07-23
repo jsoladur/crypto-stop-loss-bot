@@ -1,10 +1,8 @@
 import logging
 from asyncio import Lock
 
-import cachebox
 import pydash
 
-from crypto_trailing_stop.commons.constants import DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
@@ -30,7 +28,7 @@ class StopLossPercentService(metaclass=SingletonMeta):
                 StopLossPercentItem(symbol=current.symbol, value=current.value)
                 for current in stored_stop_loss_percent_list
             ]
-            additional_crypto_currencies = await self._get_additional_crypto_currencies()
+            additional_crypto_currencies = await self._bit2me_remote_service.get_favourite_crypto_currencies()
             for additional_crypto_currency in additional_crypto_currencies:
                 if not any(current.symbol.lower() == additional_crypto_currency.lower() for current in ret):
                     ret.append(
@@ -69,7 +67,3 @@ class StopLossPercentService(metaclass=SingletonMeta):
                     {StopLossPercent.symbol: item.symbol, StopLossPercent.value: item.value}
                 )
             await stop_loss_percent.save()
-
-    @cachebox.cachedmethod(cachebox.TTLCache(0, ttl=DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS))
-    async def _get_additional_crypto_currencies(self) -> list[str]:
-        return await self._bit2me_remote_service.get_favourite_crypto_currencies()
