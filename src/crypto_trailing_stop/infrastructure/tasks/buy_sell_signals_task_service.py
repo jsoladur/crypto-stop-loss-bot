@@ -254,17 +254,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         return bool(sell_signal)
 
     def _get_rsi_state(self, symbol: str, last: pd.Series) -> RSIState:
-        crypto_market_metrics = CryptoMarketMetrics(
-            symbol=symbol,
-            closing_price=last["close"],
-            ema_short=last["ema_short"],
-            ema_mid=last["ema_mid"],
-            ema_long=last["ema_long"],
-            macd_hist=last["macd_hist"],
-            rsi=last["rsi"],
-            atr=last["atr"],
-            adx=last["adx"],
-        )
+        crypto_market_metrics = CryptoMarketMetrics.from_candlestick(symbol, last)
         return crypto_market_metrics.rsi_state
 
     def _get_volatility_threshold(self, timeframe: Timeframe) -> float:

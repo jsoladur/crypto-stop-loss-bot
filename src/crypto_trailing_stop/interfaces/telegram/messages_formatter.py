@@ -75,6 +75,8 @@ class MessagesFormatter(metaclass=SingletonMeta):
             f"🎢 {html.bold('ATR')} = ±{metrics.atr} {fiat_currency} (±{metrics.atr_percent}%)",
             f"📊 {html.bold('RSI')} = {html.italic(pydash.start_case(metrics.rsi_state))} ({metrics.rsi})",
             f"📶 {html.bold('ADX')} = {metrics.adx}",
+            f"  ➕{html.bold('DI')} = {metrics.adx_pos}",
+            f"  ➖{html.bold('DI')} = {metrics.adx_neg}",
         ]
         ret = header + "\n".join(message_lines)
         return ret
