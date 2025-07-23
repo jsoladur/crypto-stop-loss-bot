@@ -52,6 +52,9 @@ async def should_set_buy_sell_signals_config_properly(
         == configuration_properties.suggested_take_profit_atr_multiplier
     )
     assert returned_buy_sell_signals_config_item.filter_noise_using_adx is False
+    assert (
+        returned_buy_sell_signals_config_item.adx_threshold == configuration_properties.buy_sell_signals_adx_threshold
+    )
     assert returned_buy_sell_signals_config_item.auto_exit_sell_1h is True
     assert returned_buy_sell_signals_config_item.auto_exit_atr_take_profit is True
 
@@ -60,11 +63,12 @@ async def should_set_buy_sell_signals_config_properly(
         ema_short_value=faker.pyint(min_value=5, max_value=9),
         ema_mid_value=faker.pyint(min_value=18, max_value=30),
         ema_long_value=faker.pyint(min_value=200, max_value=250),
-        filter_noise_using_adx=faker.pybool(truth_probability=99),
-        auto_exit_sell_1h=faker.pybool(truth_probability=1),
-        auto_exit_atr_take_profit=faker.pybool(truth_probability=1),
         stop_loss_atr_multiplier=faker.pyfloat(min_value=2.5, max_value=6.5),
         take_profit_atr_multiplier=faker.pyfloat(min_value=2.5, max_value=6.5),
+        filter_noise_using_adx=faker.pybool(truth_probability=99),
+        adx_threshold=faker.random_element([15, 20, 25]),
+        auto_exit_sell_1h=faker.pybool(truth_probability=1),
+        auto_exit_atr_take_profit=faker.pybool(truth_probability=1),
     )
     await buy_sell_signals_config_service.save_or_update(expected_buy_sell_signals_config_item)
     buy_sell_signals_config_list = await buy_sell_signals_config_service.find_all()
@@ -79,10 +83,6 @@ async def should_set_buy_sell_signals_config_properly(
     assert returned_buy_sell_signals_config_item.ema_mid_value == expected_buy_sell_signals_config_item.ema_mid_value
     assert returned_buy_sell_signals_config_item.ema_long_value == expected_buy_sell_signals_config_item.ema_long_value
     assert (
-        returned_buy_sell_signals_config_item.filter_noise_using_adx
-        == expected_buy_sell_signals_config_item.filter_noise_using_adx
-    )
-    assert (
         returned_buy_sell_signals_config_item.stop_loss_atr_multiplier
         == expected_buy_sell_signals_config_item.stop_loss_atr_multiplier
     )
@@ -90,6 +90,11 @@ async def should_set_buy_sell_signals_config_properly(
         returned_buy_sell_signals_config_item.take_profit_atr_multiplier
         == expected_buy_sell_signals_config_item.take_profit_atr_multiplier
     )
+    assert (
+        returned_buy_sell_signals_config_item.filter_noise_using_adx
+        == expected_buy_sell_signals_config_item.filter_noise_using_adx
+    )
+    assert returned_buy_sell_signals_config_item.adx_threshold == expected_buy_sell_signals_config_item.adx_threshold
     assert (
         returned_buy_sell_signals_config_item.auto_exit_sell_1h
         is expected_buy_sell_signals_config_item.auto_exit_sell_1h

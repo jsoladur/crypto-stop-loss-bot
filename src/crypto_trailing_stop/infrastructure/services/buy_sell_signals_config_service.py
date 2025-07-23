@@ -57,11 +57,12 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             config.ema_short_value = item.ema_short_value
             config.ema_mid_value = item.ema_mid_value
             config.ema_long_value = item.ema_long_value
-            config.filter_noise_using_adx = item.filter_noise_using_adx
-            config.auto_exit_sell_1h = item.auto_exit_sell_1h
-            config.auto_exit_atr_take_profit = item.auto_exit_atr_take_profit
             config.stop_loss_atr_multiplier = item.stop_loss_atr_multiplier
             config.take_profit_atr_multiplier = item.take_profit_atr_multiplier
+            config.filter_noise_using_adx = item.filter_noise_using_adx
+            config.adx_threshold = item.adx_threshold
+            config.auto_exit_sell_1h = item.auto_exit_sell_1h
+            config.auto_exit_atr_take_profit = item.auto_exit_atr_take_profit
         else:
             config = BuySellSignalsConfig(
                 {
@@ -69,9 +70,10 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
                     BuySellSignalsConfig.ema_short_value: item.ema_short_value,
                     BuySellSignalsConfig.ema_mid_value: item.ema_mid_value,
                     BuySellSignalsConfig.ema_long_value: item.ema_long_value,
-                    BuySellSignalsConfig.filter_noise_using_adx: item.filter_noise_using_adx,
                     BuySellSignalsConfig.stop_loss_atr_multiplier: item.stop_loss_atr_multiplier,
                     BuySellSignalsConfig.take_profit_atr_multiplier: item.take_profit_atr_multiplier,
+                    BuySellSignalsConfig.filter_noise_using_adx: item.filter_noise_using_adx,
+                    BuySellSignalsConfig.adx_threshold: item.adx_threshold,
                     BuySellSignalsConfig.auto_exit_sell_1h: item.auto_exit_sell_1h,
                     BuySellSignalsConfig.auto_exit_atr_take_profit: item.auto_exit_atr_take_profit,
                 }
@@ -84,9 +86,10 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             ema_short_value=buy_sell_signals_config.ema_short_value,
             ema_mid_value=buy_sell_signals_config.ema_mid_value,
             ema_long_value=buy_sell_signals_config.ema_long_value,
-            filter_noise_using_adx=buy_sell_signals_config.filter_noise_using_adx,
             stop_loss_atr_multiplier=buy_sell_signals_config.stop_loss_atr_multiplier,
             take_profit_atr_multiplier=buy_sell_signals_config.take_profit_atr_multiplier,
+            filter_noise_using_adx=buy_sell_signals_config.filter_noise_using_adx,
+            adx_threshold=buy_sell_signals_config.adx_threshold,
             auto_exit_sell_1h=buy_sell_signals_config.auto_exit_sell_1h,
             auto_exit_atr_take_profit=buy_sell_signals_config.auto_exit_atr_take_profit,
         )
