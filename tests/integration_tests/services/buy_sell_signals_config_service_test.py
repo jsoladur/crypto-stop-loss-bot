@@ -116,7 +116,7 @@ def _prepare_httpserver_mock(
         Bit2MeAPIRequestMacher(
             "/bit2me-api/v1/currency-favorites/favorites", method="GET"
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
+        handler_type=HandlerType.PERMANENT,
     ).respond_with_json(
         [{"currency": favourite_crypto_currency} for favourite_crypto_currency in favourite_crypto_currencies]
     )
