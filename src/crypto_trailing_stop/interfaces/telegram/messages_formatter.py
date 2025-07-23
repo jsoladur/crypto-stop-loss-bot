@@ -59,22 +59,18 @@ class MessagesFormatter(metaclass=SingletonMeta):
 
     def format_current_crypto_metrics_message(self, metrics: CryptoMarketMetrics) -> str:
         *_, fiat_currency = metrics.symbol.split("/")
-        if metrics.macd_hist > 0:
-            macd_hist_icon = "🟢"  # Upward momentum
-        elif metrics.macd_hist < 0:
-            macd_hist_icon = "🔻"  # Downward momentum
-        else:
-            macd_hist_icon = "🟰"  # Neutral / crossover point
         header = f"🧮 {html.bold('CURRENT METRICS')} for {html.bold(metrics.symbol)} 🧮\n\n"
         message_lines = [
             f"💰 {html.bold('Current Price')} = {html.code(f'{metrics.closing_price} {fiat_currency}')}",
             f"📈 {html.bold('EMA Short')} = {metrics.ema_short} {fiat_currency}",
             f"📉 {html.bold('EMA Mid')} = {metrics.ema_mid} {fiat_currency}",
             f"📐 {html.bold('EMA Long')} = {metrics.ema_long} {fiat_currency}",
-            f"♊ {html.bold('MACD Hist')} = {macd_hist_icon} {metrics.macd_hist}",
+            f"♊ {html.bold('MACD Hist')} = {self._get_macd_hist_icon(metrics)} {metrics.macd_hist}",
             f"🎢 {html.bold('ATR')} = ±{metrics.atr} {fiat_currency} (±{metrics.atr_percent}%)",
             f"📊 {html.bold('RSI')} = {html.italic(pydash.start_case(metrics.rsi_state))} ({metrics.rsi})",
-            f"📶 {html.bold('ADX')} = {metrics.adx}",
+            f"📶 {html.bold('ADX')} = {self._get_adx_icon(metrics)} {metrics.adx}",
+            f"  ➕{html.bold('DI')} = {metrics.adx_pos}",
+            f"  ➖{html.bold('DI')} = {metrics.adx_neg}",
         ]
         ret = header + "\n".join(message_lines)
         return ret
@@ -185,3 +181,27 @@ class MessagesFormatter(metaclass=SingletonMeta):
                 message_lines.append(line)
         ret = header + "\n\n".join(message_lines)
         return ret
+
+    def _get_macd_hist_icon(self, metrics: CryptoMarketMetrics) -> str:
+        if metrics.macd_hist > 0:
+            # Upward momentum
+            macd_hist_icon = "🟢"
+        elif metrics.macd_hist < 0:
+            # Downward momentum
+            macd_hist_icon = "🔻"
+        else:
+            # Neutral / crossover point
+            macd_hist_icon = "🟰"
+        return macd_hist_icon
+
+    def _get_adx_icon(self, metrics: CryptoMarketMetrics) -> str:
+        if metrics.adx_pos > metrics.adx_neg:
+            # Positive strenght
+            adx_icon = "🟢"
+        elif metrics.adx_neg > metrics.adx_pos:
+            # Negative strenght
+            adx_icon = "🔻"
+        else:
+            # Neutral strenght (consolidation momentum)
+            adx_icon = "🟰"
+        return adx_icon
