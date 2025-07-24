@@ -258,12 +258,15 @@ class BuySellSignalsTaskService(AbstractTaskService):
             prev_candle_market_metrics.ema_short >= prev_candle_market_metrics.ema_mid
             and last_candle_market_metrics.ema_short < last_candle_market_metrics.ema_mid
         )
-        is_strong_trend = not buy_sell_signals_config.filter_noise_using_adx or (
-            # NOTE: -DI > +DI
-            last_candle_market_metrics.adx_neg > last_candle_market_metrics.adx_pos
-            # NOTE: ADX > 20
-            and last_candle_market_metrics.adx > self._configuration_properties.buy_sell_signals_adx_threshold
-        )
+        # XXX: [JMSOLA] Removed ADX filter for sell signals
+        # This is because we want to capture the bearish trend even if the ADX is not strong.
+        # is_strong_trend = not buy_sell_signals_config.filter_noise_using_adx or (
+        #     # NOTE: -DI > +DI
+        #     last_candle_market_metrics.adx_neg > last_candle_market_metrics.adx_pos
+        #     # NOTE: ADX > 20
+        #     and last_candle_market_metrics.adx > self._configuration_properties.buy_sell_signals_adx_threshold
+        # )
+        is_strong_trend = True  # Always consider the trend strong for sell signals
         sell_signal = ema_bearish_cross and last_candle_market_metrics.macd_hist < 0 and is_strong_trend
         return bool(sell_signal)
 
