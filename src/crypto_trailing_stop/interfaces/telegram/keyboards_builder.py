@@ -125,13 +125,19 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
 
     def get_auto_entry_trader_config_values_by_symbol_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
-        for percent_value in AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST:
-            builder.row(
-                InlineKeyboardButton(
-                    text=f"💰 {percent_value}%",
-                    callback_data=f"persist_auto_entry_trader_config$${symbol}$${percent_value}",
-                )
+        buttons = [
+            InlineKeyboardButton(
+                text=f"💰 {percent_value}%",
+                callback_data=f"persist_auto_entry_trader_config$${symbol}$${percent_value}",
             )
+            for percent_value in AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST
+        ]
+        first_button, *remaining_buttons = buttons
+        *buttons_for_chunk, last_button = remaining_buttons
+        builder.row(first_button)
+        for buttons_chunk in pydash.chunk(buttons_for_chunk, size=4):
+            builder.row(*buttons_chunk)
+        builder.row(last_button)
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="auto_entry_trader_config_home"))
         return builder.as_markup()
 
