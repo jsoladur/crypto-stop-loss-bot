@@ -84,6 +84,7 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
                     text=f"⚡ {item.symbol}", callback_data=f"set_buy_sell_signals_config$${item.symbol}"
                 )
             )
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 
     def get_auto_entry_trader_config_keyboard(self, items: list[AutoBuyTraderConfigItem]) -> InlineKeyboardMarkup:
