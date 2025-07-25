@@ -137,8 +137,6 @@ async def should_create_market_sell_order_when_auto_exit_sell_1h(
             httpserver.check_assertions()
 
 
-# FIXME: Finish the test!!!!
-@pytest.mark.skip(reason="This test is not ended to be run in CI, it is only for local testing")
 @pytest.mark.asyncio
 async def should_ignore_sell_1h_signal_and_not_sell_when_price_is_lower_than_break_even(
     faker: Faker, integration_test_env: tuple[HTTPServer, str]
@@ -151,16 +149,17 @@ async def should_ignore_sell_1h_signal_and_not_sell_when_price_is_lower_than_bre
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
 
-    opened_sell_bit2me_orders, *_ = _prepare_httpserver_mock(
+    *_, buy_prices = _prepare_httpserver_mock(
         faker,
         httpserver,
         bit2me_api_key,
         bit2me_api_secret,
-        closing_crypto_currency_price_multipler=1.5,
+        closing_crypto_currency_price_multipler=0.495,
         simulate_future_sell_orders=False,
         sell_1h_signals_behind_break_even=True,
     )
-    first_order, *_ = opened_sell_bit2me_orders
+    first_order_and_price, *_ = buy_prices
+    first_order, buy_price = first_order_and_price
     crypto_currency, *_ = first_order.symbol.split("/")
     await BuySellSignalsConfigService().save_or_update(
         BuySellSignalsConfigItem(symbol=crypto_currency, auto_exit_atr_take_profit=False)
@@ -168,7 +167,8 @@ async def should_ignore_sell_1h_signal_and_not_sell_when_price_is_lower_than_bre
     task_manager = get_task_manager_instance()
 
     # Create fake market signals to simulate the sudden SELL 1H market signal
-    await _create_fake_market_signals(first_order)
+
+    await _create_fake_market_signals(first_order, closing_price_sell_1h_signal=buy_price)
 
     # Provoke send a notification via Telegram
     telegram_chat_id = faker.random_number(digits=9, fix_len=True)
