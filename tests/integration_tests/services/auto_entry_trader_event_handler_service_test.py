@@ -250,7 +250,7 @@ def _prepare_httpserver_mock(
             RootModel[list[Bit2MeOrderDto]](opened_sell_bit2me_orders).model_dump(mode="json", by_alias=True)
         )
 
-        buy_trades = generate_trades(faker, opened_sell_bit2me_orders, number_of_trades=1)
+        buy_trades, *_ = generate_trades(faker, opened_sell_bit2me_orders, number_of_trades=1)
         for _ in range(len(opened_sell_bit2me_orders)):
             # Mock trades /v1/trading/trade
             httpserver.expect(

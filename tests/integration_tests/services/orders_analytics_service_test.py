@@ -124,7 +124,7 @@ def _prepare_httpserver_mock(
             side="sell", order_type="limit", symbol=symbol, status=faker.random_element(["open", "inactive"])
         ),
     ]
-    buy_trades = generate_trades(faker, opened_sell_bit2me_orders)
+    buy_trades, *_ = generate_trades(faker, opened_sell_bit2me_orders)
     # Mock call to /v1/trading/order to get opened sell orders
     httpserver.expect(
         Bit2MeAPIRequestMacher(
