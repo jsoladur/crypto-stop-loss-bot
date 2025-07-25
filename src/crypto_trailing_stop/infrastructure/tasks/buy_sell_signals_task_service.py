@@ -252,7 +252,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self,
         prev_candle_market_metrics: CryptoMarketMetrics,
         last_candle_market_metrics: CryptoMarketMetrics,
-        buy_sell_signals_config: BuySellSignalsConfigItem,
+        _: BuySellSignalsConfigItem,
     ) -> bool:
         ema_bearish_cross = (
             prev_candle_market_metrics.ema_short >= prev_candle_market_metrics.ema_mid
