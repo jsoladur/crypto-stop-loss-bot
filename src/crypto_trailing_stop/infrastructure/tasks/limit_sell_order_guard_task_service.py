@@ -160,11 +160,13 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             crypto_currency, *_ = sell_order.symbol.split("/")
             buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
             # Calculate auto_exit_sell_1h
-            auto_exit_sell_1h = await self._is_auto_exit_due_to_sell_1h(sell_order, buy_sell_signals_config)
+            auto_exit_sell_1h = await self._is_auto_exit_due_to_sell_1h(
+                sell_order, tickers, guard_metrics, buy_sell_signals_config
+            )
             if not auto_exit_sell_1h:
                 atr_take_profit_limit_price_reached = (
                     await self._is_auto_exit_due_to_atr_take_profit_limit_price_reached(
-                        tickers, guard_metrics, buy_sell_signals_config
+                        sell_order, tickers, guard_metrics, buy_sell_signals_config
                     )
                 )
         return AutoExitReason(
@@ -174,7 +176,11 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         )
 
     async def _is_auto_exit_due_to_sell_1h(
-        self, sell_order: Bit2MeOrderDto, buy_sell_signals_config: BuySellSignalsConfigItem
+        self,
+        sell_order: Bit2MeOrderDto,
+        tickers: Bit2MeTickersDto,
+        guard_metrics: LimitSellOrderGuardMetrics,
+        buy_sell_signals_config: BuySellSignalsConfigItem,
     ) -> bool:
         auto_exit_sell_1h = False
         if buy_sell_signals_config.auto_exit_sell_1h:
@@ -183,11 +189,13 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
                 last_market_1h_signal is not None
                 and last_market_1h_signal.timestamp > sell_order.created_at
                 and last_market_1h_signal.signal_type == "sell"
+                and tickers.close >= guard_metrics.break_even_price
             )
         return auto_exit_sell_1h
 
     async def _is_auto_exit_due_to_atr_take_profit_limit_price_reached(
         self,
+        _: Bit2MeOrderDto,
         tickers: Bit2MeTickersDto,
         guard_metrics: LimitSellOrderGuardMetrics,
         buy_sell_signals_config: BuySellSignalsConfigItem,
