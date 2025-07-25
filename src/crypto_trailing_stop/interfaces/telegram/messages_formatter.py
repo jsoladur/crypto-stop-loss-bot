@@ -21,7 +21,10 @@ from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import M
 
 class MessagesFormatter(metaclass=SingletonMeta):
     def format_trading_wallet_balances(
-        self, account_info: Bit2MeAccountInfoDto, trading_wallet_balances: list[Bit2MeTradingWalletBalanceDto]
+        self,
+        account_info: Bit2MeAccountInfoDto,
+        trading_wallet_balances: list[Bit2MeTradingWalletBalanceDto],
+        total_portfolio_fiat_amount: float,
     ) -> str:
         # Filter no effective wallet balances
         trading_wallet_balances = pydash.order_by(
@@ -34,15 +37,40 @@ class MessagesFormatter(metaclass=SingletonMeta):
             "currency",
         )
         message_lines = ["===========================", "🪙 PRO WALLET BALANCES 🪙", "==========================="]
-        for idx, wallet_balance in enumerate(trading_wallet_balances):
-            balance = round(wallet_balance.balance, ndigits=4)
-            blocked_balance = round(wallet_balance.blocked_balance, ndigits=4)
-            total_balance = round(wallet_balance.total_balance, ndigits=4)
-            message_lines.append(
-                f"🏷️ {html.bold(wallet_balance.currency)} \n"
-                f"   💰 Available: {html.code(balance)}\n"
-                f"   🔒 Blocked: {html.code(blocked_balance)}\n"
-                f"   ➕ {html.bold('TOTAL')}: {html.code(total_balance)}"
+        if trading_wallet_balances:
+            for wallet_balance in trading_wallet_balances:
+                balance = round(wallet_balance.balance, ndigits=4)
+                blocked_balance = round(wallet_balance.blocked_balance, ndigits=4)
+                total_balance = round(wallet_balance.total_balance, ndigits=4)
+                message_lines.append(
+                    f"🏷️ {html.bold(wallet_balance.currency)} \n"
+                    f"   💰 Available: {html.code(balance)}\n"
+                    f"   🔒 Blocked: {html.code(blocked_balance)}\n"
+                    f"   ➕ {html.bold('TOTAL')}: {html.code(total_balance)}"
+                )
+        else:
+            message_lines.append("✳️ No trading wallet balances found.")
+        message_lines.append(
+            html.italic(
+                f"📊  {html.bold('Total Portfolio')}: {total_portfolio_fiat_amount} {account_info.profile.currency_code}"  # noqa: E501
+            )
+        )
+        fiat_currency_wallet_balance = next(
+            filter(
+                lambda twb: twb.currency.lower() == account_info.profile.currency_code.lower(), trading_wallet_balances
+            ),
+            None,
+        )
+        if fiat_currency_wallet_balance and total_portfolio_fiat_amount > 0:
+            no_invested_percent = round(
+                (fiat_currency_wallet_balance.balance / total_portfolio_fiat_amount) * 100, ndigits=2
+            )
+            invested_percent_value = 100 - no_invested_percent
+            message_lines.extend(
+                [
+                    html.italic(f"💸 {html.bold('Invested')}: {invested_percent_value}%"),
+                    html.italic(f"💤 {html.bold('To invest')}: {no_invested_percent}%"),
+                ]
             )
         ret = "\n".join(message_lines)
         return ret
