@@ -49,7 +49,7 @@ async def should_create_market_sell_order_when_atr_take_profit_limit_price_reach
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
 
-    opened_sell_bit2me_orders = _prepare_httpserver_mock(
+    opened_sell_bit2me_orders, *_ = _prepare_httpserver_mock(
         faker, httpserver, bit2me_api_key, bit2me_api_secret, closing_crypto_currency_price_multipler=1.5
     )
 
@@ -96,7 +96,7 @@ async def should_create_market_sell_order_when_auto_exit_sell_1h(
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
 
-    opened_sell_bit2me_orders = _prepare_httpserver_mock(
+    opened_sell_bit2me_orders, *_ = _prepare_httpserver_mock(
         faker,
         httpserver,
         bit2me_api_key,
@@ -137,6 +137,62 @@ async def should_create_market_sell_order_when_auto_exit_sell_1h(
             httpserver.check_assertions()
 
 
+@pytest.mark.asyncio
+async def should_ignore_sell_1h_signal_and_not_sell_when_price_is_lower_than_break_even(
+    faker: Faker, integration_test_env: tuple[HTTPServer, str]
+) -> None:
+    """
+    Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
+    """
+    # Mock the Bit2Me API
+    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+    # Disable all jobs by default for test purposes!
+    await disable_all_background_jobs_except()
+
+    *_, buy_prices = _prepare_httpserver_mock(
+        faker,
+        httpserver,
+        bit2me_api_key,
+        bit2me_api_secret,
+        closing_crypto_currency_price_multipler=0.495,
+        simulate_future_sell_orders=False,
+        sell_1h_signals_behind_break_even=True,
+    )
+    first_order_and_price, *_ = buy_prices
+    first_order, buy_price = first_order_and_price
+    crypto_currency, *_ = first_order.symbol.split("/")
+    await BuySellSignalsConfigService().save_or_update(
+        BuySellSignalsConfigItem(symbol=crypto_currency, auto_exit_atr_take_profit=False)
+    )
+    task_manager = get_task_manager_instance()
+
+    # Create fake market signals to simulate the sudden SELL 1H market signal
+
+    await _create_fake_market_signals(first_order, closing_price_sell_1h_signal=buy_price)
+
+    # Provoke send a notification via Telegram
+    telegram_chat_id = faker.random_number(digits=9, fix_len=True)
+    for push_notification_type in PushNotificationTypeEnum:
+        push_notification = PushNotification(
+            {
+                PushNotification.telegram_chat_id: telegram_chat_id,
+                PushNotification.notification_type: push_notification_type,
+            }
+        )
+        await push_notification.save()
+
+    limit_sell_order_guard_task_service: LimitSellOrderGuardTaskService = task_manager.get_tasks()[
+        GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
+    ]
+    with patch.object(
+        LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
+    ) as notify_fatal_error_via_telegram_mock:
+        with patch.object(Bot, "send_message"):
+            await limit_sell_order_guard_task_service.run()
+            notify_fatal_error_via_telegram_mock.assert_not_called()
+            httpserver.check_assertions()
+
+
 @pytest.mark.parametrize("bit2me_error_status_code", [403, 412, 429, 500, 502])
 @pytest.mark.asyncio
 async def should_create_market_sell_order_when_safeguard_stop_price_reached(
@@ -149,7 +205,7 @@ async def should_create_market_sell_order_when_safeguard_stop_price_reached(
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
-    opened_sell_bit2me_orders = _prepare_httpserver_mock(
+    opened_sell_bit2me_orders, *_ = _prepare_httpserver_mock(
         faker,
         httpserver,
         bit2me_api_key,
@@ -201,7 +257,8 @@ def _prepare_httpserver_mock(
     *,
     closing_crypto_currency_price_multipler: float,
     simulate_future_sell_orders: bool = False,
-) -> list[Bit2MeOrderDto]:
+    sell_1h_signals_behind_break_even: bool = False,
+) -> tuple[list[Bit2MeOrderDto], list[Bit2MeOrderDto, float]]:
     symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
     # Mock OHLCV /v1/trading/candle
     fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
@@ -240,7 +297,7 @@ def _prepare_httpserver_mock(
     tickers = Bit2MeTickersDtoObjectMother.create(
         symbol=symbol, close=orders_price * closing_crypto_currency_price_multipler
     )
-    buy_trades = generate_trades(faker, opened_sell_bit2me_orders)
+    buy_trades, buy_prices = generate_trades(faker, opened_sell_bit2me_orders)
     # Mock call to /v1/trading/order to get opened sell orders
     httpserver.expect(
         Bit2MeAPIRequestMacher(
@@ -284,7 +341,7 @@ def _prepare_httpserver_mock(
                 data=buy_trades, total=faker.pyint(min_value=len(buy_trades), max_value=len(buy_trades) * 10)
             ).model_dump(mode="json", by_alias=True)
         )
-        if not simulate_future_sell_orders:
+        if not simulate_future_sell_orders and not sell_1h_signals_behind_break_even:
             # Mock call to DELETE /v1/trading/order/{id}
             httpserver.expect(
                 Bit2MeAPIRequestMacher(
@@ -304,15 +361,19 @@ def _prepare_httpserver_mock(
                     side="sell", order_type="market", status=faker.random_element(["open", "inactive"])
                 ).model_dump(by_alias=True, mode="json")
             )
-    return opened_sell_bit2me_orders
+    return opened_sell_bit2me_orders, buy_prices
 
 
-async def _create_fake_market_signals(first_order: Bit2MeOrderDto) -> None:
+async def _create_fake_market_signals(
+    first_order: Bit2MeOrderDto, closing_price_sell_1h_signal: float | None = None
+) -> None:
     market_signal_service = MarketSignalService()
 
     one_hour_last_signals = [
         SignalsEvaluationResultObjectMother.create(symbol=first_order.symbol, timeframe="1h", buy=True, sell=False),
-        SignalsEvaluationResultObjectMother.create(symbol=first_order.symbol, timeframe="1h", buy=False, sell=True),
+        SignalsEvaluationResultObjectMother.create(
+            symbol=first_order.symbol, timeframe="1h", buy=False, sell=True, closing_price=closing_price_sell_1h_signal
+        ),
     ]
     for signal in one_hour_last_signals:
         await market_signal_service.on_signals_evaluation_result(signal)

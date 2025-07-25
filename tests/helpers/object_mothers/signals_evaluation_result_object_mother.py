@@ -32,6 +32,7 @@ class SignalsEvaluationResultObjectMother:
         sell: bool | None = None,
         rsi_state: RSIState | None = None,
         is_choppy: bool | None = None,
+        closing_price: float | None = None,
     ) -> SignalsEvaluationResult:
         is_choppy = bool(is_choppy) if is_choppy is not None else False
         if not is_choppy:
@@ -47,6 +48,6 @@ class SignalsEvaluationResultObjectMother:
             rsi_state=rsi_state if rsi_state is not None else "neutral",
             is_choppy=is_choppy,
             atr=round(cls._faker.pyfloat(min_value=15.0, max_value=30.0), ndigits=2),
-            closing_price=round(cls._faker.pyfloat(min_value=3_000, max_value=5_000), ndigits=2),
+            closing_price=closing_price or round(cls._faker.pyfloat(min_value=3_000, max_value=5_000), ndigits=2),
             ema_long_price=round(cls._faker.pyfloat(min_value=1_000, max_value=2_000), ndigits=2),
         )
