@@ -27,6 +27,19 @@ AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST = 25.0
 AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST = np.arange(0, 105, 5).tolist()
 # Buy Sell Signals Config
 EMA_SHORT_MID_PAIRS = [f"{ema_short}/{ema_mid}" for ema_short, ema_mid in [(7, 18), (8, 20), (9, 21)]]
+SP_TP_PAIRS = [
+    f"{sp_percent}/{tp_percent}"
+    for sp_percent, tp_percent in [
+        (2.5, 3.5),  # RRR: 1.4
+        (2.5, 3.8),  # RRR: 1.52
+        (2.5, 4.0),  # RRR: 1.6
+        (2.5, 4.2),  # RRR: 1.68
+        (3.0, 4.2),  # RRR: 1.4
+        (3.0, 4.5),  # RRR: 1.5
+        (3.0, 4.8),  # RRR: 1.6
+        (3.0, 5.1),  # RRR: 1.7
+    ]
+]
 EMA_LONG_VALUES = [150, 200, 233]
 ADX_THRESHOLD_VALUES = [15, 20, 25]
 YES_NO_VALUES = ["Yes", "No"]
