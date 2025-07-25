@@ -65,7 +65,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
             no_invested_percent = round(
                 (fiat_currency_wallet_balance.balance / total_portfolio_fiat_amount) * 100, ndigits=2
             )
-            invested_percent_value = 100 - no_invested_percent
+            invested_percent_value = round(100 - no_invested_percent, ndigits=2)
             message_lines.extend(
                 [
                     html.italic(f"💸 {html.bold('Invested')}: {invested_percent_value}%"),
