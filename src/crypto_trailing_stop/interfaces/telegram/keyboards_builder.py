@@ -2,10 +2,14 @@ from urllib.parse import urlencode, urlparse, urlunparse
 
 import pydash
 from aiogram.fsm.context import FSMContext
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
-from crypto_trailing_stop.commons.constants import AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST, STOP_LOSS_STEPS_VALUE_LIST
+from crypto_trailing_stop.commons.constants import (
+    AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST,
+    SP_TP_PAIRS,
+    STOP_LOSS_STEPS_VALUE_LIST,
+)
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
@@ -84,6 +88,7 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
                     text=f"⚡ {item.symbol}", callback_data=f"set_buy_sell_signals_config$${item.symbol}"
                 )
             )
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 
     def get_auto_entry_trader_config_keyboard(self, items: list[AutoBuyTraderConfigItem]) -> InlineKeyboardMarkup:
@@ -185,4 +190,12 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
         for symbol in symbols:
             builder.row(InlineKeyboardButton(text=f"🚥 {symbol}", callback_data=f"show_last_market_signals$${symbol}"))
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
+        return builder.as_markup()
+
+    @staticmethod
+    def get_sp_tp_pairs_keyboard() -> ReplyKeyboardMarkup:
+        builder = ReplyKeyboardBuilder()
+        keyboard_buttons = [KeyboardButton(text=text) for text in SP_TP_PAIRS]
+        for buttons_chunk in pydash.chunk(keyboard_buttons, size=2):
+            builder.row(*buttons_chunk)
         return builder.as_markup()
