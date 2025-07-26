@@ -17,11 +17,13 @@ from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service imp
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
+from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
+from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTradingTaskService
 from crypto_trailing_stop.infrastructure.tasks.vo.auto_exit_reason import AutoExitReason
@@ -100,13 +102,17 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         *,
         client: AsyncClient,
     ) -> set[str]:
+        technical_indicators = self._technical_indicators_by_symbol_cache[sell_order.symbol].technical_indicators
+        last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
+            sell_order.symbol, candlestick=technical_indicators.iloc[CandleStickEnum.LAST]
+        )
         *_, fiat_currency = sell_order.symbol.split("/")
         (
             guard_metrics,
             previous_used_buy_trade_ids,
         ) = await self._orders_analytics_service.calculate_guard_metrics_by_sell_order(
             sell_order,
-            technical_indicators=self._technical_indicators_by_symbol_cache[sell_order.symbol].technical_indicators,
+            technical_indicators=technical_indicators,
             previous_used_buy_trade_ids=previous_used_buy_trade_ids,
             client=client,
         )
@@ -124,7 +130,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             + f"ATR value = {guard_metrics.current_attr_value} {fiat_currency} / "
             + f"Current Price = {tickers_close_formatted} {fiat_currency}"
         )
-        auto_exit_reason = await self._is_moment_to_exit(sell_order, tickers, guard_metrics)
+        auto_exit_reason = await self._is_moment_to_exit(sell_order, tickers, guard_metrics, last_candle_market_metrics)
         if auto_exit_reason.is_exit:
             # Cancel current take-profit sell limit order
             await self._bit2me_remote_service.cancel_order_by_id(sell_order.id, client=client)
@@ -149,7 +155,11 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         return (previous_used_buy_trade_ids,)
 
     async def _is_moment_to_exit(
-        self, sell_order: Bit2MeOrderDto, tickers: Bit2MeTickersDto, guard_metrics: LimitSellOrderGuardMetrics
+        self,
+        sell_order: Bit2MeOrderDto,
+        tickers: Bit2MeTickersDto,
+        guard_metrics: LimitSellOrderGuardMetrics,
+        last_candle_market_metrics: CryptoMarketMetrics,
     ) -> AutoExitReason:
         # XXX: [JMSOLA] In this point we have to think over about how to make a good exit when
         # our order has not been filled but suddlenly appear a SELL 1H signal, so we need to define
@@ -161,12 +171,12 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
             # Calculate auto_exit_sell_1h
             auto_exit_sell_1h = await self._is_auto_exit_due_to_sell_1h(
-                sell_order, tickers, guard_metrics, buy_sell_signals_config
+                sell_order, tickers, guard_metrics, buy_sell_signals_config, last_candle_market_metrics
             )
             if not auto_exit_sell_1h:
                 atr_take_profit_limit_price_reached = (
                     await self._is_auto_exit_due_to_atr_take_profit_limit_price_reached(
-                        sell_order, tickers, guard_metrics, buy_sell_signals_config
+                        sell_order, tickers, guard_metrics, buy_sell_signals_config, last_candle_market_metrics
                     )
                 )
         return AutoExitReason(
@@ -181,6 +191,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         tickers: Bit2MeTickersDto,
         guard_metrics: LimitSellOrderGuardMetrics,
         buy_sell_signals_config: BuySellSignalsConfigItem,
+        last_candle_market_metrics: CryptoMarketMetrics,
     ) -> bool:
         auto_exit_sell_1h = False
         if buy_sell_signals_config.auto_exit_sell_1h:
@@ -190,6 +201,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
                 and last_market_1h_signal.timestamp > sell_order.created_at
                 and last_market_1h_signal.signal_type == "sell"
                 and tickers.close >= guard_metrics.break_even_price
+                and last_candle_market_metrics.macd_hist < 0
             )
         return auto_exit_sell_1h
 
@@ -199,6 +211,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         tickers: Bit2MeTickersDto,
         guard_metrics: LimitSellOrderGuardMetrics,
         buy_sell_signals_config: BuySellSignalsConfigItem,
+        __: CryptoMarketMetrics,
     ) -> bool:
         atr_take_profit_limit_price_reached = False
         if buy_sell_signals_config.auto_exit_atr_take_profit:
