@@ -19,6 +19,9 @@ from crypto_trailing_stop.infrastructure.services.crypto_analytics_service impor
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
+from crypto_trailing_stop.infrastructure.services.limit_sell_order_guard_cache_service import (
+    LimitSellOrderGuardCacheService,
+)
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
@@ -38,6 +41,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         self._configuration_properties = get_configuration_properties()
         self._market_signal_service = MarketSignalService()
         self._ccxt_remote_service = CcxtRemoteService()
+        self._limit_sell_order_guard_cache_service = LimitSellOrderGuardCacheService()
         self._buy_sell_signals_config_service = BuySellSignalsConfigService(
             bit2me_remote_service=self._bit2me_remote_service
         )
@@ -161,25 +165,30 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         guard_metrics: LimitSellOrderGuardMetrics,
         last_candle_market_metrics: CryptoMarketMetrics,
     ) -> AutoExitReason:
-        # XXX: [JMSOLA] In this point we have to think over about how to make a good exit when
-        # our order has not been filled but suddlenly appear a SELL 1H signal, so we need to define
-        # a strategy to immediately exit because our high limit price won't be reached!
-        safeguard_stop_price_reached = tickers.close <= guard_metrics.safeguard_stop_price
-        auto_exit_sell_1h, atr_take_profit_limit_price_reached = False, False
-        if not safeguard_stop_price_reached:
-            crypto_currency, *_ = sell_order.symbol.split("/")
-            buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
-            # Calculate auto_exit_sell_1h
-            auto_exit_sell_1h = await self._is_auto_exit_due_to_sell_1h(
-                sell_order, tickers, guard_metrics, buy_sell_signals_config, last_candle_market_metrics
-            )
-            if not auto_exit_sell_1h:
-                atr_take_profit_limit_price_reached = (
-                    await self._is_auto_exit_due_to_atr_take_profit_limit_price_reached(
-                        sell_order, tickers, guard_metrics, buy_sell_signals_config, last_candle_market_metrics
-                    )
+        """Determines if it's the right moment to exit the sell order based on various conditions."""
+        # Check if the sell order is marked for immediate sell
+        is_marked_for_immediate_sell = (
+            self._limit_sell_order_guard_cache_service.is_sell_order_marked_as_immediate_sell(sell_order.id)
+        )
+        safeguard_stop_price_reached, atr_take_profit_limit_price_reached, auto_exit_sell_1h = False, False, False
+        if not is_marked_for_immediate_sell:
+            # Check if the safeguard stop price has been reached
+            safeguard_stop_price_reached = tickers.close <= guard_metrics.safeguard_stop_price
+            if not safeguard_stop_price_reached:
+                crypto_currency, *_ = sell_order.symbol.split("/")
+                buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
+                # Calculate auto_exit_sell_1h
+                auto_exit_sell_1h = await self._is_auto_exit_due_to_sell_1h(
+                    sell_order, tickers, guard_metrics, buy_sell_signals_config, last_candle_market_metrics
                 )
+                if not auto_exit_sell_1h:
+                    atr_take_profit_limit_price_reached = (
+                        await self._is_auto_exit_due_to_atr_take_profit_limit_price_reached(
+                            sell_order, tickers, guard_metrics, buy_sell_signals_config, last_candle_market_metrics
+                        )
+                    )
         return AutoExitReason(
+            is_marked_for_immediate_sell=is_marked_for_immediate_sell,
             safeguard_stop_price_reached=safeguard_stop_price_reached,
             auto_exit_sell_1h=auto_exit_sell_1h,
             atr_take_profit_limit_price_reached=atr_take_profit_limit_price_reached,
@@ -250,7 +259,12 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         crypto_currency: str,
         fiat_currency: str,
     ) -> str:
-        if auto_exit_reason.safeguard_stop_price_reached:
+        if auto_exit_reason.is_marked_for_immediate_sell:
+            details = (
+                "Order was marked for immediate sell. Executing market order immediately at "
+                + f"current {crypto_currency} price ({current_symbol_price} {fiat_currency})."
+            )
+        elif auto_exit_reason.safeguard_stop_price_reached:
             details = (
                 f"Current {crypto_currency} price ({current_symbol_price} {fiat_currency}) "
                 + f"is lower than the safeguard calculated ({guard_metrics.safeguard_stop_price} {fiat_currency})."
