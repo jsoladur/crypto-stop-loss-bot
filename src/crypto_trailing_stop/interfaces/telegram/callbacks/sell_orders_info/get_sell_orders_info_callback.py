@@ -10,6 +10,7 @@ from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service i
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
+from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
@@ -25,6 +26,7 @@ keyboards_builder = KeyboardsBuilder()
 messages_formatter = MessagesFormatter()
 bit2me_remote_service = Bit2MeRemoteService()
 ccxt_remote_service = CcxtRemoteService()
+global_flag_service = GlobalFlagService()
 buy_sell_signals_config_service = BuySellSignalsConfigService(bit2me_remote_service=bit2me_remote_service)
 orders_analytics_service = OrdersAnalyticsService(
     bit2me_remote_service=bit2me_remote_service,
@@ -49,8 +51,23 @@ async def get_sell_orders_info_callback_handler(callback_query: CallbackQuery, s
             limit_sell_order_guard_metrics_list = (
                 await orders_analytics_service.calculate_all_limit_sell_order_guard_metrics()
             )
-            answer_text = messages_formatter.format_limit_sell_order_guard_metrics(limit_sell_order_guard_metrics_list)
-            await callback_query.message.answer(answer_text)
+            is_enabled_for_limit_sell_order_guard = await global_flag_service.is_enabled_for(
+                GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
+            )
+            for metrics in limit_sell_order_guard_metrics_list:
+                answer_text = messages_formatter.format_limit_sell_order_guard_metrics(metrics)
+                answer_text += "\n"
+                if is_enabled_for_limit_sell_order_guard:
+                    answer_text += "ℹ️️ Would you like to immediate sell this operation via Limit Sell Guard manually?"
+                    await callback_query.message.answer(
+                        answer_text,
+                        reply_markup=keyboards_builder.get_yes_no_keyboard(
+                            yes_button_callback_data=f"immediate_sell_limit_order$${metrics.sell_order.id}"
+                        ),
+                    )
+                else:
+                    answer_text += f"💡 {html.italic('The Limit Sell Order Guard is currently disabled. Please enable it if you want to immediate sell this operation')}"  # noqa: E501
+                    await callback_query.message.answer(answer_text)
         except Exception as e:
             logger.error(f"Error trying to get sell orders info: {str(e)}", exc_info=True)
             await callback_query.message.answer(

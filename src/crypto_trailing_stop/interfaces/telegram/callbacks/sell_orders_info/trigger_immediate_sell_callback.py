@@ -1,0 +1,52 @@
+import logging
+import re
+from html import escape as html_escape
+
+from aiogram import F, html
+from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery
+
+from crypto_trailing_stop.config import get_dispacher
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.services.limit_sell_order_guard_cache_service import (
+    LimitSellOrderGuardCacheService,
+)
+from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
+from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
+
+logger = logging.getLogger(__name__)
+
+dp = get_dispacher()
+session_storage_service = SessionStorageService()
+keyboards_builder = KeyboardsBuilder()
+bit2_me_remote_service = Bit2MeRemoteService()
+limit_sell_order_guard_cache_service = LimitSellOrderGuardCacheService()
+
+
+@dp.callback_query(F.data.regexp(r"^trigger_immediate_sell\$\$(.+)$"))
+async def trigger_auto_entry_trader_callback_handler(callback_query: CallbackQuery, state: FSMContext) -> None:
+    is_user_logged = await session_storage_service.is_user_logged(state)
+    if is_user_logged:
+        try:
+            match = re.match(r"^trigger_immediate_sell\$\$(.+)$", callback_query.data)
+            sell_order_id = match.group(1)
+            sell_order = await bit2_me_remote_service.get_order_by_id(sell_order_id)
+            crypto_currency, *_ = sell_order.symbol.split("/")
+            limit_sell_order_guard_cache_service.trigger_immediate_sell_limit_order(sell_order_id)
+            formatted_order_ammount = html.bold(f"{sell_order.order_amount} {crypto_currency}")
+            await callback_query.message.answer(
+                f"ℹ️ {formatted_order_ammount} MARKED TO IMMEDIATE SELL. "
+                + "You will receive a push notification once the Limit Sell Guard has completed the trade.",
+                reply_markup=keyboards_builder.get_home_keyboard(),
+            )
+        except Exception as e:
+            logger.error(f"Error triggering Auto-Entry Trader: {str(e)}", exc_info=True)
+            await callback_query.message.answer(
+                "⚠️ An error occurred while triggering immediate sell order."
+                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
+            )
+    else:
+        await callback_query.message.answer(
+            "⚠️ Please log in to manual trigger immediate sell order.",
+            reply_markup=keyboards_builder.get_login_keyboard(state),
+        )
