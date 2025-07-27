@@ -129,46 +129,37 @@ class MessagesFormatter(metaclass=SingletonMeta):
                 + "Please, enable it after double-check everything out!"
             )
         )
-        answer_text += f"\n\n{self.format_limit_sell_order_guard_metrics(limit_sell_order_guard_metrics_list)}"
+        answer_text += f"\n\n{self._format_limit_sell_order_guard_metrics_list(limit_sell_order_guard_metrics_list)}"
         return answer_text
 
-    def format_limit_sell_order_guard_metrics(
-        self, limit_sell_order_guard_metrics_list: list[LimitSellOrderGuardMetrics]
-    ) -> str:
-        if limit_sell_order_guard_metrics_list:
-            answer_text = f"📤📤 {html.bold('SELL Orders')} 📤📤\n\n"
-            for idx, metrics in enumerate(limit_sell_order_guard_metrics_list):
-                crypto_currency, fiat_currency = metrics.sell_order.symbol.split("/")
-                answer_text += (
-                    f"- 🚀 {html.bold(metrics.sell_order.order_type.upper() + ' Sell Order')} :: "
-                    + f"💰 {metrics.sell_order.order_amount} {crypto_currency}, "  # noqa: E501
-                    + f"further sell at {html.bold(str(metrics.sell_order.price) + ' ' + fiat_currency)}"
-                )
-                if metrics.sell_order.order_type == "stop-limit":
-                    answer_text += (
-                        " (when price reaches stop limit price at"
-                        + f" {html.bold(str(metrics.sell_order.stop_price) + ' ' + fiat_currency)})"
-                    )
-                answer_text += (
-                    ":\n"
-                    + f"    * 💳 {html.bold('Avg. Costs')} = {metrics.avg_buy_price} {fiat_currency}\n"
-                    + f"    * ⚖️ {html.bold('Break-even Price')} = {metrics.break_even_price} {fiat_currency}\n"
-                    + f"    * 🚏 {html.bold('Stop Loss')} = {metrics.stop_loss_percent_value}%\n"
-                    + f"    * 🛡️ {html.bold('Safeguard Stop Price = ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}"  # noqa: E501
-                )
-                answer_text += (
-                    "\n  💡 "
-                    + html.bold("HINTS (ATR Volatility-based)")
-                    + " 💡\n"
-                    + f"    * 🎢 {html.italic('Current ATR')} = ±{metrics.current_attr_value} {fiat_currency} (±{metrics.current_atr_percent}%)\n"  # noqa: E501
-                    + f"    * 🚏 {html.bold('Suggested Stop Loss')} = {metrics.suggested_stop_loss_percent_value}%\n"  # noqa: E501
-                    + f"    * 💰 {html.bold('Suggested Safeguard Stop Price')} = {metrics.suggested_safeguard_stop_price} {fiat_currency}\n"  # noqa: E501
-                    + f"    * 🎯 {html.bold('Suggested Take Profit Price')} = {metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
-                )
-                if idx + 1 < len(limit_sell_order_guard_metrics_list):
-                    answer_text += "\n\n"
-        else:
-            answer_text = "✳️ There are no currently opened SELL orders."
+    def format_limit_sell_order_guard_metrics(self, metrics: LimitSellOrderGuardMetrics) -> str:
+        crypto_currency, fiat_currency = metrics.sell_order.symbol.split("/")
+        answer_text = (
+            f"🚀 {html.bold(metrics.sell_order.order_type.upper() + ' Sell Order')} :: "
+            + f"💰 {metrics.sell_order.order_amount} {crypto_currency}, "  # noqa: E501
+            + f"further sell at {html.bold(str(metrics.sell_order.price) + ' ' + fiat_currency)}"
+        )
+        if metrics.sell_order.order_type == "stop-limit":
+            answer_text += (
+                " (when price reaches stop limit price at"
+                + f" {html.bold(str(metrics.sell_order.stop_price) + ' ' + fiat_currency)})"
+            )
+        answer_text += (
+            ":\n"
+            + f"    * 💳 {html.bold('Avg. Costs')} = {metrics.avg_buy_price} {fiat_currency}\n"
+            + f"    * ⚖️ {html.bold('Break-even Price')} = {metrics.break_even_price} {fiat_currency}\n"
+            + f"    * 🚏 {html.bold('Stop Loss')} = {metrics.stop_loss_percent_value}%\n"
+            + f"    * 🛡️ {html.bold('Safeguard Stop Price = ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}"  # noqa: E501
+        )
+        answer_text += (
+            "\n  💡 "
+            + html.bold("HINTS (ATR Volatility-based)")
+            + " 💡\n"
+            + f"    * 🎢 {html.italic('Current ATR')} = ±{metrics.current_attr_value} {fiat_currency} (±{metrics.current_atr_percent}%)\n"  # noqa: E501
+            + f"    * 🚏 {html.bold('Suggested Stop Loss')} = {metrics.suggested_stop_loss_percent_value}%\n"  # noqa: E501
+            + f"    * 💰 {html.bold('Suggested Safeguard Stop Price')} = {metrics.suggested_safeguard_stop_price} {fiat_currency}\n"  # noqa: E501
+            + f"    * 🎯 {html.bold('Suggested Take Profit Price')} = {metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
+        )
         return answer_text
 
     def format_market_signals_message(self, symbol: str, market_signals: list[MarketSignalItem]) -> str:
@@ -210,6 +201,19 @@ class MessagesFormatter(metaclass=SingletonMeta):
                 message_lines.append(line)
         ret = header + "\n\n".join(message_lines)
         return ret
+
+    def _format_limit_sell_order_guard_metrics_list(
+        self, limit_sell_order_guard_metrics_list: list[LimitSellOrderGuardMetrics]
+    ) -> str:
+        if limit_sell_order_guard_metrics_list:
+            answer_text = f"📤📤 {html.bold('SELL Orders')} 📤📤\n\n"
+            for idx, metrics in enumerate(limit_sell_order_guard_metrics_list):
+                answer_text += f"- {self.format_limit_sell_order_guard_metrics(metrics)}"
+                if idx + 1 < len(limit_sell_order_guard_metrics_list):
+                    answer_text += "\n"
+        else:
+            answer_text = "✳️ There are no currently opened SELL orders."
+        return answer_text
 
     def _get_macd_hist_icon(self, metrics: CryptoMarketMetrics) -> str:
         if metrics.macd_hist > 0:
