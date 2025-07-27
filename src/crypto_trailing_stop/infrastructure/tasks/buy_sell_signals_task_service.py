@@ -11,12 +11,11 @@ from apscheduler.triggers.interval import IntervalTrigger
 from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import (
-    ANTICIPATION_ZONE_TIMEFRAMES,
     BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN,
-    BUY_SELL_RELIABLE_TIMEFRAMES,
     SIGNALS_EVALUATION_RESULT_EVENT_NAME,
 )
 from crypto_trailing_stop.config import get_configuration_properties, get_event_emitter
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
@@ -112,6 +111,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
     async def _eval_and_notify_signals(
         self, symbol: str, timeframe: Timeframe, tickers: Bit2MeTickersDto, client: AsyncClient, exchange: ccxt.Exchange
     ) -> None:
+        trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
+            symbol, client=client
+        )
         (
             df_with_indicators,
             buy_sell_signals_config,
@@ -119,7 +121,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
             symbol, timeframe=timeframe, client=client, exchange=exchange
         )
         # Use the default, wider threshold for 4H signals
-        signals = self._check_signals(symbol, timeframe, df_with_indicators, buy_sell_signals_config)
+        signals = self._check_signals(
+            symbol, timeframe, df_with_indicators, buy_sell_signals_config, trading_market_config=trading_market_config
+        )
         is_new_signals, previous_signals = self._is_new_signals(signals)
         if is_new_signals:
             try:
@@ -134,7 +138,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
                         )
                         base_symbol = symbol.split("/")[0].strip().upper()
                         # 1. Report RSI Anticipation Zones
-                        if timeframe in ANTICIPATION_ZONE_TIMEFRAMES:
+                        if signals.is_anticipation_zone:
                             await self._notify_anticipation_zone_alerts(
                                 signals,
                                 previous_signals,
@@ -144,7 +148,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
                                 base_symbol=base_symbol,
                             )
                         # 2. Report Confirmation Signals (now identical for both timeframes)
-                        elif timeframe in BUY_SELL_RELIABLE_TIMEFRAMES:
+                        elif signals.is_reliable:
                             await self._notify_reliable_alerts(
                                 signals,
                                 telegram_chat_ids=telegram_chat_ids,
@@ -168,7 +172,13 @@ class BuySellSignalsTaskService(AbstractTaskService):
         return is_new_signals, previous_signals
 
     def _check_signals(
-        self, symbol: str, timeframe: Timeframe, df: pd.DataFrame, buy_sell_signals_config: BuySellSignalsConfigItem
+        self,
+        symbol: str,
+        timeframe: Timeframe,
+        df: pd.DataFrame,
+        buy_sell_signals_config: BuySellSignalsConfigItem,
+        *,
+        trading_market_config: Bit2MeMarketConfigDto,
     ) -> SignalsEvaluationResult:
         timestamp = datetime.now(tz=UTC).timestamp()
         buy_signal, sell_signal, is_choppy = False, False, False
@@ -178,13 +188,15 @@ class BuySellSignalsTaskService(AbstractTaskService):
             # Use a threshold of 0 for 1H signals to disable the proximity check
             volatility_threshold = self._get_volatility_threshold(timeframe)
             # Last confirmed candle
-            last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(symbol, df.iloc[CandleStickEnum.LAST])
+            last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
+                symbol, df.iloc[CandleStickEnum.LAST], trading_market_config=trading_market_config
+            )
             # Update timestamp
             timestamp = last_candle_market_metrics.timestamp.timestamp()
             # Calculate RSI Anticipation Zone (RSI)
             rsi_state = last_candle_market_metrics.rsi_state
             # Rounded metrics
-            rounded_last_candle_market_metrics = last_candle_market_metrics.rounded()
+            rounded_last_candle_market_metrics = last_candle_market_metrics.rounded(trading_market_config)
             atr = rounded_last_candle_market_metrics.atr
             closing_price = rounded_last_candle_market_metrics.closing_price
             ema_long_price = rounded_last_candle_market_metrics.ema_long
@@ -205,7 +217,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
                     + "Checking for signals..."
                 )
                 # Prev confirmed candle
-                prev_candle_market_metrics = CryptoMarketMetrics.from_candlestick(symbol, df.iloc[CandleStickEnum.PREV])
+                prev_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
+                    symbol, df.iloc[CandleStickEnum.PREV], trading_market_config=trading_market_config
+                )
                 # A proximity_threshold of 0 effectively disables the proximity check
                 buy_signal = self._calculate_buy_signal(
                     prev_candle_market_metrics, last_candle_market_metrics, buy_sell_signals_config

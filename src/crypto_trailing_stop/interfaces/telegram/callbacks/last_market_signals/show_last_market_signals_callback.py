@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from crypto_trailing_stop.config import get_dispacher
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
@@ -18,6 +19,7 @@ dp = get_dispacher()
 session_storage_service = SessionStorageService()
 keyboards_builder = KeyboardsBuilder()
 messages_formatter = MessagesFormatter()
+bit2me_remote_service = Bit2MeRemoteService()
 market_signal_service = MarketSignalService()
 
 
@@ -29,7 +31,8 @@ async def show_last_market_signals_callback_handler(callback_query: CallbackQuer
             match = re.match(r"^show_last_market_signals\$\$(.+)$", callback_query.data)
             symbol = match.group(1)
             market_signals = await market_signal_service.find_by_symbol(symbol)
-            message = messages_formatter.format_market_signals_message(symbol, market_signals)
+            trading_market_config = await bit2me_remote_service.get_trading_market_config_by_symbol(symbol)
+            message = messages_formatter.format_market_signals_message(symbol, trading_market_config, market_signals)
             await callback_query.message.answer(message)
         except Exception as e:
             logger.error(f"Error fetching last market signals: {str(e)}", exc_info=True)
