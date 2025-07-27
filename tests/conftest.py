@@ -12,8 +12,11 @@ from asgi_lifespan import LifespanManager
 from faker import Faker
 from fastapi import FastAPI
 from pytest_httpserver import HTTPServer
+from pytest_httpserver.httpserver import HandlerType
 
 from crypto_trailing_stop import config
+from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
+from tests.helpers.market_config_utils import load_raw_market_config_list
 
 main_module: ModuleType | None = None
 
@@ -74,6 +77,7 @@ async def integration_test_jobs_disabled_env(
         main_module = import_module("crypto_trailing_stop.main")
     async with LifespanManager(main_module.app) as manager:
         with patch.object(ccxt.binance, "load_markets", return_value={}):
+            _prepare_global_httpserver_mock_requests(faker, httpserver, bit2me_api_key, bit2me_api_secret)
             yield (manager.app, httpserver, bit2me_api_key, bit2me_api_secret)
     # Cleanup
     httpserver.clear()
@@ -81,7 +85,9 @@ async def integration_test_jobs_disabled_env(
 
 
 @pytest.fixture
-async def integration_test_env(httpserver_test_env: tuple[HTTPServer, str]) -> AsyncGenerator[tuple[FastAPI, ...]]:
+async def integration_test_env(
+    faker: Faker, httpserver_test_env: tuple[HTTPServer, str]
+) -> AsyncGenerator[tuple[FastAPI, ...]]:
     global main_module
     httpserver, bit2me_api_key, bit2me_api_secret, *_ = httpserver_test_env
     # XXX: Enable background tasks
@@ -92,7 +98,20 @@ async def integration_test_env(httpserver_test_env: tuple[HTTPServer, str]) -> A
         main_module = import_module("crypto_trailing_stop.main")
     async with LifespanManager(main_module.app) as manager:
         with patch.object(ccxt.binance, "load_markets", return_value={}):
+            _prepare_global_httpserver_mock_requests(faker, httpserver, bit2me_api_key, bit2me_api_secret)
             yield (manager.app, httpserver, bit2me_api_key, bit2me_api_secret)
     # Cleanup
     httpserver.clear()
     reload(config)
+
+
+def _prepare_global_httpserver_mock_requests(
+    faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str
+) -> None:
+    raw_market_config_list = load_raw_market_config_list()
+    httpserver.expect(
+        Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/market-config", method="GET").set_bit2me_api_key_and_secret(
+            bit2me_api_key, bik2me_api_secret
+        ),
+        handler_type=HandlerType.ONESHOT,
+    ).respond_with_json(raw_market_config_list)

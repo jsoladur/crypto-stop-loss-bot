@@ -6,11 +6,7 @@ import pydash
 from apscheduler.triggers.interval import IntervalTrigger
 from httpx import AsyncClient
 
-from crypto_trailing_stop.commons.constants import (
-    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
-    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
-    TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD,
-)
+from crypto_trailing_stop.commons.constants import TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -95,8 +91,8 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
         *,
         client: AsyncClient,
     ) -> None:
-        number_of_digits_in_price = NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
-            sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
+        trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
+            sell_order.symbol, client=client
         )
         (
             stop_loss_percent_item,
@@ -116,7 +112,7 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
             stop_loss_percent_item=stop_loss_percent_item,
         )
         new_stop_price = round(
-            stop_price_base * (1 - stop_loss_percent_decimal_value), ndigits=number_of_digits_in_price
+            stop_price_base * (1 - stop_loss_percent_decimal_value), ndigits=trading_market_config.price_precision
         )
         logger.info(
             f"Supervising STOP-LIMIT SELL order {repr(sell_order)}: Looking for new stop price {new_stop_price}"
@@ -132,7 +128,7 @@ class TrailingStopLossTaskService(AbstractTradingTaskService):
                     price=str(
                         round(
                             new_stop_price * self._trailing_stop_loss_price_decrease_threshold,
-                            ndigits=number_of_digits_in_price,
+                            ndigits=trading_market_config.price_precision,
                         )
                     ),
                     amount=str(sell_order.order_amount),

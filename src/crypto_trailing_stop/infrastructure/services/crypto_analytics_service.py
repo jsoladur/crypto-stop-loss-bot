@@ -44,8 +44,13 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         technical_indicators, *_ = await self.calculate_technical_indicators(
             symbol, timeframe=timeframe, client=client, exchange=exchange
         )
+        trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
+            symbol, client=client
+        )
         selected_candlestick = technical_indicators.iloc[over_candlestick.value]
-        ret = CryptoMarketMetrics.from_candlestick(symbol, selected_candlestick, apply_round=True)
+        ret = CryptoMarketMetrics.from_candlestick(
+            symbol, selected_candlestick, trading_market_config=trading_market_config, apply_round=True
+        )
         return ret
 
     async def calculate_technical_indicators(

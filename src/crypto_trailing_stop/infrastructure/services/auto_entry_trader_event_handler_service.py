@@ -9,14 +9,11 @@ from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import (
     AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST,
-    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
-    DEFAULT_NUMBER_OF_DECIMALS_IN_QUANTITY,
-    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
-    NUMBER_OF_DECIMALS_IN_QUANTITY_BY_SYMBOL,
     TRIGGER_BUY_ACTION_EVENT_NAME,
 )
 from crypto_trailing_stop.commons.patterns import SingletonABCMeta
 from crypto_trailing_stop.config import get_configuration_properties, get_event_emitter
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
@@ -100,17 +97,30 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 crypto_currency, fiat_currency = market_signal_item.symbol.split("/")
                 buy_trader_config = await self._auto_buy_trader_config_service.find_by_symbol(crypto_currency)
                 if buy_trader_config.fiat_wallet_percent_assigned > 0:
-                    if market_signal_item.atr_percent < self._configuration_properties.max_atr_percent_for_auto_entry:
-                        await self._perform_trading(
-                            market_signal_item, crypto_currency, fiat_currency, buy_trader_config
+                    async with await self._bit2me_remote_service.get_http_client() as client:
+                        trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
+                            market_signal_item.symbol, client=client
                         )
-                    else:
-                        reason_message = "    - 🎢 " + html.italic(
-                            f"Current ATR ({market_signal_item.atr_percent:.2f}%) "
-                            + f"exceeds the allowed risk threshold (&lt;={self._configuration_properties.max_atr_percent_for_auto_entry}%).\n"  # noqa: E501
-                        )
-                        reason_message += "⏸️ Trading paused to protect capital."
-                        await self._notify_warning(market_signal_item, warning_reason_message=reason_message)
+                        market_signal_item_atr_percent = market_signal_item.get_atr_percent(trading_market_config)
+                        if (
+                            market_signal_item_atr_percent
+                            < self._configuration_properties.max_atr_percent_for_auto_entry
+                        ):
+                            await self._perform_trading(
+                                market_signal_item,
+                                crypto_currency,
+                                fiat_currency,
+                                buy_trader_config,
+                                trading_market_config=trading_market_config,
+                                client=client,
+                            )
+                        else:
+                            reason_message = "    - 🎢 " + html.italic(
+                                f"Current ATR ({market_signal_item_atr_percent}%) "
+                                + f"exceeds the allowed risk threshold (&lt;={self._configuration_properties.max_atr_percent_for_auto_entry}%).\n"  # noqa: E501
+                            )
+                            reason_message += "⏸️ Trading paused to protect capital."
+                            await self._notify_warning(market_signal_item, warning_reason_message=reason_message)
         except Exception as e:
             logger.error(str(e), exc_info=True)
             await self._notify_fatal_error_via_telegram(e)
@@ -121,22 +131,29 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         crypto_currency: str,
         fiat_currency: str,
         buy_trader_config: AutoBuyTraderConfigItem,
+        *,
+        trading_market_config: Bit2MeMarketConfigDto,
+        client: AsyncClient,
     ) -> None:
-        async with await self._bit2me_remote_service.get_http_client() as client:
-            initial_amount_to_invest = await self._calculate_total_amount_to_invest(
-                buy_trader_config, crypto_currency, fiat_currency, client
+        initial_amount_to_invest = await self._calculate_total_amount_to_invest(
+            buy_trader_config, crypto_currency, fiat_currency, client=client
+        )
+        # XXX: [JMSOLA] Investing less than 25.0 EUR is not worthly
+        if initial_amount_to_invest > AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST:
+            await self._invest(
+                market_signal_item,
+                crypto_currency,
+                fiat_currency,
+                initial_amount_to_invest,
+                trading_market_config=trading_market_config,
+                client=client,
             )
-            # XXX: [JMSOLA] Investing less than 25.0 EUR is not worthly
-            if initial_amount_to_invest > AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST:
-                await self._invest(
-                    market_signal_item, crypto_currency, fiat_currency, initial_amount_to_invest, client=client
-                )
-            else:
-                reason_message = "    - 💸 " + html.italic(
-                    f"Insufficient funds to invest ({initial_amount_to_invest:.2f} {fiat_currency}). "
-                    + f"Minimal funds needed are {AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST:.2f} {fiat_currency}"
-                )
-                await self._notify_warning(market_signal_item, warning_reason_message=reason_message)
+        else:
+            reason_message = "    - 💸 " + html.italic(
+                f"Insufficient funds to invest ({initial_amount_to_invest:.2f} {fiat_currency}). "
+                + f"Minimal funds needed are {AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST:.2f} {fiat_currency}"
+            )
+            await self._notify_warning(market_signal_item, warning_reason_message=reason_message)
 
     async def _invest(
         self,
@@ -145,6 +162,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         fiat_currency: str,
         initial_amount_to_invest: float,
         *,
+        trading_market_config: Bit2MeMarketConfigDto,
         client: AsyncClient,
     ) -> None:
         # XXX: [JMSOLA] Get the current tickers.close price for calculate the order_amount
@@ -152,10 +170,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         # XXX: [JMSOLA] Calculate buy order amount
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
         buy_order_amount = self._floor_round(
-            initial_amount_to_invest / tickers.close,
-            ndigits=NUMBER_OF_DECIMALS_IN_QUANTITY_BY_SYMBOL.get(
-                market_signal_item.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_QUANTITY
-            ),
+            initial_amount_to_invest / tickers.close, ndigits=trading_market_config.amount_precision
         )
         final_amount_to_invest = buy_order_amount * tickers.close
         logger.info(
@@ -171,7 +186,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         await self._global_flag_service.force_disable_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
         # Creating new sell limite order
         new_limit_sell_order = await self._create_new_sell_limit_order(
-            new_buy_market_order, tickers, crypto_currency, client=client
+            new_buy_market_order, trading_market_config, tickers, crypto_currency, client=client
         )
         guard_metrics = await self._update_stop_loss(new_limit_sell_order, crypto_currency, client=client)
         # Ensure Auto-exit on sudden SELL 1H signal is enabled
@@ -241,6 +256,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
     async def _create_new_sell_limit_order(
         self,
         new_buy_market_order: Bit2MeOrderDto,
+        trading_market_config: Bit2MeMarketConfigDto,
         tickers: Bit2MeTickersDto,
         crypto_currency: str,
         *,
@@ -255,9 +271,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         )
         new_limit_sell_order_amount = self._floor_round(
             min(crypto_currency_wallet.balance, new_buy_market_order.order_amount),
-            ndigits=NUMBER_OF_DECIMALS_IN_QUANTITY_BY_SYMBOL.get(
-                new_buy_market_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_QUANTITY
-            ),
+            ndigits=trading_market_config.amount_precision,
         )
         new_limit_sell_order = await self._bit2me_remote_service.create_order(
             order=CreateNewBit2MeOrderDto(
@@ -270,9 +284,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                         # for giving to the Limit Sell Order Guard the chance to
                         # operate properly
                         tickers.close * 2,
-                        ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
-                            new_buy_market_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
-                        ),
+                        ndigits=trading_market_config.price_precision,
                     )
                 ),
                 amount=str(new_limit_sell_order_amount),

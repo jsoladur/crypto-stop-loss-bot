@@ -1,17 +1,14 @@
 import logging
+import math
 
 import ccxt.async_support as ccxt
 import numpy as np
 import pandas as pd
 from httpx import AsyncClient
 
-from crypto_trailing_stop.commons.constants import (
-    BIT2ME_MAKER_AND_TAKER_FEES_SUM,
-    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
-    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
-    STOP_LOSS_STEPS_VALUE_LIST,
-)
+from crypto_trailing_stop.commons.constants import BIT2ME_MAKER_AND_TAKER_FEES_SUM, STOP_LOSS_STEPS_VALUE_LIST
 from crypto_trailing_stop.commons.patterns import SingletonMeta
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
@@ -86,6 +83,9 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         client: AsyncClient | None = None,
         exchange: ccxt.Exchange | None = None,
     ) -> tuple[LimitSellOrderGuardMetrics, set[str]]:
+        trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
+            sell_order.symbol, client=client
+        )
         if buy_sell_signals_config is None:
             crypto_currency, *_ = sell_order.symbol.split("/")
             buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
@@ -96,36 +96,39 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
             sell_order.symbol,
             candlestick=technical_indicators.iloc[CandleStickEnum.LAST],  # Last confirmed candle
+            trading_market_config=trading_market_config,
         )
         (avg_buy_price, previous_used_buy_trade_ids) = await self._calculate_correlated_avg_buy_price(
-            sell_order, previous_used_buy_trade_ids, client=client
+            sell_order, previous_used_buy_trade_ids, trading_market_config=trading_market_config, client=client
         )
-        break_even_price = self._calculate_break_even_price(sell_order, avg_buy_price)
+        break_even_price = self._calculate_break_even_price(avg_buy_price, trading_market_config=trading_market_config)
         (safeguard_stop_price, stop_loss_percent_item) = await self._calculate_safeguard_stop_price(
-            sell_order, avg_buy_price
+            sell_order, avg_buy_price, trading_market_config=trading_market_config
         )
         suggested_stop_loss_percent_value = self._calculate_suggested_stop_loss_percent_value(
-            sell_order,
             avg_buy_price,
             buy_sell_signals_config=buy_sell_signals_config,
             last_candle_market_metrics=last_candle_market_metrics,
+            trading_market_config=trading_market_config,
         )
         suggested_safeguard_stop_price = self._calculate_suggested_safeguard_stop_price(
-            sell_order, avg_buy_price, suggested_stop_loss_percent_value
+            avg_buy_price, suggested_stop_loss_percent_value, trading_market_config=trading_market_config
         )
         suggested_take_profit_limit_price = self._calculate_suggested_take_profit_limit_price(
-            sell_order,
             avg_buy_price,
             buy_sell_signals_config=buy_sell_signals_config,
             last_candle_market_metrics=last_candle_market_metrics,
+            trading_market_config=trading_market_config,
         )
+        rounded_last_candle_market_metrics = last_candle_market_metrics.rounded(trading_market_config)
         guard_metrics = LimitSellOrderGuardMetrics(
             sell_order=sell_order,
             avg_buy_price=avg_buy_price,
             break_even_price=break_even_price,
             stop_loss_percent_value=stop_loss_percent_item.value,
             safeguard_stop_price=safeguard_stop_price,
-            current_attr_value=last_candle_market_metrics.rounded().atr,
+            current_attr_value=rounded_last_candle_market_metrics.atr,
+            current_atr_percent=rounded_last_candle_market_metrics.atr_percent,
             closing_price=last_candle_market_metrics.closing_price,
             suggested_stop_loss_percent_value=suggested_stop_loss_percent_value,
             suggested_safeguard_stop_price=suggested_safeguard_stop_price,
@@ -146,6 +149,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         sell_order: Bit2MeOrderDto,
         previous_used_buy_trade_ids: set[str] = set(),
         *,
+        trading_market_config: Bit2MeMarketConfigDto,
         client: AsyncClient | None = None,
     ) -> tuple[float, set[str]]:
         last_buy_trades = await self._bit2me_remote_service.get_trades(
@@ -160,16 +164,14 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             )
         numerator = sum([o.price * o.amount for o in correlated_filled_buy_trades])
         denominator = sum([o.amount for o in correlated_filled_buy_trades])
-        avg_buy_price = round(
-            numerator / denominator,
-            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
-        )
+        avg_buy_price = round(numerator / denominator, ndigits=trading_market_config.price_precision)
         return avg_buy_price, previous_used_buy_trade_ids
 
-    def _calculate_break_even_price(self, sell_order: Bit2MeOrderDto, avg_buy_price: float) -> float:
+    def _calculate_break_even_price(
+        self, avg_buy_price: float, *, trading_market_config: Bit2MeMarketConfigDto
+    ) -> float:
         break_even_price = round(
-            avg_buy_price * (1.0 + BIT2ME_MAKER_AND_TAKER_FEES_SUM),
-            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+            avg_buy_price * (1.0 + BIT2ME_MAKER_AND_TAKER_FEES_SUM), ndigits=trading_market_config.price_precision
         )
         return break_even_price
 
@@ -193,31 +195,30 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         return correlated_filled_buy_trades
 
     async def _calculate_safeguard_stop_price(
-        self, sell_order: Bit2MeOrderDto, avg_buy_price: float
+        self, sell_order: Bit2MeOrderDto, avg_buy_price: float, *, trading_market_config: Bit2MeMarketConfigDto
     ) -> tuple[float, StopLossPercentItem]:
         (stop_loss_percent_item, stop_loss_percent_decimal_value) = await self.find_stop_loss_percent_by_sell_order(
             sell_order
         )
         safeguard_stop_price = round(
-            avg_buy_price * (1 - stop_loss_percent_decimal_value),
-            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+            avg_buy_price * (1 - stop_loss_percent_decimal_value), ndigits=trading_market_config.price_precision
         )
         return safeguard_stop_price, stop_loss_percent_item
 
     def _calculate_suggested_stop_loss_percent_value(
         self,
-        sell_order: Bit2MeOrderDto,
         avg_buy_price: float,
         buy_sell_signals_config: BuySellSignalsConfigItem,
+        *,
         last_candle_market_metrics: CryptoMarketMetrics,
+        trading_market_config: Bit2MeMarketConfigDto,
     ) -> float:
-        ndigits = NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE)
         first_suggested_safeguard_stop_price = round(
             avg_buy_price - (last_candle_market_metrics.atr * buy_sell_signals_config.stop_loss_atr_multiplier),
-            ndigits=ndigits,
+            ndigits=trading_market_config.price_precision,
         )
         stop_loss_percent_value = (
-            round((1 - (first_suggested_safeguard_stop_price / avg_buy_price)) * 100, ndigits=ndigits) + 0.5
+            self._ceil_round((1 - (first_suggested_safeguard_stop_price / avg_buy_price)) * 100, ndigits=2) + 0.50
         )
         if stop_loss_percent_value < STOP_LOSS_STEPS_VALUE_LIST[-1]:
             steps = np.array(STOP_LOSS_STEPS_VALUE_LIST)
@@ -226,25 +227,29 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         return stop_loss_percent_value
 
     def _calculate_suggested_safeguard_stop_price(
-        self, sell_order: Bit2MeOrderDto, avg_buy_price: float, suggested_stop_loss_percent_value: float
+        self,
+        avg_buy_price: float,
+        suggested_stop_loss_percent_value: float,
+        *,
+        trading_market_config: Bit2MeMarketConfigDto,
     ) -> float:
         suggested_stop_loss_decimal_value = suggested_stop_loss_percent_value / 100
         suggested_safeguard_stop_price = round(
-            avg_buy_price * (1 - suggested_stop_loss_decimal_value),
-            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+            avg_buy_price * (1 - suggested_stop_loss_decimal_value), ndigits=trading_market_config.price_precision
         )
         return suggested_safeguard_stop_price
 
     def _calculate_suggested_take_profit_limit_price(
         self,
-        sell_order: Bit2MeOrderDto,
         avg_buy_price: float,
         buy_sell_signals_config: BuySellSignalsConfigItem,
+        *,
         last_candle_market_metrics: CryptoMarketMetrics,
+        trading_market_config: Bit2MeMarketConfigDto,
     ) -> float:
         suggested_safeguard_stop_price = round(
             avg_buy_price + (last_candle_market_metrics.atr * buy_sell_signals_config.take_profit_atr_multiplier),
-            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
+            ndigits=trading_market_config.price_precision,
         )
         return suggested_safeguard_stop_price
 
@@ -274,3 +279,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             )
             technical_indicators_by_symbol[symbol] = technical_indicators
         return technical_indicators_by_symbol
+
+    def _ceil_round(self, value: float, *, ndigits: int) -> float:
+        factor = 10**ndigits
+        return math.ceil(value * factor) / factor
