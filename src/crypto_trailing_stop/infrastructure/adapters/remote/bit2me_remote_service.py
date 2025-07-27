@@ -10,13 +10,16 @@ from typing import Any, Literal
 from urllib.parse import urlencode
 
 import backoff
+import cachebox
 from httpx import URL, AsyncClient, HTTPStatusError, ReadTimeout, Response, Timeout, TimeoutException
 from pandas import Timedelta
 from pydantic import RootModel
 
+from crypto_trailing_stop.commons.constants import DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     Bit2MeOrderDto,
     Bit2MeOrderSide,
@@ -175,6 +178,27 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         )
         ohlcv = response.json()
         return ohlcv
+
+    async def get_trading_market_config_by_symbol(
+        self, symbol: str, *, client: AsyncClient | None = None
+    ) -> Bit2MeMarketConfigDto | None:
+        market_config_list = await self.get_trading_market_config_list(client=client)
+        if symbol not in market_config_list:
+            raise ValueError(f"Market config for symbol '{symbol}' not found in Bit2Me API.")
+        ret = market_config_list[symbol]
+        return ret
+
+    @cachebox.cachedmethod(
+        cachebox.TTLCache(0, ttl=DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS),
+        key_maker=lambda _, __: "bit2me_trading_market_config",
+    )
+    async def get_trading_market_config_list(
+        self, *, client: AsyncClient | None = None
+    ) -> dict[str, Bit2MeMarketConfigDto]:
+        response = await self._perform_http_request(url="/v1/trading/market-config", client=client)
+        market_config_list = RootModel[list[Bit2MeMarketConfigDto]].model_validate_json(response.content).root
+        ret = {market_config.symbol: market_config for market_config in market_config_list}
+        return ret
 
     async def get_http_client(self) -> AsyncClient:
         return AsyncClient(

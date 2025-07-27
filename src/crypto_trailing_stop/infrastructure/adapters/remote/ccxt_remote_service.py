@@ -73,7 +73,7 @@ class CcxtRemoteService:
         ret = [
             market["symbol"]
             for market in markets.values()
-            if str(market["quote"]).upper() == str(fiat_currency).upper()
+            if market.get("active", False) and str(market["quote"]).upper() == str(fiat_currency).upper()
         ]
         return ret
 

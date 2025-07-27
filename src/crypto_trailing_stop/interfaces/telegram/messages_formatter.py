@@ -3,12 +3,9 @@ from zoneinfo import ZoneInfo
 import pydash
 from aiogram import html
 
-from crypto_trailing_stop.commons.constants import (
-    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
-    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
-)
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
     Bit2MeTradingWalletBalanceDto,
@@ -162,8 +159,9 @@ class MessagesFormatter(metaclass=SingletonMeta):
         )
         return answer_text
 
-    def format_market_signals_message(self, symbol: str, market_signals: list[MarketSignalItem]) -> str:
-        ndigits = NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE)
+    def format_market_signals_message(
+        self, symbol: str, trading_market_config: Bit2MeMarketConfigDto, market_signals: list[MarketSignalItem]
+    ) -> str:
         header = f"🚥 {html.bold('LAST MARKET SIGNALS')} for {html.bold(symbol)} 🚥\n\n"
         message_lines = []
         if not market_signals:
@@ -188,13 +186,13 @@ class MessagesFormatter(metaclass=SingletonMeta):
                     else:  # sell
                         line = f"🔴 - 🔚 {html.bold('SELL SIGNAL (1H)')}"
                 # Append additional details
-                formatted_atr = round(signal.atr, ndigits=ndigits)
-                formatted_closing_price = round(signal.closing_price, ndigits=ndigits)
-                formatted_ema_long_price = round(signal.ema_long_price, ndigits=ndigits)
+                formatted_atr = round(signal.atr, ndigits=trading_market_config.price_precision)
+                formatted_closing_price = round(signal.closing_price, ndigits=trading_market_config.price_precision)
+                formatted_ema_long_price = round(signal.ema_long_price, ndigits=trading_market_config.price_precision)
                 line += (
                     f"\n  * 🕒 {html.code(formatted_timestamp)}"
                     f"\n  * 📊 RSI: {html.italic(rsi_state)}"
-                    f"\n  * 🎢 ATR: ±{html.bold(f'{formatted_atr} {fiat_currency} (±{signal.atr_percent}%)')}"
+                    f"\n  * 🎢 ATR: ±{html.bold(f'{formatted_atr} {fiat_currency} (±{signal.get_atr_percent(trading_market_config)}%)')}"  # noqa: E501
                     f"\n  * 💰 Closing Price: {html.code(f'{formatted_closing_price} {fiat_currency}')}"
                     f"\n  * 📐 EMA Long: {html.code(f'{formatted_ema_long_price} {fiat_currency}')}"
                 )

@@ -6,10 +6,6 @@ from aiogram import html
 from apscheduler.triggers.interval import IntervalTrigger
 from httpx import AsyncClient
 
-from crypto_trailing_stop.commons.constants import (
-    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
-    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
-)
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -106,9 +102,14 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         *,
         client: AsyncClient,
     ) -> set[str]:
+        trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
+            sell_order.symbol, client=client
+        )
         technical_indicators = self._technical_indicators_by_symbol_cache[sell_order.symbol].technical_indicators
         last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
-            sell_order.symbol, candlestick=technical_indicators.iloc[CandleStickEnum.LAST]
+            sell_order.symbol,
+            candlestick=technical_indicators.iloc[CandleStickEnum.LAST],
+            trading_market_config=trading_market_config,
         )
         *_, fiat_currency = sell_order.symbol.split("/")
         (
@@ -121,10 +122,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             client=client,
         )
         tickers = current_tickers_by_symbol[sell_order.symbol]
-        tickers_close_formatted = round(
-            tickers.close,
-            ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(sell_order.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE),
-        )
+        tickers_close_formatted = round(tickers.close, ndigits=trading_market_config.price_precision)
         logger.info(
             f"Supervising {sell_order.order_type.upper()} SELL order {repr(sell_order)}: "
             + f"Avg Buy Price = {guard_metrics.avg_buy_price} {fiat_currency} / "

@@ -12,12 +12,7 @@ from pydantic import RootModel
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
-from crypto_trailing_stop.commons.constants import (
-    BIT2ME_TAKER_FEES,
-    DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE,
-    NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL,
-    TRIGGER_BUY_ACTION_EVENT_NAME,
-)
+from crypto_trailing_stop.commons.constants import BIT2ME_TAKER_FEES, TRIGGER_BUY_ACTION_EVENT_NAME
 from crypto_trailing_stop.config import get_event_emitter
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
@@ -44,8 +39,10 @@ from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
+from tests.helpers.constants import MOCK_CRYPTO_CURRENCIES
 from tests.helpers.enums import AutoEntryTraderWarningTypeEnum
 from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
+from tests.helpers.market_config_utils import get_market_config_by_symbol
 from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
     Bit2MeTickersDtoObjectMother,
@@ -144,7 +141,8 @@ def _prepare_httpserver_mock(
     *,
     warning_type: AutoEntryTraderWarningTypeEnum,
 ) -> tuple[str, str, str]:
-    symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
+    symbol = faker.random_element([f"{crypto_currency}/EUR" for crypto_currency in MOCK_CRYPTO_CURRENCIES])
+    trading_market_config = get_market_config_by_symbol(symbol=symbol)
     # Mock OHLCV /v1/trading/candle
     fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
     httpserver.expect(
@@ -214,9 +212,7 @@ def _prepare_httpserver_mock(
                 order_type="limit",
                 order_amount=_floor_round(
                     (bit2me_pro_balance * 0.01) / previous_order_avg_buy_price,
-                    ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
-                        market_signal_item.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
-                    ),
+                    ndigits=trading_market_config.amount_precision,
                 ),
                 price=(closing_price * 0.9) * 2,
                 status=faker.random_element(["open", "inactive"]),
@@ -228,9 +224,7 @@ def _prepare_httpserver_mock(
                 order_type="limit",
                 order_amount=_floor_round(
                     (bit2me_pro_balance * 0.02) / previous_order_avg_buy_price,
-                    ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
-                        market_signal_item.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
-                    ),
+                    ndigits=trading_market_config.amount_precision,
                 ),
                 price=(closing_price * 0.92) * 2,
                 status=faker.random_element(["open", "inactive"]),
@@ -290,10 +284,7 @@ def _prepare_httpserver_mock(
 
             # Mock call to POST /v1/trading/order
             buy_order_amount = _floor_round(
-                bit2me_pro_balance / tickers.close,
-                ndigits=NUMBER_OF_DECIMALS_IN_PRICE_BY_SYMBOL.get(
-                    market_signal_item.symbol, DEFAULT_NUMBER_OF_DECIMALS_IN_PRICE
-                ),
+                bit2me_pro_balance / tickers.close, ndigits=trading_market_config.amount_precision
             )
             buy_order_created = Bit2MeOrderDtoObjectMother.create(
                 symbol=symbol, side="buy", order_amount=buy_order_amount, order_type="market", status="open"
