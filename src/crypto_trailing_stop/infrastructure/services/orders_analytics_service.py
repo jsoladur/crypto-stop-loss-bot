@@ -7,12 +7,14 @@ import pandas as pd
 from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import BIT2ME_MAKER_AND_TAKER_FEES_SUM, STOP_LOSS_STEPS_VALUE_LIST
-from crypto_trailing_stop.commons.patterns import SingletonMeta
+from crypto_trailing_stop.commons.patterns import SingletonABCMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.services.base import AbstractService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
@@ -25,7 +27,7 @@ from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item impo
 logger = logging.getLogger(__name__)
 
 
-class OrdersAnalyticsService(metaclass=SingletonMeta):
+class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
     def __init__(
         self,
         bit2me_remote_service: Bit2MeRemoteService,
@@ -53,6 +55,9 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             ]
             ret = []
             if opened_sell_orders is not None and len(opened_sell_orders) > 0:
+                current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = await self._fetch_tickers_for_open_sell_orders(
+                    opened_sell_orders, client=client
+                )
                 buy_sell_signals_config_by_symbol = await self._calculate_buy_sell_signals_config_by_opened_sell_orders(
                     opened_sell_orders
                 )
@@ -65,6 +70,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
                         crypto_currency, *_ = sell_order.symbol.split("/")
                         guard_metrics, previous_used_buy_trade_ids = await self.calculate_guard_metrics_by_sell_order(
                             sell_order,
+                            tickers=current_tickers_by_symbol[sell_order.symbol],
                             buy_sell_signals_config=buy_sell_signals_config_by_symbol[crypto_currency],
                             technical_indicators=technical_indicators_by_symbol[sell_order.symbol],
                             previous_used_buy_trade_ids=previous_used_buy_trade_ids,
@@ -77,6 +83,7 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         self,
         sell_order: Bit2MeOrderDto,
         *,
+        tickers: Bit2MeTickersDto | None = None,
         buy_sell_signals_config: BuySellSignalsConfigItem | None = None,
         technical_indicators: pd.DataFrame | None = None,
         previous_used_buy_trade_ids: set[str] = set(),
@@ -86,6 +93,8 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
             sell_order.symbol, client=client
         )
+        if tickers is None:
+            tickers = await self._bit2me_remote_service.get_tickers_by_symbol(sell_order.symbol, client=client)
         if buy_sell_signals_config is None:
             crypto_currency, *_ = sell_order.symbol.split("/")
             buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
@@ -102,6 +111,12 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             sell_order, previous_used_buy_trade_ids, trading_market_config=trading_market_config, client=client
         )
         break_even_price = self._calculate_break_even_price(avg_buy_price, trading_market_config=trading_market_config)
+        current_profit = self._calculate_current_profit(
+            sell_order, avg_buy_price, tickers, trading_market_config=trading_market_config
+        )
+        net_revenue = self._calculate_net_revenue(
+            sell_order, break_even_price, tickers, trading_market_config=trading_market_config
+        )
         (safeguard_stop_price, stop_loss_percent_item) = await self._calculate_safeguard_stop_price(
             sell_order, avg_buy_price, trading_market_config=trading_market_config
         )
@@ -123,8 +138,11 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
         rounded_last_candle_market_metrics = last_candle_market_metrics.rounded(trading_market_config)
         guard_metrics = LimitSellOrderGuardMetrics(
             sell_order=sell_order,
+            current_price=tickers.close,
             avg_buy_price=avg_buy_price,
             break_even_price=break_even_price,
+            current_profit=current_profit,
+            net_revenue=net_revenue,
             stop_loss_percent_value=stop_loss_percent_item.value,
             safeguard_stop_price=safeguard_stop_price,
             current_attr_value=rounded_last_candle_market_metrics.atr,
@@ -174,6 +192,32 @@ class OrdersAnalyticsService(metaclass=SingletonMeta):
             avg_buy_price * (1.0 + BIT2ME_MAKER_AND_TAKER_FEES_SUM), ndigits=trading_market_config.price_precision
         )
         return break_even_price
+
+    def _calculate_current_profit(
+        self,
+        sell_order: Bit2MeOrderDto,
+        avg_buy_price: float,
+        tickers: Bit2MeTickersDto,
+        *,
+        trading_market_config: Bit2MeMarketConfigDto,
+    ) -> float:
+        ret = round(
+            (tickers.close - avg_buy_price) * sell_order.order_amount, ndigits=trading_market_config.price_precision
+        )
+        return ret
+
+    def _calculate_net_revenue(
+        self,
+        sell_order: Bit2MeOrderDto,
+        break_even_price: float,
+        tickers: Bit2MeTickersDto,
+        *,
+        trading_market_config: Bit2MeMarketConfigDto,
+    ) -> float:
+        ret = round(
+            (tickers.close - break_even_price) * sell_order.order_amount, ndigits=trading_market_config.price_precision
+        )
+        return ret
 
     def _get_correlated_filled_buy_trades(
         self,

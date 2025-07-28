@@ -24,14 +24,14 @@ from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service impo
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
-from crypto_trailing_stop.infrastructure.tasks.base import AbstractTradingTaskService
+from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
 from crypto_trailing_stop.infrastructure.tasks.vo.auto_exit_reason import AutoExitReason
 from crypto_trailing_stop.infrastructure.tasks.vo.technical_indicators_cache_item import TechnicalIndicatorsCacheItem
 
 logger = logging.getLogger(__name__)
 
 
-class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
+class LimitSellOrderGuardTaskService(AbstractTaskService):
     def __init__(self):
         super().__init__()
         self._configuration_properties = get_configuration_properties()
@@ -105,6 +105,7 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
         trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
             sell_order.symbol, client=client
         )
+        tickers = current_tickers_by_symbol[sell_order.symbol]
         technical_indicators = self._technical_indicators_by_symbol_cache[sell_order.symbol].technical_indicators
         last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
             sell_order.symbol,
@@ -117,11 +118,11 @@ class LimitSellOrderGuardTaskService(AbstractTradingTaskService):
             previous_used_buy_trade_ids,
         ) = await self._orders_analytics_service.calculate_guard_metrics_by_sell_order(
             sell_order,
+            tickers=tickers,
             technical_indicators=technical_indicators,
             previous_used_buy_trade_ids=previous_used_buy_trade_ids,
             client=client,
         )
-        tickers = current_tickers_by_symbol[sell_order.symbol]
         tickers_close_formatted = round(tickers.close, ndigits=trading_market_config.price_precision)
         logger.info(
             f"Supervising {sell_order.order_type.upper()} SELL order {repr(sell_order)}: "

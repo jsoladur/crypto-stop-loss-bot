@@ -18,12 +18,12 @@ from crypto_trailing_stop.infrastructure.services.global_flag_service import Glo
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
-from crypto_trailing_stop.infrastructure.tasks.base import AbstractTradingTaskService
+from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
 
 logger = logging.getLogger(__name__)
 
 
-class TrailingStopLossTaskService(AbstractTradingTaskService):
+class TrailingStopLossTaskService(AbstractTaskService):
     def __init__(self):
         super().__init__()
         buy_sell_signals_config_service = BuySellSignalsConfigService(bit2me_remote_service=self._bit2me_remote_service)

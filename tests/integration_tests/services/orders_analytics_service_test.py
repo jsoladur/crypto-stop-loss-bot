@@ -10,6 +10,7 @@ from werkzeug import Response
 
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
@@ -21,7 +22,7 @@ from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service impo
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from tests.helpers.constants import MOCK_CRYPTO_CURRENCIES
 from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
-from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother
+from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, Bit2MeTickersDtoObjectMother
 from tests.helpers.ohlcv_test_utils import get_fetch_ohlcv_random_result
 from tests.helpers.sell_orders_test_utils import generate_trades
 
@@ -82,6 +83,9 @@ async def should_calculate_all_limit_sell_order_guard_metrics_properly(
         assert metrics.sell_order.order_type == sell_order.order_type
 
         assert metrics.avg_buy_price is not None and metrics.avg_buy_price > 0
+        assert metrics.current_price is not None and metrics.current_price > 0
+        assert metrics.current_profit is not None
+        assert metrics.net_revenue is not None
         assert metrics.break_even_price is not None and metrics.break_even_price > metrics.avg_buy_price
         assert metrics.safeguard_stop_price > 0 and metrics.safeguard_stop_price < metrics.avg_buy_price
         assert metrics.stop_loss_percent_value > 0
@@ -102,6 +106,13 @@ def _prepare_httpserver_mock(
     faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str
 ) -> tuple[list[Bit2MeOrderDto]]:
     symbol = f"{faker.random_element(MOCK_CRYPTO_CURRENCIES)}/EUR"
+    tickers = Bit2MeTickersDtoObjectMother.create(symbol=symbol)
+    httpserver.expect(
+        Bit2MeAPIRequestMacher(
+            "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": symbol}
+        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        handler_type=HandlerType.ONESHOT,
+    ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
     # Mock OHLCV /v1/trading/candle
     fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
     httpserver.expect(
