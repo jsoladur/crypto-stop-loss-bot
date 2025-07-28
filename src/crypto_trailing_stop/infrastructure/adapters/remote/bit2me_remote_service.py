@@ -223,11 +223,11 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     # - 502 Bad Gateway
     # - Any unexpected timeout
     @backoff.on_exception(
-        backoff.constant,
+        backoff.fibo,
         exception=(ValueError, TimeoutException),
-        interval=3,
-        max_tries=5,
-        jitter=backoff.full_jitter,
+        max_value=5,
+        max_tries=7,
+        jitter=backoff.random_jitter,
         giveup=_backoff_giveup_handler,
         on_backoff=lambda details: logger.warning(
             f"[Retry {details['tries']}] " + f"Waiting {details['wait']:.2f}s due to {str(details['exception'])}"
