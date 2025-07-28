@@ -143,16 +143,21 @@ class MessagesFormatter(metaclass=SingletonMeta):
             )
         answer_text += (
             ":\n"
-            + f"    * 💳 {html.bold('Avg. Costs')} = {metrics.avg_buy_price} {fiat_currency}\n"
+            + f"    * 🔥 {html.bold(crypto_currency.upper() + ' Price')} = {metrics.current_price} {fiat_currency}\n"
+            + f"    * 🤑 {html.bold('Current Profit')} = {metrics.current_profit} {fiat_currency}\n"
+            + f"    * 🏧 {html.bold('Net Revenue')} = {metrics.net_revenue} {fiat_currency}\n"
+            + "     -------------------------- \n"
+            + f"    * 💳 {html.bold('Buy Price')} = {metrics.avg_buy_price} {fiat_currency}\n"
             + f"    * ⚖️ {html.bold('Break-even Price')} = {metrics.break_even_price} {fiat_currency}\n"
+            + "     -------------------------- \n"
             + f"    * 🚏 {html.bold('Stop Loss')} = {metrics.stop_loss_percent_value}%\n"
             + f"    * 🛡️ {html.bold('Safeguard Stop Price = ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}"  # noqa: E501
         )
         answer_text += (
-            "\n  💡 "
-            + html.bold("HINTS (ATR Volatility-based)")
-            + " 💡\n"
-            + f"    * 🎢 {html.italic('Current ATR')} = ±{metrics.current_attr_value} {fiat_currency} (±{metrics.current_atr_percent}%)\n"  # noqa: E501
+            "\n  ---------------------------------------------------- \n"
+            f"  💡 {html.italic('HINTS (ATR Volatility-based)')} 💡\n"
+            + "  ---------------------------------------------------- \n"
+            + f"    * 🎢 {html.italic('ATR')} = ±{metrics.current_attr_value} {fiat_currency} (±{metrics.current_atr_percent}%)\n"  # noqa: E501
             + f"    * 🚏 {html.bold('Suggested Stop Loss')} = {metrics.suggested_stop_loss_percent_value}%\n"  # noqa: E501
             + f"    * 💰 {html.bold('Suggested Safeguard Stop Price')} = {metrics.suggested_safeguard_stop_price} {fiat_currency}\n"  # noqa: E501
             + f"    * 🎯 {html.bold('Suggested Take Profit Price')} = {metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501

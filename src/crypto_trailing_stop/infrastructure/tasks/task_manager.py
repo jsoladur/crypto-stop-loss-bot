@@ -6,7 +6,7 @@ from types import ModuleType
 
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
-from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService, AbstractTradingTaskService
+from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class _TaskManager:
                 if (
                     isinstance(attr, type)
                     and issubclass(attr, AbstractTaskService)
-                    and attr not in [AbstractTaskService, AbstractTradingTaskService]
+                    and attr not in [AbstractTaskService]
                 ):
                     logger.info(f"Loading {attr.__name__}...")
                     task_clazz_instance = attr()
