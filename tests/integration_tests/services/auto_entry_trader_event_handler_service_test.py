@@ -274,14 +274,13 @@ def _prepare_httpserver_mock(
         ).respond_with_json(
             RootModel[list[Bit2MeTradingWalletBalanceDto]]([eur_wallet_balance]).model_dump(mode="json", by_alias=True)
         )
+        httpserver.expect(
+            Bit2MeAPIRequestMacher(
+                "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": symbol}
+            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+            handler_type=HandlerType.PERMANENT,
+        ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
         if warning_type != AutoEntryTraderWarningTypeEnum.NOT_ENOUGH_FUNDS:
-            httpserver.expect(
-                Bit2MeAPIRequestMacher(
-                    "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": symbol}
-                ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-                handler_type=HandlerType.ONESHOT,
-            ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
-
             # Mock call to POST /v1/trading/order
             buy_order_amount = _floor_round(
                 bit2me_pro_balance / tickers.close, ndigits=trading_market_config.amount_precision

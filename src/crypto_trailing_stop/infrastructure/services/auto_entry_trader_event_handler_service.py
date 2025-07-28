@@ -165,10 +165,10 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         trading_market_config: Bit2MeMarketConfigDto,
         client: AsyncClient,
     ) -> None:
-        # XXX: [JMSOLA] Get the current tickers.close price for calculate the order_amount
-        tickers = await self._bit2me_remote_service.get_tickers_by_symbol(market_signal_item.symbol)
         # XXX: [JMSOLA] Calculate buy order amount
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
+        # XXX: [JMSOLA] Get the current tickers.close price for calculate the order_amount
+        tickers = await self._bit2me_remote_service.get_tickers_by_symbol(market_signal_item.symbol)
         buy_order_amount = self._floor_round(
             initial_amount_to_invest / tickers.close, ndigits=trading_market_config.amount_precision
         )
@@ -188,7 +188,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         new_limit_sell_order = await self._create_new_sell_limit_order(
             new_buy_market_order, trading_market_config, tickers, crypto_currency, client=client
         )
-        guard_metrics = await self._update_stop_loss(new_limit_sell_order, crypto_currency, client=client)
+        guard_metrics = await self._update_stop_loss(new_limit_sell_order, tickers, crypto_currency, client=client)
         # Ensure Auto-exit on sudden SELL 1H signal is enabled
         buy_sell_signals_config.auto_exit_sell_1h = True
         await self._buy_sell_signals_config_service.save_or_update(buy_sell_signals_config)
@@ -294,10 +294,15 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         return new_limit_sell_order
 
     async def _update_stop_loss(
-        self, new_limit_sell_order: Bit2MeOrderDto, crypto_currency: str, *, client: AsyncClient
+        self,
+        new_limit_sell_order: Bit2MeOrderDto,
+        tickers: Bit2MeTickersDto,
+        crypto_currency: str,
+        *,
+        client: AsyncClient,
     ) -> LimitSellOrderGuardMetrics:
         guard_metrics, *_ = await self._orders_analytics_service.calculate_guard_metrics_by_sell_order(
-            new_limit_sell_order, client=client
+            new_limit_sell_order, tickers=tickers, client=client
         )
         # XXX [JMSOLA]: Calculate suggested stop loss and update it
         await self._stop_loss_percent_service.save_or_update(

@@ -3,7 +3,11 @@ from abc import ABC
 from html import escape as html_escape
 
 from aiogram import html
+from httpx import AsyncClient
 
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
@@ -15,10 +19,21 @@ logger = logging.getLogger(__name__)
 
 class AbstractService(ABC):
     def __init__(self) -> None:
+        self._bit2me_remote_service = Bit2MeRemoteService()
         self._push_notification_service = PushNotificationService()
         self._telegram_service = TelegramService(
             session_storage_service=SessionStorageService(), keyboards_builder=KeyboardsBuilder()
         )
+
+    async def _fetch_tickers_for_open_sell_orders(
+        self, open_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
+    ) -> dict[str, Bit2MeTickersDto]:
+        open_sell_order_symbols = set([open_sell_order.symbol for open_sell_order in open_sell_orders])
+        ret = {
+            symbol: await self._bit2me_remote_service.get_tickers_by_symbol(symbol, client=client)
+            for symbol in open_sell_order_symbols
+        }
+        return ret
 
     async def _notify_alert_by_type(self, notification_type: PushNotificationTypeEnum, message: str) -> None:
         telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
