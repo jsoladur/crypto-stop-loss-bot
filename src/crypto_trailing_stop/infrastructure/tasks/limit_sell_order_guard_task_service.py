@@ -132,9 +132,11 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         )
         tickers_close_formatted = round(tickers.close, ndigits=trading_market_config.price_precision)
         logger.info(
-            f"Supervising {sell_order.order_type.upper()} SELL order {repr(sell_order)}: "
+            f"Supervising {sell_order.order_type.upper()} SELL order {repr(sell_order)} :: "
             + f"Avg Buy Price = {guard_metrics.avg_buy_price} {fiat_currency} / "
             + f"Break-Even Price = {guard_metrics.break_even_price} {fiat_currency} / "
+            + f"Stop Loss = {guard_metrics.stop_loss_percent_value}% / "
+            + f"Flex. Stop Loss = {guard_metrics.breathe_stop_loss_percent_value}% / "
             + f"Stop Price = {guard_metrics.safeguard_stop_price} {fiat_currency} / "
             + f"Flex. Stop Price = {guard_metrics.breathe_safeguard_stop_price} {fiat_currency} / "
             + f"ATR Take Profit Limit price = {guard_metrics.suggested_take_profit_limit_price} {fiat_currency} / "
