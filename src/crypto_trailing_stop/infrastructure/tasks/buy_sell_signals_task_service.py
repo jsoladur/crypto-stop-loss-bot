@@ -398,9 +398,10 @@ class BuySellSignalsTaskService(AbstractTaskService):
     ) -> None:
         if timeframe == "4h":
             message = (
-                f"🚀🚀 - 🟢 - {html.bold('STRATEGIC BUY ALERT (4H)')} for {html.bold(base_symbol)}\n"
-                f"A BULLISH TREND is forming. {html.bold('DO NOT BUY YET!')}\n"
-                f"Wait for a pullback and the next {html.bold('BUY 1H signal')} to find a good entry!"
+                f"⏬⏬ - ⚠️ {html.bold('UPTREND EXHAUSTION ALERT (4H)')} for {html.bold(base_symbol)}\n"
+                f"{html.bold('The Uptrend may be maturing and ending')}. "
+                + f"Wait for a {html.bold('SELL 1H signal')} in order to sell, "
+                + "since a new bearish trend could be coming!"
             )
         else:
             message = (
@@ -413,9 +414,10 @@ class BuySellSignalsTaskService(AbstractTaskService):
     ) -> None:
         if timeframe == "4h":
             message = (
-                f"⏬⏬ - 🔴 - {html.bold('STRATEGIC SELL ALERT (4H)')} for {html.bold(base_symbol)}\n"
-                f"A BEARISH TREND is forming. {html.bold('DO NOT SELL YET!')}\n"
-                f"Wait for a bounce and the next {html.bold('SELL 1H signal')} to find a good exit!"
+                f"🚀🚀 - 🟢 - {html.bold('DOWNTREND EXHAUSTION ALERT (4H)')} for {html.bold(base_symbol)}\n"
+                f"{html.bold('The DownTrend may be maturing and ending')}. "
+                + f"Wait for a {html.bold('BUY 1H signal')} in order to buy, "
+                + "it could be the moment for a new bullish period."
             )
         else:
             message = (
