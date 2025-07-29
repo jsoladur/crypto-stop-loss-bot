@@ -151,7 +151,10 @@ class MessagesFormatter(metaclass=SingletonMeta):
             + f"   ⚖️ {html.bold('Break-even Price')} = {metrics.break_even_price} {fiat_currency}\n"
             + "   ---------------------------------------------------- \n"
             + f"   🚏 {html.bold('Stop Loss')} = {metrics.stop_loss_percent_value}%\n"
-            + f"   🛡️ {html.bold('Safeguard Stop Price = ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}"  # noqa: E501
+            + f"   🛡️ {html.bold('Stop Price = ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
+            + "   ---------------------------------------------------- \n"
+            + f"   🫁🚏 {html.bold('Flex. Stop Loss')} = {metrics.breathe_stop_loss_percent_value}%\n"
+            + f"   🫁🛡️ {html.bold('Flex. Stop Price = ' + str(metrics.breathe_safeguard_stop_price) + ' ' + fiat_currency)}"  # noqa: E501
         )
         answer_text += (
             "\n  ---------------------------------------------------- \n"
