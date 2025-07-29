@@ -117,8 +117,11 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
         net_revenue = self._calculate_net_revenue(
             sell_order, break_even_price, tickers, trading_market_config=trading_market_config
         )
-        (safeguard_stop_price, stop_loss_percent_item) = await self._calculate_safeguard_stop_price(
+        (safeguard_stop_price, stop_loss_percent_value) = await self._calculate_safeguard_stop_price(
             sell_order, avg_buy_price, trading_market_config=trading_market_config
+        )
+        (breathe_safeguard_stop_price, breathe_stop_loss_percent_value) = self._calculate_breathing_safeguards(
+            avg_buy_price, stop_loss_percent_value, trading_market_config=trading_market_config
         )
         suggested_stop_loss_percent_value = self._calculate_suggested_stop_loss_percent_value(
             avg_buy_price,
@@ -143,8 +146,10 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
             break_even_price=break_even_price,
             current_profit=current_profit,
             net_revenue=net_revenue,
-            stop_loss_percent_value=stop_loss_percent_item.value,
+            stop_loss_percent_value=stop_loss_percent_value,
+            breathe_stop_loss_percent_value=breathe_stop_loss_percent_value,
             safeguard_stop_price=safeguard_stop_price,
+            breathe_safeguard_stop_price=breathe_safeguard_stop_price,
             current_attr_value=rounded_last_candle_market_metrics.atr,
             current_atr_percent=rounded_last_candle_market_metrics.atr_percent,
             closing_price=last_candle_market_metrics.closing_price,
@@ -240,14 +245,30 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
 
     async def _calculate_safeguard_stop_price(
         self, sell_order: Bit2MeOrderDto, avg_buy_price: float, *, trading_market_config: Bit2MeMarketConfigDto
-    ) -> tuple[float, StopLossPercentItem]:
+    ) -> tuple[float, float]:
         (stop_loss_percent_item, stop_loss_percent_decimal_value) = await self.find_stop_loss_percent_by_sell_order(
             sell_order
         )
         safeguard_stop_price = round(
             avg_buy_price * (1 - stop_loss_percent_decimal_value), ndigits=trading_market_config.price_precision
         )
-        return safeguard_stop_price, stop_loss_percent_item
+        return safeguard_stop_price, stop_loss_percent_item.value
+
+    def _calculate_breathing_safeguards(
+        self, avg_buy_price: float, stop_loss_percent_value: float, *, trading_market_config: Bit2MeMarketConfigDto
+    ) -> tuple[float, float]:
+        # Calculate the Breathe Stop Loss based on the Stop Loss Percent Item
+        breathe_stop_loss_percent_value = stop_loss_percent_value
+        if breathe_stop_loss_percent_value < STOP_LOSS_STEPS_VALUE_LIST[-1]:
+            steps = np.array(STOP_LOSS_STEPS_VALUE_LIST)
+            # Ensure the Breathe Stop Loss is at least the next step above the calculated Stop Loss
+            breathe_stop_loss_percent_value = float(steps[steps > breathe_stop_loss_percent_value].min())
+
+        breathe_stop_loss_decimal_value = breathe_stop_loss_percent_value / 100
+        breathe_safeguard_stop_price = round(
+            avg_buy_price * (1 - breathe_stop_loss_decimal_value), ndigits=trading_market_config.price_precision
+        )
+        return breathe_safeguard_stop_price, breathe_stop_loss_percent_value
 
     def _calculate_suggested_stop_loss_percent_value(
         self,
