@@ -171,8 +171,10 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         )
         safeguard_stop_price_reached, atr_take_profit_limit_price_reached, auto_exit_sell_1h = False, False, False
         if not is_marked_for_immediate_sell:
-            # Check if the safeguard stop price has been reached
-            safeguard_stop_price_reached = tickers.close <= guard_metrics.safeguard_stop_price
+            # Check if the safeguard stop price is reached
+            safeguard_stop_price_reached = self._is_safeguard_stop_price_reached(
+                tickers, guard_metrics, last_candle_market_metrics
+            )
             if not safeguard_stop_price_reached:
                 crypto_currency, *_ = sell_order.symbol.split("/")
                 buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
@@ -192,6 +194,22 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             auto_exit_sell_1h=auto_exit_sell_1h,
             atr_take_profit_limit_price_reached=atr_take_profit_limit_price_reached,
         )
+
+    def _is_safeguard_stop_price_reached(
+        self,
+        tickers: Bit2MeTickersDto,
+        guard_metrics: LimitSellOrderGuardMetrics,
+        last_candle_market_metrics: CryptoMarketMetrics,
+    ) -> bool:
+        # XXX: [JMSOLA] Check if the safeguard stop price is reached
+        # If the latest candle's closing price is below the safeguard stop price,
+        # or the current price is below the breathe safeguard stop price
+        # We want to give breathe room to the price to fluctuate
+        safeguard_stop_price_reached = (
+            last_candle_market_metrics.closing_price < guard_metrics.safeguard_stop_price
+            or tickers.close < guard_metrics.breathe_safeguard_stop_price
+        )
+        return safeguard_stop_price_reached
 
     async def _is_auto_exit_due_to_sell_1h(
         self,

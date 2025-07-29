@@ -11,9 +11,11 @@ class LimitSellOrderGuardMetrics:
     break_even_price: float | int
     current_profit: float | int
     net_revenue: float | int
-    # Fixed by myself
+    # Stop loss and take profit metrics
     stop_loss_percent_value: float
+    breathe_stop_loss_percent_value: float
     safeguard_stop_price: float | int
+    breathe_safeguard_stop_price: float | int
     # Suggested and dinamically calculated based on current volatility
     current_attr_value: float | int
     current_atr_percent: float | int
