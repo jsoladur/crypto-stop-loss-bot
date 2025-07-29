@@ -102,23 +102,30 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         *,
         client: AsyncClient,
     ) -> set[str]:
+        crypto_currency, fiat_currency = sell_order.symbol.split("/")
+        buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
         trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
             sell_order.symbol, client=client
         )
         tickers = current_tickers_by_symbol[sell_order.symbol]
         technical_indicators = self._technical_indicators_by_symbol_cache[sell_order.symbol].technical_indicators
+        prev_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
+            sell_order.symbol,
+            candlestick=technical_indicators.iloc[CandleStickEnum.PREV],
+            trading_market_config=trading_market_config,
+        )
         last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
             sell_order.symbol,
             candlestick=technical_indicators.iloc[CandleStickEnum.LAST],
             trading_market_config=trading_market_config,
         )
-        *_, fiat_currency = sell_order.symbol.split("/")
         (
             guard_metrics,
             previous_used_buy_trade_ids,
         ) = await self._orders_analytics_service.calculate_guard_metrics_by_sell_order(
             sell_order,
             tickers=tickers,
+            buy_sell_signals_config=buy_sell_signals_config,
             technical_indicators=technical_indicators,
             previous_used_buy_trade_ids=previous_used_buy_trade_ids,
             client=client,
@@ -128,12 +135,20 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             f"Supervising {sell_order.order_type.upper()} SELL order {repr(sell_order)}: "
             + f"Avg Buy Price = {guard_metrics.avg_buy_price} {fiat_currency} / "
             + f"Break-Even Price = {guard_metrics.break_even_price} {fiat_currency} / "
-            + f"Safeguard Stop Price = {guard_metrics.safeguard_stop_price} {fiat_currency} / "
+            + f"Stop Price = {guard_metrics.safeguard_stop_price} {fiat_currency} / "
+            + f"Flex. Stop Price = {guard_metrics.breathe_safeguard_stop_price} {fiat_currency} / "
             + f"ATR Take Profit Limit price = {guard_metrics.suggested_take_profit_limit_price} {fiat_currency} / "
             + f"ATR value = {guard_metrics.current_attr_value} {fiat_currency} / "
             + f"Current Price = {tickers_close_formatted} {fiat_currency}"
         )
-        auto_exit_reason = await self._is_moment_to_exit(sell_order, tickers, guard_metrics, last_candle_market_metrics)
+        auto_exit_reason = await self._is_moment_to_exit(
+            sell_order=sell_order,
+            tickers=tickers,
+            buy_sell_signals_config=buy_sell_signals_config,
+            guard_metrics=guard_metrics,
+            prev_candle_market_metrics=prev_candle_market_metrics,
+            last_candle_market_metrics=last_candle_market_metrics,
+        )
         if auto_exit_reason.is_exit:
             # Cancel current take-profit sell limit order
             await self._bit2me_remote_service.cancel_order_by_id(sell_order.id, client=client)
@@ -159,9 +174,12 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
 
     async def _is_moment_to_exit(
         self,
+        *,
         sell_order: Bit2MeOrderDto,
         tickers: Bit2MeTickersDto,
+        buy_sell_signals_config: BuySellSignalsConfigItem,
         guard_metrics: LimitSellOrderGuardMetrics,
+        prev_candle_market_metrics: CryptoMarketMetrics,
         last_candle_market_metrics: CryptoMarketMetrics,
     ) -> AutoExitReason:
         """Determines if it's the right moment to exit the sell order based on various conditions."""
@@ -173,19 +191,24 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         if not is_marked_for_immediate_sell:
             # Check if the safeguard stop price is reached
             safeguard_stop_price_reached = self._is_safeguard_stop_price_reached(
-                tickers, guard_metrics, last_candle_market_metrics
+                tickers=tickers, guard_metrics=guard_metrics, last_candle_market_metrics=last_candle_market_metrics
             )
             if not safeguard_stop_price_reached:
-                crypto_currency, *_ = sell_order.symbol.split("/")
-                buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
                 # Calculate auto_exit_sell_1h
-                auto_exit_sell_1h = await self._is_auto_exit_due_to_sell_1h(
-                    sell_order, tickers, guard_metrics, buy_sell_signals_config, last_candle_market_metrics
+                auto_exit_sell_1h = await self._should_auto_exit_on_sell_1h_signal(
+                    sell_order=sell_order,
+                    tickers=tickers,
+                    guard_metrics=guard_metrics,
+                    buy_sell_signals_config=buy_sell_signals_config,
+                    prev_candle_market_metrics=prev_candle_market_metrics,
+                    last_candle_market_metrics=last_candle_market_metrics,
                 )
                 if not auto_exit_sell_1h:
                     atr_take_profit_limit_price_reached = (
-                        await self._is_auto_exit_due_to_atr_take_profit_limit_price_reached(
-                            sell_order, tickers, guard_metrics, buy_sell_signals_config, last_candle_market_metrics
+                        await self._should_auto_exit_on_atr_take_profit_limit_price_reached(
+                            tickers=tickers,
+                            guard_metrics=guard_metrics,
+                            buy_sell_signals_config=buy_sell_signals_config,
                         )
                     )
         return AutoExitReason(
@@ -197,6 +220,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
 
     def _is_safeguard_stop_price_reached(
         self,
+        *,
         tickers: Bit2MeTickersDto,
         guard_metrics: LimitSellOrderGuardMetrics,
         last_candle_market_metrics: CryptoMarketMetrics,
@@ -211,12 +235,14 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         )
         return safeguard_stop_price_reached
 
-    async def _is_auto_exit_due_to_sell_1h(
+    async def _should_auto_exit_on_sell_1h_signal(
         self,
+        *,
         sell_order: Bit2MeOrderDto,
         tickers: Bit2MeTickersDto,
         guard_metrics: LimitSellOrderGuardMetrics,
         buy_sell_signals_config: BuySellSignalsConfigItem,
+        prev_candle_market_metrics: CryptoMarketMetrics,
         last_candle_market_metrics: CryptoMarketMetrics,
     ) -> bool:
         auto_exit_sell_1h = False
@@ -228,16 +254,16 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                 and last_market_1h_signal.signal_type == "sell"
                 and tickers.close >= guard_metrics.break_even_price
                 and last_candle_market_metrics.macd_hist < 0
+                and last_candle_market_metrics.macd_hist < prev_candle_market_metrics.macd_hist
             )
         return auto_exit_sell_1h
 
-    async def _is_auto_exit_due_to_atr_take_profit_limit_price_reached(
+    async def _should_auto_exit_on_atr_take_profit_limit_price_reached(
         self,
-        _: Bit2MeOrderDto,
+        *,
         tickers: Bit2MeTickersDto,
         guard_metrics: LimitSellOrderGuardMetrics,
         buy_sell_signals_config: BuySellSignalsConfigItem,
-        __: CryptoMarketMetrics,
     ) -> bool:
         atr_take_profit_limit_price_reached = False
         if buy_sell_signals_config.auto_exit_atr_take_profit:
