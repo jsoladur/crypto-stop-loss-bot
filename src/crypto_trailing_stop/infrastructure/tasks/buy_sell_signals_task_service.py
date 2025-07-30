@@ -333,7 +333,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 timeframe=timeframe,
                 tickers=tickers,
             )
-        else:
+        else:  # pragma: no cover
             logger.info(f"Neutral market for {base_symbol} on {timeframe}.")
 
     async def _notify_reliable_alerts(
