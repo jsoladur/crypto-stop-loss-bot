@@ -258,11 +258,15 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
         self, avg_buy_price: float, stop_loss_percent_value: float, *, trading_market_config: Bit2MeMarketConfigDto
     ) -> tuple[float, float]:
         # Calculate the Breathe Stop Loss based on the Stop Loss Percent Item
-        breathe_stop_loss_percent_value = stop_loss_percent_value
-        if breathe_stop_loss_percent_value < STOP_LOSS_STEPS_VALUE_LIST[-1]:
+        if stop_loss_percent_value < STOP_LOSS_STEPS_VALUE_LIST[-1]:
             steps = np.array(STOP_LOSS_STEPS_VALUE_LIST)
             # Ensure the Breathe Stop Loss is at least the next step above the calculated Stop Loss
-            breathe_stop_loss_percent_value = float(steps[steps > breathe_stop_loss_percent_value].min())
+            next_step_value = float(steps[steps > stop_loss_percent_value].min())
+            # Increment the Stop Loss at least 0.50% to ensure a gap
+            increment_value = max(next_step_value - stop_loss_percent_value, 0.50)
+            breathe_stop_loss_percent_value = stop_loss_percent_value + increment_value
+        else:
+            breathe_stop_loss_percent_value = stop_loss_percent_value
 
         breathe_stop_loss_decimal_value = breathe_stop_loss_percent_value / 100
         breathe_safeguard_stop_price = round(
