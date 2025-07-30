@@ -16,8 +16,10 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_bal
     Bit2MeTradingWalletBalanceDto,
 )
 from crypto_trailing_stop.infrastructure.database.models.push_notification import PushNotification
+from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_enum import PushNotificationTypeEnum
+from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.buy_sell_signals_task_service import BuySellSignalsTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
@@ -29,13 +31,21 @@ from tests.helpers.ohlcv_test_utils import load_ohlcv_result_by_filename
 logger = logging.getLogger(__name__)
 
 
+buy_sell_signals_mock_filenames = [
+    filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")
+]
+
+
 @pytest.mark.parametrize(
-    "fetch_ohlcv_return_value_filename",
-    [filename for filename in listdir(BUY_SELL_SIGNALS_MOCK_FILES_PATH) if filename.endswith(".json")],
+    "fetch_ohlcv_return_value_filename,filter_noise_using_adx",
+    [(filename, bool_value) for filename in buy_sell_signals_mock_filenames for bool_value in [True, False]],
 )
 @pytest.mark.asyncio
 async def should_send_via_telegram_notifications_after_detecting_buy_sell_signals(
-    faker: Faker, fetch_ohlcv_return_value_filename: str, integration_test_env: tuple[HTTPServer, str]
+    faker: Faker,
+    fetch_ohlcv_return_value_filename: str,
+    filter_noise_using_adx: bool,
+    integration_test_env: tuple[HTTPServer, str],
 ) -> None:
     """
     Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
@@ -44,7 +54,9 @@ async def should_send_via_telegram_notifications_after_detecting_buy_sell_signal
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
     await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.BUY_SELL_SIGNALS)
 
-    _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret, fetch_ohlcv_return_value_filename)
+    crypto_currency = _prepare_httpserver_mock(
+        faker, httpserver, bit2me_api_key, bit2me_api_secret, fetch_ohlcv_return_value_filename
+    )
 
     task_manager = get_task_manager_instance()
 
@@ -53,6 +65,11 @@ async def should_send_via_telegram_notifications_after_detecting_buy_sell_signal
     ]
     # Pause job since won't be paused via start(..), stop(..)
     buy_sell_signals_task_service._job.pause()
+
+    if filter_noise_using_adx:
+        await BuySellSignalsConfigService().save_or_update(
+            BuySellSignalsConfigItem(symbol=crypto_currency, filter_noise_using_adx=True)
+        )
 
     # Provoke send a notification via Telegram
     push_notification = PushNotification(
@@ -152,3 +169,5 @@ def _prepare_httpserver_mock(
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
+
+    return favourite_crypto_currency
