@@ -184,50 +184,54 @@ class BuySellSignalsTaskService(AbstractTaskService):
         buy_signal, sell_signal, is_choppy = False, False, False
         atr, closing_price, ema_long_price = 0.0, 0.0, 0.0
         rsi_state = "neutral"
-        if len(df) >= 3:
-            # Use a threshold of 0 for 1H signals to disable the proximity check
-            volatility_threshold = self._get_volatility_threshold(timeframe)
-            # Last confirmed candle
-            last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
-                symbol, df.iloc[CandleStickEnum.LAST], trading_market_config=trading_market_config
+        # Use a threshold of 0 for 1H signals to disable the proximity check
+        volatility_threshold = self._get_volatility_threshold(timeframe)
+        # Last confirmed candle
+        last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
+            symbol, df.iloc[CandleStickEnum.LAST], trading_market_config=trading_market_config
+        )
+        # Update timestamp
+        timestamp = last_candle_market_metrics.timestamp.timestamp()
+        # Calculate RSI Anticipation Zone (RSI)
+        rsi_state = last_candle_market_metrics.rsi_state
+        # Rounded metrics
+        rounded_last_candle_market_metrics = last_candle_market_metrics.rounded(trading_market_config)
+        atr = rounded_last_candle_market_metrics.atr
+        closing_price = rounded_last_candle_market_metrics.closing_price
+        ema_long_price = rounded_last_candle_market_metrics.ema_long
+
+        min_volatility_threshold = last_candle_market_metrics.closing_price * volatility_threshold
+
+        is_choppy = bool(last_candle_market_metrics.atr < min_volatility_threshold)
+        if is_choppy:
+            logger.info(
+                f"{symbol} - ({timeframe.upper()}) :: "
+                + f"Market too choppy (ATR {last_candle_market_metrics.atr} < Threshold {min_volatility_threshold}). "  # noqa: E501
+                + "Skipping signal check..."
             )
-            # Update timestamp
-            timestamp = last_candle_market_metrics.timestamp.timestamp()
-            # Calculate RSI Anticipation Zone (RSI)
-            rsi_state = last_candle_market_metrics.rsi_state
-            # Rounded metrics
-            rounded_last_candle_market_metrics = last_candle_market_metrics.rounded(trading_market_config)
-            atr = rounded_last_candle_market_metrics.atr
-            closing_price = rounded_last_candle_market_metrics.closing_price
-            ema_long_price = rounded_last_candle_market_metrics.ema_long
-
-            min_volatility_threshold = last_candle_market_metrics.closing_price * volatility_threshold
-
-            is_choppy = bool(last_candle_market_metrics.atr < min_volatility_threshold)
-            if is_choppy:
-                logger.info(
-                    f"{symbol} - ({timeframe.upper()}) :: "
-                    + f"Market too choppy (ATR {last_candle_market_metrics.atr} < Threshold {min_volatility_threshold}). "  # noqa: E501
-                    + "Skipping signal check..."
-                )
-            else:
-                logger.info(
-                    f"{symbol} - ({timeframe.upper()}) :: "
-                    + f"Market is trending (ATR {last_candle_market_metrics.atr} >= Threshold {min_volatility_threshold}). "  # noqa: E501
-                    + "Checking for signals..."
-                )
-                # Prev confirmed candle
-                prev_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
-                    symbol, df.iloc[CandleStickEnum.PREV], trading_market_config=trading_market_config
-                )
-                # A proximity_threshold of 0 effectively disables the proximity check
-                buy_signal = self._calculate_buy_signal(
-                    prev_candle_market_metrics, last_candle_market_metrics, buy_sell_signals_config
-                )
-                # Sell Signal Logic
-                sell_signal = self._calculate_sell_signal(
-                    prev_candle_market_metrics, last_candle_market_metrics, buy_sell_signals_config
-                )
+        else:
+            logger.info(
+                f"{symbol} - ({timeframe.upper()}) :: "
+                + f"Market is trending (ATR {last_candle_market_metrics.atr} >= Threshold {min_volatility_threshold}). "  # noqa: E501
+                + "Checking for signals..."
+            )
+            # Prior confirmed candle
+            prior_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
+                symbol, df.iloc[CandleStickEnum.PRIOR], trading_market_config=trading_market_config
+            )
+            # Prev confirmed candle
+            prev_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
+                symbol, df.iloc[CandleStickEnum.PREV], trading_market_config=trading_market_config
+            )
+            # A proximity_threshold of 0 effectively disables the proximity check
+            buy_signal = self._calculate_buy_signal(
+                prior_candle_market_metrics,
+                prev_candle_market_metrics,
+                last_candle_market_metrics,
+                buy_sell_signals_config=buy_sell_signals_config,
+            )
+            # Sell Signal Logic
+            sell_signal = self._calculate_sell_signal(prev_candle_market_metrics, last_candle_market_metrics)
         ret = SignalsEvaluationResult(
             timestamp=timestamp,
             symbol=symbol,
@@ -244,29 +248,41 @@ class BuySellSignalsTaskService(AbstractTaskService):
 
     def _calculate_buy_signal(
         self,
+        prior_candle_market_metrics: CryptoMarketMetrics,
         prev_candle_market_metrics: CryptoMarketMetrics,
         last_candle_market_metrics: CryptoMarketMetrics,
+        *,
         buy_sell_signals_config: BuySellSignalsConfigItem,
     ) -> bool:
-        # Buy Signal Logic
-        ema_bullish_cross = (
-            prev_candle_market_metrics.ema_short <= prev_candle_market_metrics.ema_mid
-            and last_candle_market_metrics.ema_short > last_candle_market_metrics.ema_mid
+        # 1. Check for the immediate signal (crossover on last candle).
+        ema_bullish_cross_on_last = self._is_ema_bullish_crossover(
+            earlier_candle=prev_candle_market_metrics, later_candle=last_candle_market_metrics
         )
-        is_strong_trend = not buy_sell_signals_config.filter_noise_using_adx or (
-            # NOTE: +DI > -DI
-            last_candle_market_metrics.adx_pos > last_candle_market_metrics.adx_neg
-            # NOTE: ADX > 20
-            and last_candle_market_metrics.adx > buy_sell_signals_config.adx_threshold
+        is_trend_momentum_confirmed_on_last = self._is_trend_momentum_confirmed(
+            candle=last_candle_market_metrics, buy_sell_signals_config=buy_sell_signals_config
         )
-        buy_signal = ema_bullish_cross and last_candle_market_metrics.macd_hist > 0 and is_strong_trend
+        buy_signal = ema_bullish_cross_on_last and is_trend_momentum_confirmed_on_last
+        # If the ADX filter is off, we only check for the immediate signal.
+        if buy_sell_signals_config.filter_noise_using_adx:
+            # --- ADX filter is ON from this point forward ---
+            # 3. Define the "Delayed Signal" case (crossover on prev, confirmed now, but not previously).
+            ema_bullish_cross_on_prev = self._is_ema_bullish_crossover(
+                earlier_candle=prior_candle_market_metrics, later_candle=prev_candle_market_metrics
+            )
+            is_trend_momentum_confirmed_on_prev = self._is_trend_momentum_confirmed(
+                candle=prev_candle_market_metrics, buy_sell_signals_config=buy_sell_signals_config
+            )
+            signal_delayed = (
+                ema_bullish_cross_on_prev
+                and is_trend_momentum_confirmed_on_last
+                and not is_trend_momentum_confirmed_on_prev
+            )
+            # 4. The final signal is true if either the immediate or the delayed signal is valid.
+            buy_signal = buy_signal or signal_delayed
         return bool(buy_signal)
 
     def _calculate_sell_signal(
-        self,
-        prev_candle_market_metrics: CryptoMarketMetrics,
-        last_candle_market_metrics: CryptoMarketMetrics,
-        _: BuySellSignalsConfigItem,
+        self, prev_candle_market_metrics: CryptoMarketMetrics, last_candle_market_metrics: CryptoMarketMetrics
     ) -> bool:
         ema_bearish_cross = (
             prev_candle_market_metrics.ema_short >= prev_candle_market_metrics.ema_mid
@@ -274,14 +290,14 @@ class BuySellSignalsTaskService(AbstractTaskService):
         )
         # XXX: [JMSOLA] Removed ADX filter for sell signals
         # This is because we want to capture the bearish trend even if the ADX is not strong.
-        is_strong_trend = True  # Always consider the trend strong for sell signals
-        # is_strong_trend = not buy_sell_signals_config.filter_noise_using_adx or (
+        is_strong_downtrend = True  # Always consider the trend strong for sell signals
+        # is_strong_downtrend = not buy_sell_signals_config.filter_noise_using_adx or (
         #     # NOTE: -DI > +DI
         #     last_candle_market_metrics.adx_neg > last_candle_market_metrics.adx_pos
         #     # NOTE: ADX > 20
         #     and last_candle_market_metrics.adx > self._configuration_properties.buy_sell_signals_adx_threshold
         # )
-        sell_signal = ema_bearish_cross and last_candle_market_metrics.macd_hist < 0 and is_strong_trend
+        sell_signal = ema_bearish_cross and last_candle_market_metrics.macd_hist < 0 and is_strong_downtrend
         return bool(sell_signal)
 
     def _get_volatility_threshold(self, timeframe: Timeframe) -> float:
@@ -317,7 +333,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 timeframe=timeframe,
                 tickers=tickers,
             )
-        else:
+        else:  # pragma: no cover
             logger.info(f"Neutral market for {base_symbol} on {timeframe}.")
 
     async def _notify_reliable_alerts(
@@ -435,3 +451,20 @@ class BuySellSignalsTaskService(AbstractTaskService):
         message += html.bold(f"🔥 {crypto_currency} current price is {tickers.close} {fiat_currency}")
         for tg_chat_id in telegram_chat_ids:
             await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
+
+    def _is_trend_momentum_confirmed(
+        self, *, candle: CryptoMarketMetrics, buy_sell_signals_config: BuySellSignalsConfigItem
+    ) -> bool:
+        """Checks if all non-crossover buy confirmations (MACD, ADX) are met for a given candle."""
+        is_strong_uptrend = not buy_sell_signals_config.filter_noise_using_adx or (
+            # NOTE: +DI > -DI
+            candle.adx_pos > candle.adx_neg
+            # NOTE: ADX > 20
+            and candle.adx > buy_sell_signals_config.adx_threshold
+        )
+        return candle.macd_hist > 0 and is_strong_uptrend
+
+    def _is_ema_bullish_crossover(
+        self, *, earlier_candle: CryptoMarketMetrics, later_candle: CryptoMarketMetrics
+    ) -> bool:
+        return earlier_candle.ema_short <= earlier_candle.ema_mid and later_candle.ema_short > later_candle.ema_mid
