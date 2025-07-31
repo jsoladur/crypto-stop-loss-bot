@@ -12,6 +12,9 @@ from crypto_trailing_stop.infrastructure.tasks.vo.types import RSIState
 class CryptoMarketMetrics:
     symbol: str
     timestamp: datetime
+    highest_price: float | int
+    lowest_price: float | int
+    opening_price: float | int
     closing_price: float | int
     ema_short: float | int
     ema_mid: float | int
@@ -47,6 +50,9 @@ class CryptoMarketMetrics:
             ret = CryptoMarketMetrics(
                 symbol=self.symbol,
                 timestamp=self.timestamp,
+                highest_price=round(self.highest_price, ndigits=ndigits),
+                lowest_price=round(self.lowest_price, ndigits=ndigits),
+                opening_price=round(self.opening_price, ndigits=ndigits),
                 closing_price=round(self.closing_price, ndigits=ndigits),
                 ema_short=round(self.ema_short, ndigits=ndigits),
                 ema_mid=round(self.ema_mid, ndigits=ndigits),
@@ -73,6 +79,9 @@ class CryptoMarketMetrics:
         ret = CryptoMarketMetrics(
             symbol=symbol,
             timestamp=candlestick["timestamp"],
+            highest_price=round(candlestick["high"], ndigits=ndigits) if apply_round else candlestick["high"],
+            lowest_price=round(candlestick["low"], ndigits=ndigits) if apply_round else candlestick["low"],
+            opening_price=round(candlestick["open"], ndigits=ndigits) if apply_round else candlestick["open"],
             closing_price=round(candlestick["close"], ndigits=ndigits) if apply_round else candlestick["close"],
             ema_short=round(candlestick["ema_short"], ndigits=ndigits) if apply_round else candlestick["ema_short"],
             ema_mid=round(candlestick["ema_mid"], ndigits=ndigits) if apply_round else candlestick["ema_mid"],
