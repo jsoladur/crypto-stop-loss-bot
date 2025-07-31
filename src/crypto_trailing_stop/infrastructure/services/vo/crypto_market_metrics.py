@@ -28,6 +28,9 @@ class CryptoMarketMetrics:
     adx: float | int
     adx_pos: float | int
     adx_neg: float | int
+    bb_upper: float | int
+    bb_middle: float | int
+    bb_lower: float | int
 
     is_rounded: bool
 
@@ -66,6 +69,9 @@ class CryptoMarketMetrics:
                 adx=round(self.adx, ndigits=2),
                 adx_pos=round(self.adx_pos, ndigits=2),
                 adx_neg=round(self.adx_neg, ndigits=2),
+                bb_upper=round(self.bb_upper, ndigits=ndigits),
+                bb_middle=round(self.bb_middle, ndigits=ndigits),
+                bb_lower=round(self.bb_lower, ndigits=ndigits),
                 is_rounded=True,
             )
         return ret
@@ -97,6 +103,9 @@ class CryptoMarketMetrics:
             adx=round(candlestick["adx"], ndigits=2) if apply_round else candlestick["adx"],
             adx_pos=round(candlestick["adx_pos"], ndigits=2) if apply_round else candlestick["adx_pos"],
             adx_neg=round(candlestick["adx_neg"], ndigits=2) if apply_round else candlestick["adx_neg"],
+            bb_upper=round(candlestick["bb_upper"], ndigits=ndigits) if apply_round else candlestick["bb_upper"],
+            bb_middle=round(candlestick["bb_middle"], ndigits=ndigits) if apply_round else candlestick["bb_middle"],
+            bb_lower=round(candlestick["bb_lower"], ndigits=ndigits) if apply_round else candlestick["bb_lower"],
             is_rounded=apply_round,
         )
         return ret

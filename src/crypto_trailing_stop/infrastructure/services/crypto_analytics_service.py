@@ -5,7 +5,7 @@ import pandas as pd
 from httpx import AsyncClient
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, ADXIndicator, EMAIndicator
-from ta.volatility import AverageTrueRange
+from ta.volatility import AverageTrueRange, BollingerBands
 
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -135,6 +135,12 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         df["adx"] = adx_indicator.adx()
         df["adx_pos"] = adx_indicator.adx_pos()
         df["adx_neg"] = adx_indicator.adx_neg()
+        # NEW: Calculate Bollinger Bands (BBands)
+        bbands_indicator = BollingerBands(close=df["close"], window=20, window_dev=2)
+        df["bb_upper"] = bbands_indicator.bollinger_hband()
+        df["bb_middle"] = bbands_indicator.bollinger_mavg()
+        df["bb_lower"] = bbands_indicator.bollinger_lband()
+        # Drop NaN values
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)
         logger.debug("Indicator calculation complete.")
