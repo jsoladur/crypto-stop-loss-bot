@@ -90,7 +90,9 @@ class MessagesFormatter(metaclass=SingletonMeta):
             f"📈 {html.bold('EMA Short')} = {metrics.ema_short} {fiat_currency}",
             f"📉 {html.bold('EMA Mid')} = {metrics.ema_mid} {fiat_currency}",
             f"📐 {html.bold('EMA Long')} = {metrics.ema_long} {fiat_currency}",
-            f"♊ {html.bold('MACD Hist')} = {self._get_macd_hist_icon(metrics)} {metrics.macd_hist}",
+            f"💹 {html.bold('MACD Line')} = {self._get_macd_icon(metrics)} {metrics.macd_line}",
+            f"🧨 {html.bold('MACD Signal')} = {self._get_macd_icon(metrics)} {metrics.macd_signal} ",
+            f"♊ {html.bold('MACD Hist')} = {self._get_macd_icon(metrics)} {metrics.macd_hist}",
             f"🎢 {html.bold('ATR')} = ±{metrics.atr} {fiat_currency} (±{metrics.atr_percent}%)",
             f"📊 {html.bold('RSI')} = {html.italic(pydash.start_case(metrics.rsi_state))} ({metrics.rsi})",
             f"📶 {html.bold('ADX')} = {self._get_adx_icon(metrics)} {metrics.adx}",
@@ -221,7 +223,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
             answer_text = "✳️ There are no currently opened SELL orders."
         return answer_text
 
-    def _get_macd_hist_icon(self, metrics: CryptoMarketMetrics) -> str:
+    def _get_macd_icon(self, metrics: CryptoMarketMetrics) -> str:
         if metrics.macd_hist > 0:
             # Upward momentum
             macd_hist_icon = "🟢"

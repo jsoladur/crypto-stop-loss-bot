@@ -123,6 +123,8 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         df["ema_long"] = EMAIndicator(df["close"], window=buy_sell_signals_config.ema_long_value).ema_indicator()
         # Moving Average Convergence Divergence (MACD)
         macd = MACD(df["close"], window_slow=26, window_fast=12, window_sign=9)
+        df["macd_line"] = macd.macd()
+        df["macd_signal"] = macd.macd_signal()
         df["macd_hist"] = macd.macd_diff()
         # Relative Strength Index (RSI)
         df["rsi"] = RSIIndicator(df["close"], window=14).rsi()
