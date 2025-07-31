@@ -489,8 +489,16 @@ class BuySellSignalsTaskService(AbstractTaskService):
             # NOTE: +DI > -DI
             di_cross_is_bullish = candle.adx_pos > candle.adx_neg
             # NOTE: MACD Line > 0 and Lowest Price > EMA Mid
-            alternative_is_confirmed = candle.macd_line > 0 and candle.lowest_price > candle.ema_mid
-            is_strong_uptrend = trend_strength_confirmed and (di_cross_is_bullish or alternative_is_confirmed)
+            momentum_and_support_confirmed = candle.macd_line > 0 and candle.lowest_price > candle.ema_mid
+            # NOTE: Bollinger Breakout Confirmed
+            # This is a strong confirmation that the price is breaking out of the upper Bollinger Band
+            bollinger_breakout_confirmed = candle.closing_price > candle.bb_upper
+            # The direction is confirmed if the primary DI cross OR EITHER alternative is true.
+            trend_direction_confirmed = (
+                di_cross_is_bullish or momentum_and_support_confirmed or bollinger_breakout_confirmed
+            )
+            # The final result requires trend strength AND a valid direction confirmation.
+            is_strong_uptrend = trend_strength_confirmed and trend_direction_confirmed
         return is_strong_uptrend
 
     def _is_ema_bullish_crossover(
