@@ -256,9 +256,11 @@ class BuySellSignalsTaskService(AbstractTaskService):
         last_candle_market_metrics: CryptoMarketMetrics,
         buy_sell_signals_config: BuySellSignalsConfigItem,
     ) -> bool:
-        # FIXME: oldest_candle_market_metrics will be used for 2-candle delayed signals in the future.
-
-        # 1. Check for the immediate signal (crossover on last candle).
+        """
+        Calculates the buy signal, including the 2-candle delayed confirmation logic
+        when ADX filter is enabled.
+        """
+        # 1. Check for the "Immediate Signal" (crossover on the last candle).
         ema_bullish_cross_on_last = self._is_ema_bullish_crossover(
             earlier_candle=prev_candle_market_metrics, later_candle=last_candle_market_metrics
         )
@@ -269,19 +271,33 @@ class BuySellSignalsTaskService(AbstractTaskService):
         # If the ADX filter is off, we only check for the immediate signal.
         if buy_sell_signals_config.filter_noise_using_adx:
             # --- ADX filter is ON from this point forward ---
-            # 3. Define the "Delayed Signal" case (crossover on prev, confirmed now, but not previously).
+            # 2. Check for a "Delayed Signal" from 1 candle ago.
             ema_bullish_cross_on_prev = self._is_ema_bullish_crossover(
                 earlier_candle=prior_candle_market_metrics, later_candle=prev_candle_market_metrics
             )
             is_trend_momentum_confirmed_on_prev = self._is_trend_momentum_confirmed(
                 candle=prev_candle_market_metrics, buy_sell_signals_config=buy_sell_signals_config
             )
-            signal_delayed = (
+            signal_delayed_1_ago = (
                 ema_bullish_cross_on_prev
                 and is_trend_momentum_confirmed_on_last
                 and not is_trend_momentum_confirmed_on_prev
             )
-            # 4. The final signal is true if either the immediate or the delayed signal is valid.
+            # 3. Check for a "Delayed Signal" from 2 candles ago.
+            is_trend_momentum_confirmed_on_prior = self._is_trend_momentum_confirmed(
+                candle=prior_candle_market_metrics, buy_sell_signals_config=buy_sell_signals_config
+            )
+            ema_bullish_cross_on_prior = self._is_ema_bullish_crossover(
+                earlier_candle=oldest_candle_market_metrics, later_candle=prior_candle_market_metrics
+            )
+            signal_delayed_2_ago = (
+                ema_bullish_cross_on_prior
+                and is_trend_momentum_confirmed_on_last
+                and not is_trend_momentum_confirmed_on_prev  # Must not have been valid on prev candle
+                and not is_trend_momentum_confirmed_on_prior  # Must not have been valid on its own candle
+            )
+            # 4. The final signal is true if the immediate OR any valid delayed signal is found.
+            signal_delayed = signal_delayed_1_ago or signal_delayed_2_ago
             buy_signal = buy_signal or signal_delayed
         return bool(buy_signal)
 
