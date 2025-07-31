@@ -12,10 +12,15 @@ from crypto_trailing_stop.infrastructure.tasks.vo.types import RSIState
 class CryptoMarketMetrics:
     symbol: str
     timestamp: datetime
+    highest_price: float | int
+    lowest_price: float | int
+    opening_price: float | int
     closing_price: float | int
     ema_short: float | int
     ema_mid: float | int
     ema_long: float | int
+    macd_signal: float | int
+    macd_line: float | int
     macd_hist: float | int
     rsi: float | int
     atr: float | int
@@ -45,10 +50,15 @@ class CryptoMarketMetrics:
             ret = CryptoMarketMetrics(
                 symbol=self.symbol,
                 timestamp=self.timestamp,
+                highest_price=round(self.highest_price, ndigits=ndigits),
+                lowest_price=round(self.lowest_price, ndigits=ndigits),
+                opening_price=round(self.opening_price, ndigits=ndigits),
                 closing_price=round(self.closing_price, ndigits=ndigits),
                 ema_short=round(self.ema_short, ndigits=ndigits),
                 ema_mid=round(self.ema_mid, ndigits=ndigits),
                 ema_long=round(self.ema_long, ndigits=ndigits),
+                macd_signal=round(self.macd_signal, ndigits=ndigits),
+                macd_line=round(self.macd_line, ndigits=ndigits),
                 macd_hist=round(self.macd_hist, ndigits=ndigits),
                 rsi=round(self.rsi, ndigits=2),
                 atr=round(self.atr, ndigits=ndigits),
@@ -69,10 +79,17 @@ class CryptoMarketMetrics:
         ret = CryptoMarketMetrics(
             symbol=symbol,
             timestamp=candlestick["timestamp"],
+            highest_price=round(candlestick["high"], ndigits=ndigits) if apply_round else candlestick["high"],
+            lowest_price=round(candlestick["low"], ndigits=ndigits) if apply_round else candlestick["low"],
+            opening_price=round(candlestick["open"], ndigits=ndigits) if apply_round else candlestick["open"],
             closing_price=round(candlestick["close"], ndigits=ndigits) if apply_round else candlestick["close"],
             ema_short=round(candlestick["ema_short"], ndigits=ndigits) if apply_round else candlestick["ema_short"],
             ema_mid=round(candlestick["ema_mid"], ndigits=ndigits) if apply_round else candlestick["ema_mid"],
             ema_long=round(candlestick["ema_long"], ndigits=ndigits) if apply_round else candlestick["ema_long"],
+            macd_signal=round(candlestick["macd_signal"], ndigits=ndigits)
+            if apply_round
+            else candlestick["macd_signal"],
+            macd_line=round(candlestick["macd_line"], ndigits=ndigits) if apply_round else candlestick["macd_line"],
             macd_hist=round(candlestick["macd_hist"], ndigits=ndigits) if apply_round else candlestick["macd_hist"],
             rsi=round(candlestick["rsi"], ndigits=2) if apply_round else candlestick["rsi"],
             atr=round(candlestick["atr"], ndigits=ndigits) if apply_round else candlestick["atr"],

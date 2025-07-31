@@ -215,19 +215,20 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 + f"Market is trending (ATR {last_candle_market_metrics.atr} >= Threshold {min_volatility_threshold}). "  # noqa: E501
                 + "Checking for signals..."
             )
-            # Prior confirmed candle
-            prior_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
-                symbol, df.iloc[CandleStickEnum.PRIOR], trading_market_config=trading_market_config
-            )
             # Prev confirmed candle
             prev_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
                 symbol, df.iloc[CandleStickEnum.PREV], trading_market_config=trading_market_config
             )
             # A proximity_threshold of 0 effectively disables the proximity check
             buy_signal = self._calculate_buy_signal(
-                prior_candle_market_metrics,
-                prev_candle_market_metrics,
-                last_candle_market_metrics,
+                oldest_candle_market_metrics=CryptoMarketMetrics.from_candlestick(
+                    symbol, df.iloc[CandleStickEnum.OLDEST], trading_market_config=trading_market_config
+                ),
+                prior_candle_market_metrics=CryptoMarketMetrics.from_candlestick(
+                    symbol, df.iloc[CandleStickEnum.PRIOR], trading_market_config=trading_market_config
+                ),
+                prev_candle_market_metrics=prev_candle_market_metrics,
+                last_candle_market_metrics=last_candle_market_metrics,
                 buy_sell_signals_config=buy_sell_signals_config,
             )
             # Sell Signal Logic
@@ -248,13 +249,18 @@ class BuySellSignalsTaskService(AbstractTaskService):
 
     def _calculate_buy_signal(
         self,
+        *,
+        oldest_candle_market_metrics: CryptoMarketMetrics,
         prior_candle_market_metrics: CryptoMarketMetrics,
         prev_candle_market_metrics: CryptoMarketMetrics,
         last_candle_market_metrics: CryptoMarketMetrics,
-        *,
         buy_sell_signals_config: BuySellSignalsConfigItem,
     ) -> bool:
-        # 1. Check for the immediate signal (crossover on last candle).
+        """
+        Calculates the buy signal, including the 2-candle delayed confirmation logic
+        when ADX filter is enabled.
+        """
+        # 1. Check for the "Immediate Signal" (crossover on the last candle).
         ema_bullish_cross_on_last = self._is_ema_bullish_crossover(
             earlier_candle=prev_candle_market_metrics, later_candle=last_candle_market_metrics
         )
@@ -265,19 +271,33 @@ class BuySellSignalsTaskService(AbstractTaskService):
         # If the ADX filter is off, we only check for the immediate signal.
         if buy_sell_signals_config.filter_noise_using_adx:
             # --- ADX filter is ON from this point forward ---
-            # 3. Define the "Delayed Signal" case (crossover on prev, confirmed now, but not previously).
+            # 2. Check for a "Delayed Signal" from 1 candle ago.
             ema_bullish_cross_on_prev = self._is_ema_bullish_crossover(
                 earlier_candle=prior_candle_market_metrics, later_candle=prev_candle_market_metrics
             )
             is_trend_momentum_confirmed_on_prev = self._is_trend_momentum_confirmed(
                 candle=prev_candle_market_metrics, buy_sell_signals_config=buy_sell_signals_config
             )
-            signal_delayed = (
+            signal_delayed_1_ago = (
                 ema_bullish_cross_on_prev
                 and is_trend_momentum_confirmed_on_last
                 and not is_trend_momentum_confirmed_on_prev
             )
-            # 4. The final signal is true if either the immediate or the delayed signal is valid.
+            # 3. Check for a "Delayed Signal" from 2 candles ago.
+            is_trend_momentum_confirmed_on_prior = self._is_trend_momentum_confirmed(
+                candle=prior_candle_market_metrics, buy_sell_signals_config=buy_sell_signals_config
+            )
+            ema_bullish_cross_on_prior = self._is_ema_bullish_crossover(
+                earlier_candle=oldest_candle_market_metrics, later_candle=prior_candle_market_metrics
+            )
+            signal_delayed_2_ago = (
+                ema_bullish_cross_on_prior
+                and is_trend_momentum_confirmed_on_last
+                and not is_trend_momentum_confirmed_on_prev  # Must not have been valid on prev candle
+                and not is_trend_momentum_confirmed_on_prior  # Must not have been valid on its own candle
+            )
+            # 4. The final signal is true if the immediate OR any valid delayed signal is found.
+            signal_delayed = signal_delayed_1_ago or signal_delayed_2_ago
             buy_signal = buy_signal or signal_delayed
         return bool(buy_signal)
 
@@ -456,13 +476,22 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self, *, candle: CryptoMarketMetrics, buy_sell_signals_config: BuySellSignalsConfigItem
     ) -> bool:
         """Checks if all non-crossover buy confirmations (MACD, ADX) are met for a given candle."""
-        is_strong_uptrend = not buy_sell_signals_config.filter_noise_using_adx or (
-            # NOTE: +DI > -DI
-            candle.adx_pos > candle.adx_neg
-            # NOTE: ADX > 20
-            and candle.adx > buy_sell_signals_config.adx_threshold
-        )
+        is_strong_uptrend = self._is_strong_uptrend(candle, buy_sell_signals_config)
         return candle.macd_hist > 0 and is_strong_uptrend
+
+    def _is_strong_uptrend(
+        self, candle: CryptoMarketMetrics, buy_sell_signals_config: BuySellSignalsConfigItem
+    ) -> bool:
+        is_strong_uptrend = True
+        if buy_sell_signals_config.filter_noise_using_adx:
+            # NOTE: ADX > 20
+            trend_strength_confirmed = candle.adx > buy_sell_signals_config.adx_threshold
+            # NOTE: +DI > -DI
+            di_cross_is_bullish = candle.adx_pos > candle.adx_neg
+            # NOTE: MACD Line > 0 and Lowest Price > EMA Mid
+            alternative_is_confirmed = candle.macd_line > 0 and candle.lowest_price > candle.ema_mid
+            is_strong_uptrend = trend_strength_confirmed and (di_cross_is_bullish or alternative_is_confirmed)
+        return is_strong_uptrend
 
     def _is_ema_bullish_crossover(
         self, *, earlier_candle: CryptoMarketMetrics, later_candle: CryptoMarketMetrics

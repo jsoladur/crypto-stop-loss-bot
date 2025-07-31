@@ -313,6 +313,18 @@ def _prepare_httpserver_mock(
     symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
     # Mock OHLCV /v1/trading/candle
     fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
+    # Simulate that some times the Bit2Me API returns an empty list
+    httpserver.expect(
+        Bit2MeAPIRequestMacher(
+            "/bit2me-api/v1/trading/candle",
+            method="GET",
+            query_string=Bit2MeAPIQueryMatcher(
+                {"symbol": symbol, "interval": 60, "limit": 251},
+                additional_required_query_params=["startTime", "endTime"],
+            ),
+        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        handler_type=HandlerType.ONESHOT,
+    ).respond_with_json([])
     httpserver.expect(
         Bit2MeAPIRequestMacher(
             "/bit2me-api/v1/trading/candle",
