@@ -90,9 +90,9 @@ class MessagesFormatter(metaclass=SingletonMeta):
             f"📈 {html.bold('EMA Short')} = {metrics.ema_short} {fiat_currency}",
             f"📉 {html.bold('EMA Mid')} = {metrics.ema_mid} {fiat_currency}",
             f"📐 {html.bold('EMA Long')} = {metrics.ema_long} {fiat_currency}",
-            f"💹 {html.bold('MACD Line')} = {self._get_macd_icon(metrics)} {metrics.macd_line}",
-            f"🧨 {html.bold('MACD Signal')} = {self._get_macd_icon(metrics)} {metrics.macd_signal} ",
-            f"♊ {html.bold('MACD Hist')} = {self._get_macd_icon(metrics)} {metrics.macd_hist}",
+            f"💹 {html.bold('MACD Line')} = {self._get_macd_icon(metrics.macd_line)} {metrics.macd_line}",
+            f"🧨 {html.bold('MACD Signal')} = {self._get_macd_icon(metrics.macd_signal)} {metrics.macd_signal} ",
+            f"♊ {html.bold('MACD Hist')} = {self._get_macd_icon(metrics.macd_hist)} {metrics.macd_hist}",
             f"💈 {html.bold('Bollinger Bands')}",
             f"  ↓ {html.bold('BB Upper')} = 🔽 {metrics.bb_upper} {fiat_currency}",
             f"  - {html.bold('BB Middle')} = ➖ {metrics.bb_middle} {fiat_currency}",
@@ -227,11 +227,11 @@ class MessagesFormatter(metaclass=SingletonMeta):
             answer_text = "✳️ There are no currently opened SELL orders."
         return answer_text
 
-    def _get_macd_icon(self, metrics: CryptoMarketMetrics) -> str:
-        if metrics.macd_hist > 0:
+    def _get_macd_icon(self, macd_value: float | int) -> str:
+        if macd_value > 0:
             # Upward momentum
             macd_hist_icon = "🟢"
-        elif metrics.macd_hist < 0:
+        elif macd_value < 0:
             # Downward momentum
             macd_hist_icon = "🔻"
         else:
