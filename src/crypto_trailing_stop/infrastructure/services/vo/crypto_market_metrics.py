@@ -31,6 +31,7 @@ class CryptoMarketMetrics:
     bb_upper: float | int
     bb_middle: float | int
     bb_lower: float | int
+    relative_vol: float | int
 
     is_rounded: bool
 
@@ -72,6 +73,7 @@ class CryptoMarketMetrics:
                 bb_upper=round(self.bb_upper, ndigits=ndigits),
                 bb_middle=round(self.bb_middle, ndigits=ndigits),
                 bb_lower=round(self.bb_lower, ndigits=ndigits),
+                relative_vol=round(self.relative_vol, ndigits=2),
                 is_rounded=True,
             )
         return ret
@@ -106,6 +108,7 @@ class CryptoMarketMetrics:
             bb_upper=round(candlestick["bb_upper"], ndigits=ndigits) if apply_round else candlestick["bb_upper"],
             bb_middle=round(candlestick["bb_middle"], ndigits=ndigits) if apply_round else candlestick["bb_middle"],
             bb_lower=round(candlestick["bb_lower"], ndigits=ndigits) if apply_round else candlestick["bb_lower"],
+            relative_vol=round(candlestick["relative_vol"], ndigits=2) if apply_round else candlestick["relative_vol"],
             is_rounded=apply_round,
         )
         return ret
