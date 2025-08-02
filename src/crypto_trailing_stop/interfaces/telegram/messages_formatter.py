@@ -99,6 +99,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
             f"  ↑ {html.bold('BB Lower')} = 🔼 {metrics.bb_lower} {fiat_currency}",
             f"🎢 {html.bold('ATR')} = ±{metrics.atr} {fiat_currency} (±{metrics.atr_percent}%)",
             f"📊 {html.bold('RSI')} = {html.italic(pydash.start_case(metrics.rsi_state))} ({metrics.rsi})",
+            f"🔊 {html.bold('Relative Vol.')} = {self._get_relative_vol_icon(metrics.relative_vol)} {metrics.relative_vol}x (Avg)",  # noqa: E501
             f"📶 {html.bold('ADX')} = {self._get_adx_icon(metrics)} {metrics.adx}",
             f"  ➕{html.bold('DI')} = {metrics.adx_pos}",
             f"  ➖{html.bold('DI')} = {metrics.adx_neg}",
@@ -238,6 +239,18 @@ class MessagesFormatter(metaclass=SingletonMeta):
             # Neutral / crossover point
             macd_hist_icon = "🟰"
         return macd_hist_icon
+
+    def _get_relative_vol_icon(self, relative_vol: float) -> str:
+        if relative_vol > 1:
+            # High relative volume
+            relative_vol_icon = "🟢"
+        elif relative_vol < 1:
+            # Low relative volume
+            relative_vol_icon = "🔻"
+        else:
+            # Neutral relative volume
+            relative_vol_icon = "🟰"
+        return relative_vol_icon
 
     def _get_adx_icon(self, metrics: CryptoMarketMetrics) -> str:
         if metrics.adx_pos > metrics.adx_neg:

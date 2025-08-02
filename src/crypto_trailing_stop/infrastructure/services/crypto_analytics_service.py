@@ -140,6 +140,9 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         df["bb_upper"] = bbands_indicator.bollinger_hband()
         df["bb_middle"] = bbands_indicator.bollinger_mavg()
         df["bb_lower"] = bbands_indicator.bollinger_lband()
+        # NEW: Calculate Relative Volume (RVOL)
+        df["volume_sma"] = df["volume"].rolling(window=20).mean()
+        df["relative_vol"] = df["volume"] / df["volume_sma"]
         # Drop NaN values
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)
