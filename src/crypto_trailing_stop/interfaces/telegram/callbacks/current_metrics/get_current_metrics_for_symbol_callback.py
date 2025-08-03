@@ -29,7 +29,7 @@ bit2me_remote_service = Bit2MeRemoteService()
 global_flag_service = GlobalFlagService()
 auto_buy_trader_config_service = AutoBuyTraderConfigService(bit2me_remote_service=bit2me_remote_service)
 crypto_analytics_service = CryptoAnalyticsService(
-    bit2me_remote_service=Bit2MeRemoteService(),
+    bit2me_remote_service=bit2me_remote_service,
     ccxt_remote_service=CcxtRemoteService(),
     buy_sell_signals_config_service=BuySellSignalsConfigService(bit2me_remote_service=bit2me_remote_service),
 )
@@ -44,10 +44,14 @@ async def auto_entry_trader_config_for_symbol_callback_handler(
         try:
             match = re.match(r"^get_current_metrics_for_symbol\$\$(.+)$", callback_query.data)
             symbol = match.group(1)
+            over_candlestick = CandleStickEnum.LAST
+            tickers = await bit2me_remote_service.get_tickers_by_symbol(symbol)
             current_crypto_metrics = await crypto_analytics_service.get_crypto_market_metrics(
-                symbol, over_candlestick=CandleStickEnum.CURRENT
+                symbol, over_candlestick=over_candlestick
             )
-            message = messages_formatter.format_current_crypto_metrics_message(current_crypto_metrics)
+            message = messages_formatter.format_current_crypto_metrics_message(
+                over_candlestick, tickers, current_crypto_metrics
+            )
             message += "\n\n"
             is_enabled_for_auto_entry_trader = await global_flag_service.is_enabled_for(
                 GlobalFlagTypeEnum.AUTO_ENTRY_TRADER
