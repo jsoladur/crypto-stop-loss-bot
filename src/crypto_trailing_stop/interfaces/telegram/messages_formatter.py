@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pydash
@@ -10,6 +11,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
     Bit2MeTradingWalletBalanceDto,
 )
+from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
@@ -82,14 +84,24 @@ class MessagesFormatter(metaclass=SingletonMeta):
         ret = "\n".join(message_lines)
         return ret
 
-    def format_current_crypto_metrics_message(self, metrics: CryptoMarketMetrics) -> str:
+    def format_current_crypto_metrics_message(
+        self, over_candlestick: CandleStickEnum, tickers: Bit2MeTickersDto, metrics: CryptoMarketMetrics
+    ) -> str:
         *_, fiat_currency = metrics.symbol.split("/")
-        header = f"🧮 {html.bold('CURRENT METRICS')} for {html.bold(metrics.symbol)} 🧮\n\n"
         message_lines = [
-            f"💰 {html.bold('Current Price')} = {html.code(f'{metrics.closing_price} {fiat_currency}')}",
-            f"📈 {html.bold('EMA Short')} = {metrics.ema_short} {fiat_currency}",
-            f"📉 {html.bold('EMA Mid')} = {metrics.ema_mid} {fiat_currency}",
-            f"📐 {html.bold('EMA Long')} = {metrics.ema_long} {fiat_currency}",
+            f"🧮 {html.bold(over_candlestick.name.upper() + ' METRICS')} for {html.bold(metrics.symbol)} 🧮",
+            "===========================",
+            f"📅 {html.bold('Timestamp')} = {self._format_timestamp_with_timezone(metrics.timestamp + timedelta(hours=1))}",  # noqa: E501
+            "----------------------------------------------------",
+            f"🔥 {html.bold('CURRENT PRICE')} = {html.code(str(tickers.close) + ' ' + fiat_currency)}",
+            "----------------------------------------------------",
+            f"💰 {html.bold('Closing Price')} = {html.code(f'{metrics.closing_price} {fiat_currency}')}",
+            f"🚪 {html.bold('Opening Price')} = {html.code(f'{metrics.opening_price} {fiat_currency}')}",
+            f"🔺 {html.bold('Highest Price')} = {html.code(f'{metrics.highest_price} {fiat_currency}')}",
+            f"🔻 {html.bold('Lowest Price')} = {html.code(f'{metrics.lowest_price} {fiat_currency}')}",
+            f"📈 {html.bold('EMA Short')} = {html.code(f'{metrics.ema_short} {fiat_currency}')}",
+            f"📉 {html.bold('EMA Mid')} = {html.code(f'{metrics.ema_mid} {fiat_currency}')}",
+            f"📐 {html.bold('EMA Long')} = {html.code(f'{metrics.ema_long} {fiat_currency}')}",
             f"💹 {html.bold('MACD Line')} = {self._get_macd_icon(metrics.macd_line)} {metrics.macd_line}",
             f"🧨 {html.bold('MACD Signal')} = {self._get_macd_icon(metrics.macd_signal)} {metrics.macd_signal} ",
             f"♊ {html.bold('MACD Hist')} = {self._get_macd_icon(metrics.macd_hist)} {metrics.macd_hist}",
@@ -104,7 +116,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
             f"  ➕{html.bold('DI')} = {metrics.adx_pos}",
             f"  ➖{html.bold('DI')} = {metrics.adx_neg}",
         ]
-        ret = header + "\n".join(message_lines)
+        ret = "\n".join(message_lines)
         return ret
 
     def format_buy_sell_signals_config_message(self, item: BuySellSignalsConfigItem) -> str:
@@ -184,7 +196,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
         else:
             for signal in market_signals:
                 *_, fiat_currency = symbol.split("/")
-                formatted_timestamp = signal.timestamp.astimezone(ZoneInfo("Europe/Madrid")).strftime("%d-%m-%Y %H:%M")
+                formatted_timestamp = self._format_timestamp_with_timezone(signal.timestamp)
                 timeframe = signal.timeframe.lower()
                 signal_type = signal.signal_type.lower()
                 rsi_state = pydash.start_case(signal.rsi_state)
@@ -227,6 +239,9 @@ class MessagesFormatter(metaclass=SingletonMeta):
         else:
             answer_text = "✳️ There are no currently opened SELL orders."
         return answer_text
+
+    def _format_timestamp_with_timezone(self, timestamp: datetime, *, zoneinfo: str = "Europe/Madrid") -> str:
+        return timestamp.astimezone(ZoneInfo(zoneinfo)).strftime("%d-%m-%Y %H:%M")
 
     def _get_macd_icon(self, macd_value: float | int) -> str:
         if macd_value > 0:
