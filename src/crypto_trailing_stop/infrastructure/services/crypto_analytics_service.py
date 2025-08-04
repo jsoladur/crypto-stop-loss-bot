@@ -115,6 +115,17 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         logger.debug("Calculating indicators...")
         crypto_currency, *_ = symbol.split("/")
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
+        # Calculate simple 'ta' indicators
+        self._calculate_simple_indicators(df, buy_sell_signals_config)
+        # Drop NaN values (Clean the DataFrame BEFORE complex calculations)
+        df.dropna(inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        # Calculate complex indicators and trends
+        self._calculate_complex_indicators(df)
+        logger.debug("Indicator calculation complete.")
+        return df, buy_sell_signals_config
+
+    def _calculate_simple_indicators(self, df: pd.DataFrame, buy_sell_signals_config: BuySellSignalsConfigItem) -> None:
         # Exponential Moving Average (EMA) 9
         df["ema_short"] = EMAIndicator(df["close"], window=buy_sell_signals_config.ema_short_value).ema_indicator()
         # Exponential Moving Average (EMA) 21
@@ -143,18 +154,26 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         # Calculate Relative Volume (RVOL)
         df["volume_sma"] = df["volume"].rolling(window=20).mean()
         df["relative_vol"] = df["volume"] / df["volume_sma"]
-        # Bearish Divergence calcultion
-        # Find the highest high price in the lookback window for each candle
+
+    def _calculate_complex_indicators(self, df: pd.DataFrame) -> None:
         bearish_divergence_window = 40
-        df["highest_in_window"] = df["high"].rolling(window=bearish_divergence_window).max()
-        # Find the index of that highest high
-        df["highest_in_window_idx"] = df["high"].rolling(window=bearish_divergence_window).apply(lambda x: x.idxmax())
-        # Get the RSI value at that specific historical index
-        df["rsi_at_highest"] = df["rsi"].iloc[df["highest_in_window_idx"].to_numpy()].values
-        # The divergence exists if the current high matches the window's high, but the RSI is lower
-        df["bearish_divergence"] = (df["high"] >= df["highest_in_window"]) & (df["rsi"] < df["rsi_at_highest"])
-        # Drop NaN values
-        df.dropna(inplace=True)
-        df.reset_index(drop=True, inplace=True)
-        logger.debug("Indicator calculation complete.")
-        return df, buy_sell_signals_config
+        # Bearish Divergence
+        if len(df) < bearish_divergence_window:
+            df["bearish_divergence"] = False
+        else:
+            df["highest_in_window"] = df["high"].rolling(window=bearish_divergence_window).max()
+            # Find the index of that highest high
+            df["highest_in_window_idx"] = (
+                df["high"].rolling(window=bearish_divergence_window).apply(lambda x: x.idxmax())
+            )
+            # Get the RSI value at that specific historical index
+            df["rsi_at_highest"] = df["rsi"].iloc[df["highest_in_window_idx"].to_numpy()].values
+            # The divergence exists if the current high matches the window's high, but the RSI is lower
+            df["bearish_divergence"] = (df["high"] >= df["highest_in_window"]) & (df["rsi"] < df["rsi_at_highest"])
+            # --- NEW: Drop the intermediate helper columns ---
+            # We don't need these anymore, so we remove them to keep the final DataFrame clean.
+            df.drop(
+                columns=["highest_in_window", "highest_in_window_idx", "rsi_at_highest"],
+                inplace=True,
+                errors="ignore",  # Use 'ignore' in case columns don't exist
+            )
