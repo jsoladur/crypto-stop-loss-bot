@@ -117,12 +117,9 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
         # Calculate simple 'ta' indicators
         self._calculate_simple_indicators(df, buy_sell_signals_config)
-        # Drop NaN values before calculating complex indicators
-        df.dropna(inplace=True)
-        df.reset_index(drop=True, inplace=True)
         # Calculate complex indicators and trends
         self._calculate_complex_indicators(df)
-        # Drop NaN values again, just in case any complex indicator provoked it
+        # Drop NaN values
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)
         logger.debug("Indicator calculation complete.")
@@ -162,24 +159,35 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         """
         Calculates complex, window-based indicators like bearish divergence.
         """
-        bearish_divergence_window = 40
-        if len(df) >= bearish_divergence_window:
-            # 1. Find the highest high price in the lookback window
-            df["highest_in_window"] = df["high"].rolling(window=bearish_divergence_window).max()
+        self._calculate_bearish_divergence(df)
+        self._calculate_bullish_divergence(df)
 
-            # 2. Find the index LABEL of that highest high for each window.
-            # We use .apply() here for maximum compatibility.
-            highest_in_window_idx = (
-                df["high"].rolling(window=bearish_divergence_window).apply(lambda x: x.idxmax(), raw=False)
-            )
-            # 3. Use the robust .map() method to look up the RSI value using the found index label.
-            # This is the safest way to perform this lookup and avoids all previous errors.
+    def _calculate_bearish_divergence(self, df: pd.DataFrame, *, divergence_window: int = 40) -> None:
+        if len(df) >= divergence_window:
+            # Find the highest high price in the lookback window
+            df["highest_in_window"] = df["high"].rolling(window=divergence_window).max()
+            # Find the index label of that highest high for each window.
+            highest_in_window_idx = df["high"].rolling(window=divergence_window).apply(lambda x: x.idxmax(), raw=False)
+            # Look up the RSI value using the found index label.
             df["rsi_at_highest"] = highest_in_window_idx.map(df["rsi"])
-
-            # 4. The divergence exists if the current high is at the window's high, but the RSI is lower
+            # The divergence exists if the current high is at the window's high, but the RSI is lower
             df["bearish_divergence"] = (df["high"] >= df["highest_in_window"]) & (df["rsi"] < df["rsi_at_highest"])
-
-            # 5. Drop the intermediate helper columns to keep the final DataFrame clean
+            # Drop intermediate helper columns
             df.drop(columns=["highest_in_window", "rsi_at_highest"], inplace=True)
         else:
             df["bearish_divergence"] = False
+
+    def _calculate_bullish_divergence(self, df: pd.DataFrame, *, divergence_window: int = 40) -> None:
+        if len(df) >= divergence_window:
+            # Find the lowest low price in the lookback window
+            df["lowest_in_window"] = df["low"].rolling(window=divergence_window).min()
+            # Find the index label of that lowest low for each window.
+            lowest_in_window_idx = df["low"].rolling(window=divergence_window).apply(lambda x: x.idxmin(), raw=False)
+            # Look up the RSI value using the found index label.
+            df["rsi_at_lowest"] = lowest_in_window_idx.map(df["rsi"])
+            # The divergence exists if the current low is at the window's low, but the RSI is higher
+            df["bullish_divergence"] = (df["low"] <= df["lowest_in_window"]) & (df["rsi"] > df["rsi_at_lowest"])
+            # Drop intermediate helper columns
+            df.drop(columns=["lowest_in_window", "rsi_at_lowest"], inplace=True)
+        else:
+            df["bullish_divergence"] = False
