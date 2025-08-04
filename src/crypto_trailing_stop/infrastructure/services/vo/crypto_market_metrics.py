@@ -32,7 +32,9 @@ class CryptoMarketMetrics:
     bb_middle: float | int
     bb_lower: float | int
     relative_vol: float | int
-
+    # Bearish & Bullish divergence flags
+    bearish_divergence: bool
+    bullish_divergence: bool
     is_rounded: bool
 
     @property
@@ -74,6 +76,8 @@ class CryptoMarketMetrics:
                 bb_middle=round(self.bb_middle, ndigits=ndigits),
                 bb_lower=round(self.bb_lower, ndigits=ndigits),
                 relative_vol=round(self.relative_vol, ndigits=2),
+                bearish_divergence=self.bearish_divergence,
+                bullish_divergence=self.bullish_divergence,
                 is_rounded=True,
             )
         return ret
@@ -109,6 +113,8 @@ class CryptoMarketMetrics:
             bb_middle=round(candlestick["bb_middle"], ndigits=ndigits) if apply_round else candlestick["bb_middle"],
             bb_lower=round(candlestick["bb_lower"], ndigits=ndigits) if apply_round else candlestick["bb_lower"],
             relative_vol=round(candlestick["relative_vol"], ndigits=2) if apply_round else candlestick["relative_vol"],
+            bearish_divergence=candlestick["bearish_divergence"],
+            bullish_divergence=candlestick["bullish_divergence"],
             is_rounded=apply_round,
         )
         return ret
