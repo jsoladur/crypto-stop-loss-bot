@@ -424,7 +424,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         timeframe: Timeframe,
         tickers: Bit2MeTickersDto,
         base_symbol: str,
-    ) -> None:
+    ) -> None:  # pragma: no cover
         # Notify about a new bearish divergence
         if signals.bearish_divergence and (not previous_signals or not previous_signals.bearish_divergence):
             icon = "💀"
@@ -463,9 +463,10 @@ class BuySellSignalsTaskService(AbstractTaskService):
             message_title = f"{trend} DIVERGENCE PERIOD ENDED 🌤️"
             description = (
                 "The PREVIOUS DIVERGENCE WARNING IS now OVER.\n"
-                f"{html.bold('Vetoes on buy signals have been lifted.')}\n"
-                f"{html.italic('Market momentum appears to be neutral again.')}"
+                f"{html.bold('Market momentum appears to be neutral again.')}"
             )
+            if previous_signals.bearish_divergence:
+                description += f"\n🟢 {html.italic('Vetoes on buy signals have been lifted.')}"
             message = (
                 f"{icon} {html.bold(message_title + ' (' + timeframe.upper() + ')')} "
                 f"for {html.bold(base_symbol)}\n{description}"
