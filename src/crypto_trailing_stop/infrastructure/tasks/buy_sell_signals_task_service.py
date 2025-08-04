@@ -456,6 +456,21 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 f"for {html.bold(base_symbol)}\n{description}"
             )
             await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+        elif previous_signals and (previous_signals.bullish_divergence or previous_signals.bearish_divergence):
+            # This block only runs if a divergence was active previously, but is no longer active now.
+            icon = "🌤️"
+            trend = "BULLISH" if previous_signals.bullish_divergence else "BEARISH"
+            message_title = f"{trend} DIVERGENCE PERIOD ENDED 🌤️"
+            description = (
+                "The PREVIOUS DIVERGENCE WARNING IS now OVER.\n"
+                f"{html.bold('Vetoes on buy signals have been lifted.')}\n"
+                f"{html.italic('Market momentum appears to be neutral again.')}"
+            )
+            message = (
+                f"{icon} {html.bold(message_title + ' (' + timeframe.upper() + ')')} "
+                f"for {html.bold(base_symbol)}\n{description}"
+            )
+            await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
 
     async def _notify_market_condition_signals(
         self,
