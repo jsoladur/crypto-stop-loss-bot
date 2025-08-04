@@ -477,7 +477,8 @@ class BuySellSignalsTaskService(AbstractTaskService):
     ) -> bool:
         """Checks if all non-crossover buy confirmations (MACD, ADX) are met for a given candle."""
         is_strong_uptrend = self._is_strong_uptrend(candle, buy_sell_signals_config)
-        return candle.macd_hist > 0 and is_strong_uptrend
+        ret = bool(not candle.bearish_divergence and candle.macd_hist > 0 and is_strong_uptrend)
+        return ret
 
     def _is_strong_uptrend(
         self, candle: CryptoMarketMetrics, buy_sell_signals_config: BuySellSignalsConfigItem
