@@ -117,11 +117,14 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
         # Calculate simple 'ta' indicators
         self._calculate_simple_indicators(df, buy_sell_signals_config)
-        # Drop NaN values (Clean the DataFrame BEFORE complex calculations)
+        # Drop NaN values before calculating complex indicators
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)
         # Calculate complex indicators and trends
         self._calculate_complex_indicators(df)
+        # Drop NaN values again, just in case any complex indicator provoked it
+        df.dropna(inplace=True)
+        df.reset_index(drop=True, inplace=True)
         logger.debug("Indicator calculation complete.")
         return df, buy_sell_signals_config
 
