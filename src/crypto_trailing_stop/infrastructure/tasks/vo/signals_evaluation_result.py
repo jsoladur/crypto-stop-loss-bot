@@ -13,6 +13,9 @@ class SignalsEvaluationResult:
     sell: bool
     rsi_state: RSIState
     is_choppy: bool
+    # Bearish & Bullish divergence flags
+    bearish_divergence: bool
+    bullish_divergence: bool
     # Additional info but no comparable
     atr: float = field(compare=False)
     closing_price: float = field(compare=False)

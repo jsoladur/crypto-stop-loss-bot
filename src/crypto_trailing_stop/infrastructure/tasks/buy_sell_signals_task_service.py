@@ -1,5 +1,4 @@
 import logging
-from datetime import UTC, datetime
 from typing import get_args, override
 
 import ccxt.async_support as ccxt
@@ -151,6 +150,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
                         elif signals.is_reliable:
                             await self._notify_reliable_alerts(
                                 signals,
+                                previous_signals,
                                 telegram_chat_ids=telegram_chat_ids,
                                 timeframe=timeframe,
                                 tickers=tickers,
@@ -180,28 +180,12 @@ class BuySellSignalsTaskService(AbstractTaskService):
         *,
         trading_market_config: Bit2MeMarketConfigDto,
     ) -> SignalsEvaluationResult:
-        timestamp = datetime.now(tz=UTC).timestamp()
-        buy_signal, sell_signal, is_choppy = False, False, False
-        atr, closing_price, ema_long_price = 0.0, 0.0, 0.0
-        rsi_state = "neutral"
-        # Use a threshold of 0 for 1H signals to disable the proximity check
-        volatility_threshold = self._get_volatility_threshold(timeframe)
-        # Last confirmed candle
         last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
             symbol, df.iloc[CandleStickEnum.LAST], trading_market_config=trading_market_config
         )
-        # Update timestamp
-        timestamp = last_candle_market_metrics.timestamp.timestamp()
-        # Calculate RSI Anticipation Zone (RSI)
-        rsi_state = last_candle_market_metrics.rsi_state
-        # Rounded metrics
-        rounded_last_candle_market_metrics = last_candle_market_metrics.rounded(trading_market_config)
-        atr = rounded_last_candle_market_metrics.atr
-        closing_price = rounded_last_candle_market_metrics.closing_price
-        ema_long_price = rounded_last_candle_market_metrics.ema_long
-
+        rounded_metrics = last_candle_market_metrics.rounded(trading_market_config)
+        volatility_threshold = self._get_volatility_threshold(timeframe)
         min_volatility_threshold = last_candle_market_metrics.closing_price * volatility_threshold
-
         is_choppy = bool(last_candle_market_metrics.atr < min_volatility_threshold)
         if is_choppy:
             logger.info(
@@ -209,6 +193,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 + f"Market too choppy (ATR {last_candle_market_metrics.atr} < Threshold {min_volatility_threshold}). "  # noqa: E501
                 + "Skipping signal check..."
             )
+            buy_signal, sell_signal = False, False
         else:
             logger.info(
                 f"{symbol} - ({timeframe.upper()}) :: "
@@ -233,17 +218,20 @@ class BuySellSignalsTaskService(AbstractTaskService):
             )
             # Sell Signal Logic
             sell_signal = self._calculate_sell_signal(prev_candle_market_metrics, last_candle_market_metrics)
+
         ret = SignalsEvaluationResult(
-            timestamp=timestamp,
+            timestamp=last_candle_market_metrics.timestamp.timestamp(),
             symbol=symbol,
             timeframe=timeframe,
             buy=buy_signal,
             sell=sell_signal,
-            rsi_state=rsi_state,
+            rsi_state=last_candle_market_metrics.rsi_state,
             is_choppy=is_choppy,
-            atr=atr,
-            closing_price=closing_price,
-            ema_long_price=ema_long_price,
+            bullish_divergence=last_candle_market_metrics.bullish_divergence,
+            bearish_divergence=last_candle_market_metrics.bearish_divergence,
+            atr=rounded_metrics.atr,
+            closing_price=rounded_metrics.closing_price,
+            ema_long_price=rounded_metrics.ema_long,
         )
         return ret
 
@@ -359,28 +347,26 @@ class BuySellSignalsTaskService(AbstractTaskService):
     async def _notify_reliable_alerts(
         self,
         signals: SignalsEvaluationResult,
+        previous_signals: SignalsEvaluationResult | None,
         *,
         telegram_chat_ids: list[str],
         timeframe: Timeframe,
         tickers: Bit2MeTickersDto,
         base_symbol: str,
     ) -> None:
-        if signals.is_choppy:
-            message = (
-                f"🟡 - 🫥 {html.bold('CHOPPY MARKET ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}.\n"  # noqa: E501
-                + "🤫 Volatility is low. DO NOT ACT! 🤫"
-            )
-            await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
-        elif signals.buy:
-            await self._notify_buy_alert(
-                telegram_chat_ids=telegram_chat_ids, timeframe=timeframe, tickers=tickers, base_symbol=base_symbol
-            )
-        elif signals.sell:
-            await self._notify_sell_alert(
-                telegram_chat_ids=telegram_chat_ids, timeframe=timeframe, tickers=tickers, base_symbol=base_symbol
-            )
-        else:
-            logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
+        # Notify bearish or bullish divergence
+        await self._notify_divergences(
+            signals,
+            previous_signals,
+            telegram_chat_ids=telegram_chat_ids,
+            timeframe=timeframe,
+            tickers=tickers,
+            base_symbol=base_symbol,
+        )
+        # Notify market conditions
+        await self._notify_market_condition_signals(
+            signals, telegram_chat_ids=telegram_chat_ids, timeframe=timeframe, tickers=tickers, base_symbol=base_symbol
+        )
 
     async def _notify_rsi_state_alert(
         self,
@@ -428,6 +414,74 @@ class BuySellSignalsTaskService(AbstractTaskService):
             + f"for {html.bold(base_symbol)}\n{description}"
         )
         await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+
+    async def _notify_divergences(
+        self,
+        signals: SignalsEvaluationResult,
+        previous_signals: SignalsEvaluationResult | None,
+        *,
+        telegram_chat_ids: list[str],
+        timeframe: Timeframe,
+        tickers: Bit2MeTickersDto,
+        base_symbol: str,
+    ) -> None:
+        # Notify about a new bearish divergence
+        if signals.bearish_divergence and (not previous_signals or not previous_signals.bearish_divergence):
+            icon = "💀"
+            message_title = f"{html.bold('BEARISH DIVERGENCE')} ⚠️ Warning ⚠️ "
+            description = (
+                f"🐻 {html.bold('HIGH RISK OF A BULL TRAP!')}\n"
+                "Price is rising up with NO MOMENTUM.\n"
+                f"⛔ {html.bold('DO NOT BUY!')} "
+                f"{html.italic('For existing positions, consider taking profits NOW.')}\n"
+                "🚫 All BUY signals are currently vetoed by the bot."
+            )
+            message = (
+                f"{icon} {html.bold(message_title + ' (' + timeframe.upper() + ')')} "
+                f"for {html.bold(base_symbol)}\n{description}"
+            )
+            await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+        # Notify about a new bullish divergence
+        elif signals.bullish_divergence and (not previous_signals or not previous_signals.bullish_divergence):
+            icon = "🚀"
+            message_title = f"{html.bold('BULLISH DIVERGENCE')} ⚠️ Warning ⚠️ "
+            description = (
+                f"🐂 {html.bold('Seller exhaustion is IMMINENT!')}\n"
+                + "Price is making new lows, but momentum refuses to follow. "
+                + f"{html.bold('This is a STRONG SIGNAL of a POTENTIAL REVERSAL')}.\n"
+                + f"{html.italic('Watch for bullish confirmation in the coming candles.')}"
+            )
+            message = (
+                f"{icon} {html.bold(message_title + ' (' + timeframe.upper() + ')')} "
+                f"for {html.bold(base_symbol)}\n{description}"
+            )
+            await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+
+    async def _notify_market_condition_signals(
+        self,
+        signals: SignalsEvaluationResult,
+        *,
+        telegram_chat_ids: list[str],
+        timeframe: Timeframe,
+        tickers: Bit2MeTickersDto,
+        base_symbol: str,
+    ) -> None:
+        if signals.is_choppy:
+            message = (
+                f"🟡 - 🫥 {html.bold('CHOPPY MARKET ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}.\n"  # noqa: E501
+                + "🤫 Volatility is low. DO NOT ACT! 🤫"
+            )
+            await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
+        elif signals.buy:
+            await self._notify_buy_alert(
+                telegram_chat_ids=telegram_chat_ids, timeframe=timeframe, tickers=tickers, base_symbol=base_symbol
+            )
+        elif signals.sell:
+            await self._notify_sell_alert(
+                telegram_chat_ids=telegram_chat_ids, timeframe=timeframe, tickers=tickers, base_symbol=base_symbol
+            )
+        else:
+            logger.info(f"No new confirmation signals on the {timeframe} timeframe for {base_symbol}.")
 
     async def _notify_buy_alert(
         self, *, telegram_chat_ids: list[str], timeframe: Timeframe, tickers: Bit2MeTickersDto, base_symbol: str
