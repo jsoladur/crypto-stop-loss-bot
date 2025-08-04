@@ -135,14 +135,24 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         df["adx"] = adx_indicator.adx()
         df["adx_pos"] = adx_indicator.adx_pos()
         df["adx_neg"] = adx_indicator.adx_neg()
-        # NEW: Calculate Bollinger Bands (BBands)
+        # Calculate Bollinger Bands (BBands)
         bbands_indicator = BollingerBands(close=df["close"], window=20, window_dev=2)
         df["bb_upper"] = bbands_indicator.bollinger_hband()
         df["bb_middle"] = bbands_indicator.bollinger_mavg()
         df["bb_lower"] = bbands_indicator.bollinger_lband()
-        # NEW: Calculate Relative Volume (RVOL)
+        # Calculate Relative Volume (RVOL)
         df["volume_sma"] = df["volume"].rolling(window=20).mean()
         df["relative_vol"] = df["volume"] / df["volume_sma"]
+        # Bearish Divergence calcultion
+        # Find the highest high price in the lookback window for each candle
+        bearish_divergence_window = 40
+        df["highest_in_window"] = df["high"].rolling(window=bearish_divergence_window).max()
+        # Find the index of that highest high
+        df["highest_in_window_idx"] = df["high"].rolling(window=bearish_divergence_window).apply(lambda x: x.idxmax())
+        # Get the RSI value at that specific historical index
+        df["rsi_at_highest"] = df["rsi"].iloc[df["highest_in_window_idx"].to_numpy()].values
+        # The divergence exists if the current high matches the window's high, but the RSI is lower
+        df["bearish_divergence"] = (df["high"] >= df["highest_in_window"]) & (df["rsi"] < df["rsi_at_highest"])
         # Drop NaN values
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)
