@@ -156,24 +156,27 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         df["relative_vol"] = df["volume"] / df["volume_sma"]
 
     def _calculate_complex_indicators(self, df: pd.DataFrame) -> None:
+        """
+        Calculates complex, window-based indicators like bearish divergence.
+        """
         bearish_divergence_window = 40
-        # Bearish Divergence
-        if len(df) < bearish_divergence_window:
-            df["bearish_divergence"] = False
-        else:
+        if len(df) >= bearish_divergence_window:
+            # 1. Find the highest high price in the lookback window
             df["highest_in_window"] = df["high"].rolling(window=bearish_divergence_window).max()
-            # Find the index of that highest high
-            df["highest_in_window_idx"] = (
-                df["high"].rolling(window=bearish_divergence_window).apply(lambda x: x.idxmax())
+
+            # 2. Find the index LABEL of that highest high for each window.
+            # We use .apply() here for maximum compatibility.
+            highest_in_window_idx = (
+                df["high"].rolling(window=bearish_divergence_window).apply(lambda x: x.idxmax(), raw=False)
             )
-            # Get the RSI value at that specific historical index
-            df["rsi_at_highest"] = df["rsi"].iloc[df["highest_in_window_idx"].to_numpy()].values
-            # The divergence exists if the current high matches the window's high, but the RSI is lower
+            # 3. Use the robust .map() method to look up the RSI value using the found index label.
+            # This is the safest way to perform this lookup and avoids all previous errors.
+            df["rsi_at_highest"] = highest_in_window_idx.map(df["rsi"])
+
+            # 4. The divergence exists if the current high is at the window's high, but the RSI is lower
             df["bearish_divergence"] = (df["high"] >= df["highest_in_window"]) & (df["rsi"] < df["rsi_at_highest"])
-            # --- NEW: Drop the intermediate helper columns ---
-            # We don't need these anymore, so we remove them to keep the final DataFrame clean.
-            df.drop(
-                columns=["highest_in_window", "highest_in_window_idx", "rsi_at_highest"],
-                inplace=True,
-                errors="ignore",  # Use 'ignore' in case columns don't exist
-            )
+
+            # 5. Drop the intermediate helper columns to keep the final DataFrame clean
+            df.drop(columns=["highest_in_window", "rsi_at_highest"], inplace=True)
+        else:
+            df["bearish_divergence"] = False
