@@ -253,10 +253,15 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             auto_exit_sell_1h = bool(
                 last_market_1h_signal is not None
                 and last_market_1h_signal.timestamp > sell_order.created_at
-                and last_market_1h_signal.signal_type in ["sell", "bearish_divergence"]
                 and tickers.close >= guard_metrics.break_even_price
-                and last_candle_market_metrics.macd_hist < 0
-                and last_candle_market_metrics.macd_hist < prev_candle_market_metrics.macd_hist
+                and (
+                    last_market_1h_signal.signal_type == "bearish_divergence"
+                    or (
+                        last_market_1h_signal.signal_type == "sell"
+                        and last_candle_market_metrics.macd_hist < 0
+                        and last_candle_market_metrics.macd_hist < prev_candle_market_metrics.macd_hist
+                    )
+                )
             )
         return auto_exit_sell_1h
 
