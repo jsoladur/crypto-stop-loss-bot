@@ -58,9 +58,9 @@ class MarketSignalService(AbstractEventHandlerService, metaclass=SingletonABCMet
         try:
             if signals.is_positive:
                 await self._store_signals(signals)
-            else:
+            else:  # pragma: no cover
                 logger.debug("There are no signals to store!")
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             logger.error(str(e), exc_info=True)
             await self._notify_fatal_error_via_telegram(e)
 
@@ -74,45 +74,63 @@ class MarketSignalService(AbstractEventHandlerService, metaclass=SingletonABCMet
                 logger.info(f"There is no enough reability to store the timeframe {signals.timeframe}")
 
     async def _store_4h_signals(self, signals: SignalsEvaluationResult) -> None:
-        count = (
-            await MarketSignal.count()
-            .where(MarketSignal.symbol == signals.symbol)
-            .where(MarketSignal.timeframe == signals.timeframe)
-            .where(MarketSignal.signal_type == ("buy" if signals.buy else "sell"))
-        )
-        # Store new 4h signal if the market switches from bullish to bearish or viceversa.
-        # Same trend does not make any effect
-        if count <= 0:
-            # 1.) Delete all 4h signals for the symbol, since we only need the last one
-            # if it is a market switcher
-            await (
-                MarketSignal.delete()
+        # NOTE: It only stores buy sell signals for 4h timeframe.
+        #       For now, we are not going to store divergence signals.
+        if signals.is_buy_sell_signal:
+            count = (
+                await MarketSignal.count()
                 .where(MarketSignal.symbol == signals.symbol)
                 .where(MarketSignal.timeframe == signals.timeframe)
+                .where(MarketSignal.signal_type == ("buy" if signals.buy else "sell"))
             )
-            # 2.) Save the new one
-            await self._save_new_market_signal(signals)
+            # Store new 4h signal if the market switches from bullish to bearish or viceversa.
+            # Same trend does not make any effect
+            if count <= 0:
+                # 1.) Delete all 4h signals for the symbol, since we only need the last one
+                # if it is a market switcher
+                await (
+                    MarketSignal.delete()
+                    .where(MarketSignal.symbol == signals.symbol)
+                    .where(MarketSignal.timeframe == signals.timeframe)
+                )
+                # 2.) Save the new one
+                await self._save_new_market_signals(signals)
+        elif signals.is_divergence_signal:  # pragma: no cover
+            logger.debug("Divergence signals for 4h timeframe are ignored for now!")
 
     async def _store_1h_signals(self, signals: SignalsEvaluationResult) -> None:
-        new_market_signal = await self._save_new_market_signal(signals)
-        if new_market_signal.is_candidate_to_trigger_buy_action:
-            event_emitter = get_event_emitter()
-            event_emitter.emit(TRIGGER_BUY_ACTION_EVENT_NAME, new_market_signal)
+        new_market_signals = await self._save_new_market_signals(signals)
+        for new_market_signal in new_market_signals:
+            if new_market_signal.is_candidate_to_trigger_buy_action:
+                event_emitter = get_event_emitter()
+                event_emitter.emit(TRIGGER_BUY_ACTION_EVENT_NAME, new_market_signal)
 
-    async def _save_new_market_signal(self, signals: SignalsEvaluationResult) -> MarketSignalItem:
+    async def _save_new_market_signals(self, signals: SignalsEvaluationResult) -> list[MarketSignalItem]:
         if signals.timeframe != "4h":
             await self._apply_market_signal_retention_policy(signals)
-        new_market_signal = MarketSignal(
+        ret = []
+        market_signal_common_args = dict(
             symbol=signals.symbol,
             timeframe=signals.timeframe,
-            signal_type="buy" if signals.buy else "sell",
             rsi_state=signals.rsi_state,
             atr=signals.atr,
             closing_price=signals.closing_price,
             ema_long_price=signals.ema_long_price,
         )
-        await new_market_signal.save()
-        return self._convert_model_to_vo(new_market_signal)
+        if signals.is_buy_sell_signal:
+            buy_sell_market_signal = MarketSignal(
+                signal_type="buy" if signals.buy else "sell", **market_signal_common_args
+            )
+            await buy_sell_market_signal.save()
+            ret.append(self._convert_model_to_vo(buy_sell_market_signal))
+        if signals.is_divergence_signal:
+            divergence_market_signal = MarketSignal(
+                signal_type="bearish_divergence" if signals.bearish_divergence else "bullish_divergence",
+                **market_signal_common_args,
+            )
+            await divergence_market_signal.save()
+            ret.append(self._convert_model_to_vo(divergence_market_signal))
+        return ret
 
     async def _apply_market_signal_retention_policy(self, signals: SignalsEvaluationResult) -> None:
         expiration_date = datetime.now(tz=UTC) - timedelta(

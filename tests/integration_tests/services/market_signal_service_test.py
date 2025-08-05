@@ -37,8 +37,12 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     assert len(symbols) >= 1
     assert symbol in symbols
 
+    total_expected_1h_signals = sum(
+        [2 if one_hour_signal.is_divergence_signal else 1 for one_hour_signal in one_hour_signals]
+    )
+
     market_signals = await market_signal_service.find_by_symbol(symbol)
-    assert len(market_signals) == len(one_hour_signals)
+    assert len(market_signals) == total_expected_1h_signals
 
     # 2. Saving 4h signal and then 1h later on, it works!
     first_four_hour_signal = SignalsEvaluationResultObjectMother.create(
@@ -57,7 +61,7 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     assert symbol in symbols
 
     market_signals = await market_signal_service.find_by_symbol(symbol)
-    assert len(market_signals) == ((len(one_hour_signals) * 2) + 1)
+    assert len(market_signals) == ((total_expected_1h_signals * 2) + 1)
 
     all_four_hour_signals = [market_signal for market_signal in market_signals if market_signal.timeframe == "4h"]
     assert len(all_four_hour_signals) == 1
@@ -65,7 +69,7 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     _assert_with(first_four_hour_signal, first_4h_returned_signal)
 
     market_signals_for_1h = await market_signal_service.find_by_symbol(symbol, timeframe="1h")
-    assert len(market_signals_for_1h) == (len(one_hour_signals) * 2)
+    assert len(market_signals_for_1h) == (total_expected_1h_signals * 2)
 
     market_signals_for_4h = await market_signal_service.find_by_symbol(symbol, timeframe="4h")
     assert len(market_signals_for_4h) == 1
@@ -92,7 +96,7 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     _assert_with(first_four_hour_signal, first_4h_returned_signal)
 
     market_signals_for_1h = await market_signal_service.find_by_symbol(symbol, timeframe="1h")
-    assert len(market_signals_for_1h) == (len(one_hour_signals) * 2)
+    assert len(market_signals_for_1h) == (total_expected_1h_signals * 2)
 
     market_signals_for_30m = await market_signal_service.find_by_symbol(symbol, timeframe="30m")
     assert len(market_signals_for_30m) <= 0
@@ -112,7 +116,7 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     assert len(market_signals) >= 1
 
     market_signals_for_1h = await market_signal_service.find_by_symbol(symbol, timeframe="1h")
-    assert len(market_signals_for_1h) <= (len(one_hour_signals) * 2)
+    assert len(market_signals_for_1h) <= (total_expected_1h_signals * 2)
 
     market_signals_for_4h = await market_signal_service.find_by_symbol(symbol, timeframe="4h")
 

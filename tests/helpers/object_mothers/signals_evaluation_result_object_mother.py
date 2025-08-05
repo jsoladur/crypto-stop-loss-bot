@@ -11,14 +11,27 @@ class SignalsEvaluationResultObjectMother:
     _faker: Faker = Faker()
 
     @classmethod
-    def list(cls, symbol: str | None = None, timeframe: Timeframe | None = None) -> list[SignalsEvaluationResult]:
+    def list(
+        cls, symbol: str | None = None, timeframe: Timeframe | None = None, *, include_divergences: bool = True
+    ) -> list[SignalsEvaluationResult]:
         now = datetime.now(UTC)
         symbol = symbol or cls._faker.random_element(["ETH/EUR", "SOL/EUR"])
         timeframe = timeframe or cls._faker.random_element(list(get_args(Timeframe)))
         ret = [
             cls.create(timestamp=now + timedelta(days=delta), symbol=symbol, timeframe=timeframe)
-            for delta in range(-2, 0)
+            for delta in range(-3, -1)
         ]
+        if include_divergences:
+            bearish_divergence = cls._faker.pybool()
+            ret.append(
+                cls.create(
+                    timestamp=now,
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    bearish_divergence=bearish_divergence,
+                    bullish_divergence=not bearish_divergence,
+                )
+            )
         return ret
 
     @classmethod
