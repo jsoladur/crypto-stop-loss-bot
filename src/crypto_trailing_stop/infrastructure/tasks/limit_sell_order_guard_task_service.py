@@ -90,7 +90,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                 previous_used_buy_trade_ids, *_ = await self._handle_single_sell_order(
                     sell_order, current_tickers_by_symbol, previous_used_buy_trade_ids, client=client
                 )
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.error(str(e), exc_info=True)
                 await self._notify_fatal_error_via_telegram(e)
 
@@ -197,7 +197,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             )
             if not safeguard_stop_price_reached:
                 # Calculate auto_exit_sell_1h
-                auto_exit_sell_1h = await self._should_auto_exit_on_sell_1h_signal(
+                auto_exit_sell_1h = await self._should_auto_exit_on_sell_or_bearish_divergence_1h_signal(
                     sell_order=sell_order,
                     tickers=tickers,
                     guard_metrics=guard_metrics,
@@ -237,7 +237,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         )
         return safeguard_stop_price_reached
 
-    async def _should_auto_exit_on_sell_1h_signal(
+    async def _should_auto_exit_on_sell_or_bearish_divergence_1h_signal(
         self,
         *,
         sell_order: Bit2MeOrderDto,
