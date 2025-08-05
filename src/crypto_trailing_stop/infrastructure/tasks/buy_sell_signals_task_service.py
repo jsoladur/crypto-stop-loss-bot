@@ -270,6 +270,8 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 ema_bullish_cross_on_prev
                 and is_trend_momentum_confirmed_on_last
                 and not is_trend_momentum_confirmed_on_prev
+                # Safety Check: The crossover candle must not have had a bearish divergence.
+                and not prev_candle_market_metrics.bearish_divergence
             )
             # 3. Check for a "Delayed Signal" from 2 candles ago.
             is_trend_momentum_confirmed_on_prior = self._is_trend_momentum_confirmed(
@@ -283,6 +285,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 and is_trend_momentum_confirmed_on_last
                 and not is_trend_momentum_confirmed_on_prev  # Must not have been valid on prev candle
                 and not is_trend_momentum_confirmed_on_prior  # Must not have been valid on its own candle
+                # NOTE: Safety checks: ensure the entire path was free of divergence.
+                and not prev_candle_market_metrics.bearish_divergence
+                and not prior_candle_market_metrics.bearish_divergence
             )
             # 4. The final signal is true if the immediate OR any valid delayed signal is found.
             signal_delayed = signal_delayed_1_ago or signal_delayed_2_ago
