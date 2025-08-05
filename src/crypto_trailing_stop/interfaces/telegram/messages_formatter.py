@@ -90,7 +90,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
         *_, fiat_currency = metrics.symbol.split("/")
         message_lines = [
             f"🧮 {html.bold(over_candlestick.name.upper() + ' METRICS')} for {html.bold(metrics.symbol)} 🧮",
-            "===========================",
+            "==============================",
             f"📅 {html.bold('Timestamp')} = {self._format_timestamp_with_timezone(metrics.timestamp + timedelta(hours=1))}",  # noqa: E501
             "----------------------------------------------------",
             f"🔥 {html.bold('CURRENT PRICE')} = {html.code(str(tickers.close) + ' ' + fiat_currency)}",
@@ -115,6 +115,10 @@ class MessagesFormatter(metaclass=SingletonMeta):
             f"📶 {html.bold('ADX')} = {self._get_adx_icon(metrics)} {metrics.adx}",
             f"  ➕{html.bold('DI')} = {metrics.adx_pos}",
             f"  ➖{html.bold('DI')} = {metrics.adx_neg}",
+            "----------------------------------------------------",
+            f"🐻 {html.bold('Bearish Divergence')} = {'💀 YES' if metrics.bullish_divergence else '🌤️ No'}",
+            f"🚀 {html.bold('Bullish Divergence')} = {'🟢 YES' if metrics.bullish_divergence else '🧘 No'}",
+            "==============================",
         ]
         ret = "\n".join(message_lines)
         return ret

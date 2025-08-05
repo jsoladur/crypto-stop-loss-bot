@@ -115,6 +115,17 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         logger.debug("Calculating indicators...")
         crypto_currency, *_ = symbol.split("/")
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
+        # Calculate simple 'ta' indicators
+        self._calculate_simple_indicators(df, buy_sell_signals_config)
+        # Calculate complex indicators and trends
+        self._calculate_complex_indicators(df)
+        # Drop NaN values
+        df.dropna(inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        logger.debug("Indicator calculation complete.")
+        return df, buy_sell_signals_config
+
+    def _calculate_simple_indicators(self, df: pd.DataFrame, buy_sell_signals_config: BuySellSignalsConfigItem) -> None:
         # Exponential Moving Average (EMA) 9
         df["ema_short"] = EMAIndicator(df["close"], window=buy_sell_signals_config.ema_short_value).ema_indicator()
         # Exponential Moving Average (EMA) 21
@@ -135,16 +146,48 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         df["adx"] = adx_indicator.adx()
         df["adx_pos"] = adx_indicator.adx_pos()
         df["adx_neg"] = adx_indicator.adx_neg()
-        # NEW: Calculate Bollinger Bands (BBands)
+        # Calculate Bollinger Bands (BBands)
         bbands_indicator = BollingerBands(close=df["close"], window=20, window_dev=2)
         df["bb_upper"] = bbands_indicator.bollinger_hband()
         df["bb_middle"] = bbands_indicator.bollinger_mavg()
         df["bb_lower"] = bbands_indicator.bollinger_lband()
-        # NEW: Calculate Relative Volume (RVOL)
+        # Calculate Relative Volume (RVOL)
         df["volume_sma"] = df["volume"].rolling(window=20).mean()
         df["relative_vol"] = df["volume"] / df["volume_sma"]
-        # Drop NaN values
-        df.dropna(inplace=True)
-        df.reset_index(drop=True, inplace=True)
-        logger.debug("Indicator calculation complete.")
-        return df, buy_sell_signals_config
+
+    def _calculate_complex_indicators(self, df: pd.DataFrame) -> None:
+        """
+        Calculates complex, window-based indicators like bearish divergence.
+        """
+        self._calculate_bearish_divergence(df)
+        self._calculate_bullish_divergence(df)
+
+    def _calculate_bearish_divergence(self, df: pd.DataFrame, *, divergence_window: int = 40) -> None:
+        if len(df) >= divergence_window:
+            # Find the highest high price in the lookback window
+            df["highest_in_window"] = df["high"].rolling(window=divergence_window).max()
+            # Find the index label of that highest high for each window.
+            highest_in_window_idx = df["high"].rolling(window=divergence_window).apply(lambda x: x.idxmax(), raw=False)
+            # Look up the RSI value using the found index label.
+            df["rsi_at_highest"] = highest_in_window_idx.map(df["rsi"])
+            # The divergence exists if the current high is at the window's high, but the RSI is lower
+            df["bearish_divergence"] = (df["high"] >= df["highest_in_window"]) & (df["rsi"] < df["rsi_at_highest"])
+            # Drop intermediate helper columns
+            df.drop(columns=["highest_in_window", "rsi_at_highest"], inplace=True)
+        else:
+            df["bearish_divergence"] = False
+
+    def _calculate_bullish_divergence(self, df: pd.DataFrame, *, divergence_window: int = 40) -> None:
+        if len(df) >= divergence_window:
+            # Find the lowest low price in the lookback window
+            df["lowest_in_window"] = df["low"].rolling(window=divergence_window).min()
+            # Find the index label of that lowest low for each window.
+            lowest_in_window_idx = df["low"].rolling(window=divergence_window).apply(lambda x: x.idxmin(), raw=False)
+            # Look up the RSI value using the found index label.
+            df["rsi_at_lowest"] = lowest_in_window_idx.map(df["rsi"])
+            # The divergence exists if the current low is at the window's low, but the RSI is higher
+            df["bullish_divergence"] = (df["low"] <= df["lowest_in_window"]) & (df["rsi"] > df["rsi_at_lowest"])
+            # Drop intermediate helper columns
+            df.drop(columns=["lowest_in_window", "rsi_at_lowest"], inplace=True)
+        else:
+            df["bullish_divergence"] = False
