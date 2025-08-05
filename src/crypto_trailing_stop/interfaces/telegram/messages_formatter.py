@@ -116,7 +116,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
             f"  ➕{html.bold('DI')} = {metrics.adx_pos}",
             f"  ➖{html.bold('DI')} = {metrics.adx_neg}",
             "----------------------------------------------------",
-            f"🐻 {html.bold('Bearish Divergence')} = {'💀 YES' if metrics.bullish_divergence else '🌤️ No'}",
+            f"🐻 {html.bold('Bearish Divergence')} = {'💀 YES' if metrics.bearish_divergence else '🌤️ No'}",
             f"🚀 {html.bold('Bullish Divergence')} = {'🟢 YES' if metrics.bullish_divergence else '🧘 No'}",
             "==============================",
         ]
