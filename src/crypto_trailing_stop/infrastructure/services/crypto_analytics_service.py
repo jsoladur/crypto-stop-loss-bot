@@ -171,7 +171,9 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
             # Look up the RSI value using the found index label.
             df["rsi_at_highest"] = highest_in_window_idx.map(df["rsi"])
             # The divergence exists if the current high is at the window's high, but the RSI is lower
-            df["bearish_divergence"] = (df["high"] >= df["highest_in_window"]) & (df["rsi"] < df["rsi_at_highest"])
+            df["bearish_divergence"] = bool(
+                (df["high"] >= df["highest_in_window"]) & (df["rsi"] < df["rsi_at_highest"])
+            )
             # Drop intermediate helper columns
             df.drop(columns=["highest_in_window", "rsi_at_highest"], inplace=True)
         else:
@@ -186,7 +188,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
             # Look up the RSI value using the found index label.
             df["rsi_at_lowest"] = lowest_in_window_idx.map(df["rsi"])
             # The divergence exists if the current low is at the window's low, but the RSI is higher
-            df["bullish_divergence"] = (df["low"] <= df["lowest_in_window"]) & (df["rsi"] > df["rsi_at_lowest"])
+            df["bullish_divergence"] = bool((df["low"] <= df["lowest_in_window"]) & (df["rsi"] > df["rsi_at_lowest"]))
             # Drop intermediate helper columns
             df.drop(columns=["lowest_in_window", "rsi_at_lowest"], inplace=True)
         else:
