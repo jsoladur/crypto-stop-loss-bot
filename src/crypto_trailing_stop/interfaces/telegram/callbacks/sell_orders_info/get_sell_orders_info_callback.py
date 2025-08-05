@@ -55,22 +55,22 @@ async def get_sell_orders_info_callback_handler(callback_query: CallbackQuery, s
                 is_enabled_for_limit_sell_order_guard = await global_flag_service.is_enabled_for(
                     GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
                 )
-                for metrics in limit_sell_order_guard_metrics_list:
+                for idx, metrics in enumerate(limit_sell_order_guard_metrics_list):
                     answer_text = messages_formatter.format_limit_sell_order_guard_metrics(metrics)
                     answer_text += "\n"
                     if is_enabled_for_limit_sell_order_guard:
                         answer_text += (
                             "ℹ️️ Would you like to immediate sell this operation via Limit Sell Guard manually?"
                         )
-                        await callback_query.message.answer(
-                            answer_text,
-                            reply_markup=keyboards_builder.get_yes_no_keyboard(
-                                yes_button_callback_data=f"immediate_sell_limit_order$${metrics.sell_order.id}"
-                            ),
+                        inline_keyboard_markup = keyboards_builder.get_yes_no_keyboard(
+                            yes_button_callback_data=f"immediate_sell_limit_order$${metrics.sell_order.id}"
                         )
                     else:
                         answer_text += f"💡 {html.italic('The Limit Sell Order Guard is currently disabled. Please enable it if you want to immediate sell this operation')}"  # noqa: E501
-                        await callback_query.message.answer(answer_text)
+                        inline_keyboard_markup = None
+                        if idx + 1 >= len(limit_sell_order_guard_metrics_list):
+                            inline_keyboard_markup = keyboards_builder.get_go_back_home_keyboard()
+                    await callback_query.message.answer(answer_text, reply_markup=inline_keyboard_markup)
             else:
                 await callback_query.message.answer("✳️ There are no currently opened SELL orders.")
         except Exception as e:

@@ -68,7 +68,7 @@ async def auto_entry_trader_config_for_symbol_callback_handler(
                 )
             else:
                 message += f"💡 {html.italic('Enable Auto-Entry Trader and assign capital to ' + symbol + ' to allow manual buys.')}"  # noqa: E501
-                inline_keyboard_markup = None
+                inline_keyboard_markup = keyboards_builder.get_go_back_home_keyboard()
             await callback_query.message.answer(message, reply_markup=inline_keyboard_markup)
         except Exception as e:
             logger.error(f"Error retrieving current crypto metrics: {str(e)}", exc_info=True)
