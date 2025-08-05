@@ -121,7 +121,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                             )
                             reason_message += "⏸️ Trading paused to protect capital."
                             await self._notify_warning(market_signal_item, warning_reason_message=reason_message)
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             logger.error(str(e), exc_info=True)
             await self._notify_fatal_error_via_telegram(e)
 

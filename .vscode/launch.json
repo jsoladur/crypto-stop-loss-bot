@@ -52,7 +52,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["-x", "--log-cli-level=INFO", "-k", "should_send_via_telegram_notifications_after_detecting_buy_sell_signals"],
+      "args": ["-x", "--log-cli-level=INFO", "-k", "should_create_market_sell_order_when_auto_exit_sell_or_bearish_divergence_1h_signal[False-True]"],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false
     }

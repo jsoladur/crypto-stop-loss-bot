@@ -6,7 +6,7 @@ from uuid import uuid4
 from piccolo.columns import UUID, Float, Text, Timestamp
 from piccolo.table import Table
 
-from crypto_trailing_stop.infrastructure.tasks.vo.types import RSIState
+from crypto_trailing_stop.infrastructure.tasks.vo.types import MarketSignalType, RSIState
 
 
 class MarketSignal(Table):
@@ -14,7 +14,7 @@ class MarketSignal(Table):
     timestamp: datetime = Timestamp(required=True, default=lambda: datetime.now(tz=UTC))
     symbol = Text(required=True)
     timeframe: Literal["4h", "1h"] = Text(required=True)
-    signal_type: Literal["buy", "sell"] = Text(required=True)
+    signal_type: MarketSignalType = Text(required=True)
     rsi_state: RSIState = Text(required=True)
     atr: float = Float(required=True)
     closing_price: float = Float(required=True)

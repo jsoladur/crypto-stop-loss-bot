@@ -2,8 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderSide
-from crypto_trailing_stop.infrastructure.tasks.vo.types import RSIState, Timeframe
+from crypto_trailing_stop.infrastructure.tasks.vo.types import MarketSignalType, RSIState, Timeframe
 
 
 @dataclass
@@ -11,11 +10,19 @@ class MarketSignalItem:
     timestamp: datetime
     symbol: str
     timeframe: Timeframe
-    signal_type: Bit2MeOrderSide
+    signal_type: MarketSignalType
     rsi_state: RSIState
     atr: float
     closing_price: float
     ema_long_price: float
+
+    @property
+    def is_buy_sell_signal(self) -> bool:
+        return self.signal_type in ["buy", "sell"]
+
+    @property
+    def is_divergence_signal(self) -> bool:
+        return self.signal_type in ["bearish_divergence", "bullish_divergence"]
 
     @property
     def is_candidate_to_trigger_buy_action(self) -> bool:

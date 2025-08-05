@@ -134,10 +134,16 @@ async def should_create_market_sell_order_when_atr_take_profit_limit_price_reach
             httpserver.check_assertions()
 
 
-@pytest.mark.parametrize("simulate_future_sell_orders", [False, True])
+@pytest.mark.parametrize(
+    "simulate_future_sell_orders,bearish_divergence",
+    [(bool1, bool2) for bool1 in [True, False] for bool2 in [True, False]],
+)
 @pytest.mark.asyncio
-async def should_create_market_sell_order_when_auto_exit_sell_1h(
-    faker: Faker, simulate_future_sell_orders: bool, integration_test_env: tuple[HTTPServer, str]
+async def should_create_market_sell_order_when_auto_exit_sell_or_bearish_divergence_1h_signal(
+    faker: Faker,
+    simulate_future_sell_orders: bool,
+    bearish_divergence: bool,
+    integration_test_env: tuple[HTTPServer, str],
 ) -> None:
     """
     Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
@@ -163,7 +169,7 @@ async def should_create_market_sell_order_when_auto_exit_sell_1h(
     task_manager = get_task_manager_instance()
 
     # Create fake market signals to simulate the sudden SELL 1H market signal
-    await _create_fake_market_signals(first_order)
+    await _create_fake_market_signals(first_order, bearish_divergence=bearish_divergence)
 
     # Provoke send a notification via Telegram
     telegram_chat_id = faker.random_number(digits=9, fix_len=True)
@@ -428,14 +434,19 @@ def _prepare_httpserver_mock(
 
 
 async def _create_fake_market_signals(
-    first_order: Bit2MeOrderDto, closing_price_sell_1h_signal: float | None = None
+    first_order: Bit2MeOrderDto, *, closing_price_sell_1h_signal: float | None = None, bearish_divergence: bool = False
 ) -> None:
     market_signal_service = MarketSignalService()
 
     one_hour_last_signals = [
         SignalsEvaluationResultObjectMother.create(symbol=first_order.symbol, timeframe="1h", buy=True, sell=False),
         SignalsEvaluationResultObjectMother.create(
-            symbol=first_order.symbol, timeframe="1h", buy=False, sell=True, closing_price=closing_price_sell_1h_signal
+            symbol=first_order.symbol,
+            timeframe="1h",
+            buy=False,
+            sell=not bearish_divergence,
+            bearish_divergence=bearish_divergence,
+            closing_price=closing_price_sell_1h_signal,
         ),
     ]
     for signal in one_hour_last_signals:
