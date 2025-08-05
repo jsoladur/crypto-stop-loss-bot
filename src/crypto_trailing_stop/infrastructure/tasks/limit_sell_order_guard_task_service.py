@@ -317,7 +317,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         elif auto_exit_reason.auto_exit_sell_1h:
             details = (
                 f"At current {crypto_currency} price ({current_symbol_price} {fiat_currency}), "
-                + "a SELL 1H signal has suddenly appeared."
+                + "either a SELL 1H or BEARISH DIVERGENCE signal has suddenly appeared."
             )
         elif auto_exit_reason.atr_take_profit_limit_price_reached:
             details = (
