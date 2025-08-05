@@ -255,7 +255,13 @@ class BuySellSignalsTaskService(AbstractTaskService):
         is_trend_momentum_confirmed_on_last = self._is_trend_momentum_confirmed(
             candle=last_candle_market_metrics, buy_sell_signals_config=buy_sell_signals_config
         )
-        buy_signal = ema_bullish_cross_on_last and is_trend_momentum_confirmed_on_last
+        # --- DEFINE THE VETO FOR THE IMMEDIATE SIGNAL ---
+        # The immediate signal is vetoed if a bearish divergence was present on either of the two preceding candles.
+        recent_divergence_warning = (
+            prev_candle_market_metrics.bearish_divergence or prior_candle_market_metrics.bearish_divergence
+        )
+        # The immediate signal is only valid if there's no recent divergence warning.
+        buy_signal = ema_bullish_cross_on_last and is_trend_momentum_confirmed_on_last and not recent_divergence_warning
         # If the ADX filter is off, we only check for the immediate signal.
         if buy_sell_signals_config.filter_noise_using_adx:
             # --- ADX filter is ON from this point forward ---
