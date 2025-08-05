@@ -206,11 +206,17 @@ class MessagesFormatter(metaclass=SingletonMeta):
                 rsi_state = pydash.start_case(signal.rsi_state)
 
                 # Match background job alert style
-                if timeframe == "4h":
+                if signal.is_divergence_signal:
+                    if signal_type == "bearish_divergence":
+                        line = "💀💀 - ⚠️ - "
+                    else:
+                        line = "🚀🚀 - 🟢 - "
+                    line += f"{html.bold(pydash.start_case(signal_type).upper()) + ' (' + timeframe.upper() + ')'}"
+                elif timeframe == "4h":
                     if signal_type == "buy":
-                        line = f"🚀🚀 - 🟢 - {html.bold('STRATEGIC BUY ALERT (4H)')}"
+                        line = f"⏬⏬ - ⚠️ - {html.bold('UPTREND EXHAUSTION ALERT (4H)')}"
                     else:  # sell
-                        line = f"⏬⏬ - 🔴 - {html.bold('STRATEGIC SELL ALERT (4H)')}"
+                        line = f"🚀🚀 - 🟢 - {html.bold('DOWNTREND EXHAUSTION ALERT (4H)')}"
                 else:  # 1h
                     if signal_type == "buy":
                         line = f"🟢 - 🛒 {html.bold('BUY SIGNAL (1H)')}"

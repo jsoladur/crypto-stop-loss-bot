@@ -528,7 +528,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         else:
             message = (
                 f"🔴 - 🔚 {html.bold('SELL SIGNAL ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}. "
-                f"{html.italic('Sell only if price > break-even; otherwise, hold for stop loss.')}"
+                f"{html.italic('Consider to SELL NOW if at or above break-even. Otherwise, hold for stop loss.')}"
             )
         await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
 

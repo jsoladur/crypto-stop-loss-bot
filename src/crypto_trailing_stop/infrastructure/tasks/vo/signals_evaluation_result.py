@@ -31,7 +31,15 @@ class SignalsEvaluationResult:
 
     @property
     def is_positive(self) -> bool:
+        return self.is_buy_sell_signal or self.is_divergence_signal
+
+    @property
+    def is_buy_sell_signal(self) -> bool:
         return not self.is_choppy and (self.buy or self.sell)
+
+    @property
+    def is_divergence_signal(self) -> bool:
+        return self.bearish_divergence or self.bullish_divergence
 
     @property
     def cache_key(self) -> str:

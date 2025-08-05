@@ -90,7 +90,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                 previous_used_buy_trade_ids, *_ = await self._handle_single_sell_order(
                     sell_order, current_tickers_by_symbol, previous_used_buy_trade_ids, client=client
                 )
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.error(str(e), exc_info=True)
                 await self._notify_fatal_error_via_telegram(e)
 
@@ -197,7 +197,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             )
             if not safeguard_stop_price_reached:
                 # Calculate auto_exit_sell_1h
-                auto_exit_sell_1h = await self._should_auto_exit_on_sell_1h_signal(
+                auto_exit_sell_1h = await self._should_auto_exit_on_sell_or_bearish_divergence_1h_signal(
                     sell_order=sell_order,
                     tickers=tickers,
                     guard_metrics=guard_metrics,
@@ -237,7 +237,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         )
         return safeguard_stop_price_reached
 
-    async def _should_auto_exit_on_sell_1h_signal(
+    async def _should_auto_exit_on_sell_or_bearish_divergence_1h_signal(
         self,
         *,
         sell_order: Bit2MeOrderDto,
@@ -253,7 +253,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             auto_exit_sell_1h = bool(
                 last_market_1h_signal is not None
                 and last_market_1h_signal.timestamp > sell_order.created_at
-                and last_market_1h_signal.signal_type == "sell"
+                and last_market_1h_signal.signal_type in ["sell", "bearish_divergence"]
                 and tickers.close >= guard_metrics.break_even_price
                 and last_candle_market_metrics.macd_hist < 0
                 and last_candle_market_metrics.macd_hist < prev_candle_market_metrics.macd_hist
@@ -317,7 +317,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         elif auto_exit_reason.auto_exit_sell_1h:
             details = (
                 f"At current {crypto_currency} price ({current_symbol_price} {fiat_currency}), "
-                + "a SELL 1H signal has suddenly appeared."
+                + "either a SELL 1H or BEARISH DIVERGENCE signal has suddenly appeared."
             )
         elif auto_exit_reason.atr_take_profit_limit_price_reached:
             details = (
