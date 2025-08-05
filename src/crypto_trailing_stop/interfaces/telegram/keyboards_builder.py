@@ -192,6 +192,11 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 
+    def get_go_back_home_keyboard(self) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
+        return builder.as_markup()
+
     @staticmethod
     def get_sp_tp_pairs_keyboard() -> ReplyKeyboardMarkup:
         builder = ReplyKeyboardBuilder()
