@@ -1,5 +1,6 @@
 import numpy as np
 
+DEFAULT_DIVERGENCE_WINDOW = 60
 DEFAULT_JOB_INTERVAL_SECONDS = 5  # 5 seconds
 DEFAULT_TRAILING_STOP_LOSS_PERCENT = 5.0  # Best Spot Loss value intra-day, based on experience
 STOP_LOSS_STEPS_VALUE_LIST = np.concatenate(

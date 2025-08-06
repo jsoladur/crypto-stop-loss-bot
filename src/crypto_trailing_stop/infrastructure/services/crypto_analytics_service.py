@@ -7,6 +7,7 @@ from ta.momentum import RSIIndicator
 from ta.trend import MACD, ADXIndicator, EMAIndicator
 from ta.volatility import AverageTrueRange, BollingerBands
 
+from crypto_trailing_stop.commons.constants import DEFAULT_DIVERGENCE_WINDOW
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
@@ -162,7 +163,9 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         self._calculate_bearish_divergence(df)
         self._calculate_bullish_divergence(df)
 
-    def _calculate_bearish_divergence(self, df: pd.DataFrame, *, divergence_window: int = 40) -> None:
+    def _calculate_bearish_divergence(
+        self, df: pd.DataFrame, *, divergence_window: int = DEFAULT_DIVERGENCE_WINDOW
+    ) -> None:
         if len(df) >= divergence_window:
             # Find the highest high price in the lookback window
             df["highest_in_window"] = df["high"].rolling(window=divergence_window).max()
@@ -177,7 +180,9 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         else:
             df["bearish_divergence"] = False
 
-    def _calculate_bullish_divergence(self, df: pd.DataFrame, *, divergence_window: int = 40) -> None:
+    def _calculate_bullish_divergence(
+        self, df: pd.DataFrame, *, divergence_window: int = DEFAULT_DIVERGENCE_WINDOW
+    ) -> None:
         if len(df) >= divergence_window:
             # Find the lowest low price in the lookback window
             df["lowest_in_window"] = df["low"].rolling(window=divergence_window).min()
