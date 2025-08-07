@@ -12,6 +12,7 @@ from crypto_trailing_stop.commons.constants import (
 )
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.global_flag_item import GlobalFlagItem
@@ -108,9 +109,23 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
         for crypto_currency in crypto_currencies:
             builder.row(
                 InlineKeyboardButton(
-                    text=f"🧮 {crypto_currency}", callback_data=f"get_current_metrics_for_symbol$${crypto_currency}"
+                    text=f"🧮 {crypto_currency}", callback_data=f"choose_metrics_candle$${crypto_currency}"
                 )
             )
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
+        return builder.as_markup()
+
+    def get_choose_metrics_candle_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        buttons = [
+            InlineKeyboardButton(
+                text=f"🕯️ [{idx}] {pydash.capitalize(candlestick.name)}",
+                callback_data=f"get_current_metrics_for_symbol$${symbol}$${candlestick.value}",
+            )
+            for idx, candlestick in enumerate(CandleStickEnum)
+        ]
+        for buttons_chunk in pydash.chunk(buttons, size=3):
+            builder.row(*buttons_chunk)
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 
