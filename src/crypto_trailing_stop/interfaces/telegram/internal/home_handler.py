@@ -12,7 +12,7 @@ class HomeHandler(metaclass=SingletonMeta):
         self._keyboards_builder = keyboards_builder
 
     async def handle(self, message: Message, state: FSMContext) -> None:
-        reply_message = "👋 Hi there!"
+        reply_message = f"👋 Hi there!{'\u2007' * 20}"
         is_user_logged = await self._session_storage_service.is_user_logged(state)
         if is_user_logged:
             keyboard = self._keyboards_builder.get_home_keyboard()
