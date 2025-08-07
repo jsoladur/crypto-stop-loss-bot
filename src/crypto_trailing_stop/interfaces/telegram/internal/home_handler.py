@@ -1,4 +1,3 @@
-from aiogram import html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
@@ -13,8 +12,7 @@ class HomeHandler(metaclass=SingletonMeta):
         self._keyboards_builder = keyboards_builder
 
     async def handle(self, message: Message, state: FSMContext) -> None:
-        # The stage will allow to us to store user data!
-        reply_message = f"Hello, {html.bold(message.from_user.full_name)}!"
+        reply_message = "👋 Hi there!"
         is_user_logged = await self._session_storage_service.is_user_logged(state)
         if is_user_logged:
             keyboard = self._keyboards_builder.get_home_keyboard()
