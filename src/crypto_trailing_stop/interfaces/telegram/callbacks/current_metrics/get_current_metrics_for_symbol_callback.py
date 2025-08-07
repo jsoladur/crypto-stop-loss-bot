@@ -35,16 +35,16 @@ crypto_analytics_service = CryptoAnalyticsService(
 )
 
 
-@dp.callback_query(F.data.regexp(r"^get_current_metrics_for_symbol\$\$(.+)$"))
+@dp.callback_query(F.data.regexp(r"^get_current_metrics_for_symbol\$\$(.+)\$\$(.+)$"))
 async def auto_entry_trader_config_for_symbol_callback_handler(
     callback_query: CallbackQuery, state: FSMContext
 ) -> None:
     is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:
-            match = re.match(r"^get_current_metrics_for_symbol\$\$(.+)$", callback_query.data)
+            match = re.match(r"^get_current_metrics_for_symbol\$\$(.+)\$\$(.+)$", callback_query.data)
             symbol = match.group(1)
-            over_candlestick = CandleStickEnum.LAST
+            over_candlestick = CandleStickEnum(int(match.group(2)))
             tickers = await bit2me_remote_service.get_tickers_by_symbol(symbol)
             current_crypto_metrics = await crypto_analytics_service.get_crypto_market_metrics(
                 symbol, over_candlestick=over_candlestick

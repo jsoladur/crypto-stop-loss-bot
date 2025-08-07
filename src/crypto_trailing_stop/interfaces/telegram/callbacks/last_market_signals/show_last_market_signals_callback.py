@@ -33,7 +33,7 @@ async def show_last_market_signals_callback_handler(callback_query: CallbackQuer
             market_signals = await market_signal_service.find_by_symbol(symbol)
             trading_market_config = await bit2me_remote_service.get_trading_market_config_by_symbol(symbol)
             message = messages_formatter.format_market_signals_message(symbol, trading_market_config, market_signals)
-            await callback_query.message.answer(message)
+            await callback_query.message.answer(message, reply_markup=keyboards_builder.get_go_back_home_keyboard())
         except Exception as e:
             logger.error(f"Error fetching last market signals: {str(e)}", exc_info=True)
             await callback_query.message.answer(
