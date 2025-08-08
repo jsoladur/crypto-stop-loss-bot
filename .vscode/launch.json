@@ -21,6 +21,15 @@
       "justMyCode": false
     },
     {
+      "name": "Backtesting",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "src/crypto_trailing_stop/scripts/main.py",
+      "args": ["backtesting", "SUI/EUR", "--adx-threshold=25", "--enable-tp", "--sl-multiplier=3.0", "--tp-multiplier=5.1"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Pytest",
       "type": "debugpy",
       "request": "launch",
@@ -52,7 +61,12 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["-x", "--log-cli-level=INFO", "-k", "should_create_market_sell_order_when_auto_exit_sell_or_bearish_divergence_1h_signal[False-True]"],
+      "args": [
+        "-x",
+        "--log-cli-level=INFO",
+        "-k",
+        "should_create_market_sell_order_when_auto_exit_sell_or_bearish_divergence_1h_signal[False-True]"
+      ],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false
     }
