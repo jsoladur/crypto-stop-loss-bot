@@ -36,6 +36,7 @@ signal_service = BuySellSignalsTaskService()
 def download_data(
     symbol: str = typer.Argument(..., help="The symbol to download, e.g., ETH/EUR"),
     exchange_name: str = typer.Option("binance", help="The name of the exchange to use."),
+    years_back: int = typer.Option(1, help="The number of years of data to download."),
 ):
     """
     Downloads the last 1 year of 1H historical data for a symbol and saves it to data/.
@@ -45,7 +46,7 @@ def download_data(
     if not os.path.exists("data"):
         os.makedirs("data")
 
-    start_date = (datetime.now(UTC) - timedelta(days=365)).strftime("%Y-%m-%d")
+    start_date = (datetime.now(UTC) - timedelta(days=365 * years_back)).strftime("%Y-%m-%d")
     exchange = getattr(ccxt, exchange_name)()
     since_timestamp = int(datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=UTC).timestamp() * 1000)
     all_ohlcv = []
