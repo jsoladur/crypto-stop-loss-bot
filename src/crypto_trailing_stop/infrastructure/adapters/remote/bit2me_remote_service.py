@@ -17,6 +17,7 @@ from pydantic import RootModel
 
 from crypto_trailing_stop.commons.constants import DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS
 from crypto_trailing_stop.commons.patterns import SingletonMeta
+from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
@@ -35,7 +36,6 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_bal
     Bit2MeTradingWalletBalanceDto,
 )
 from crypto_trailing_stop.infrastructure.adapters.remote.base import AbstractHttpRemoteAsyncService
-from crypto_trailing_stop.infrastructure.exceptions import OHLCVDataUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +48,6 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         self._base_url = str(self._configuration_properties.bit2me_api_base_url)
         self._api_key = self._configuration_properties.bit2me_api_key
         self._api_secret = self._configuration_properties.bit2me_api_secret
-
-    @staticmethod
-    def _backoff_on_backoff_handler(details: dict[str, Any]) -> None:
-        logger.warning(
-            f"[Retry {details['tries']}] " + f"Waiting {details['wait']:.2f}s due to {str(details['exception'])}"
-        )
 
     @staticmethod
     def _backoff_giveup_handler(e: Exception) -> bool:
@@ -178,15 +172,6 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     async def cancel_order_by_id(self, id: str, *, client: AsyncClient | None = None) -> None:
         await self._perform_http_request(method="DELETE", url=f"/v1/trading/order/{id}", client=client)
 
-    # XXX: [JMSOLA] Add backoff to retry when no OHLCV data returned
-    @backoff.on_exception(
-        backoff.fibo,
-        exception=OHLCVDataUnavailable,
-        max_value=5,
-        max_tries=7,
-        jitter=backoff.random_jitter,
-        on_backoff=_backoff_on_backoff_handler,
-    )
     async def fetch_ohlcv(
         self, symbol: str, timeframe: Literal["4h", "1h", "30m"], limit: int = 251, *, client: AsyncClient | None = None
     ) -> list[list[Any]]:
@@ -206,8 +191,6 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             client=client,
         )
         ohlcv = response.json()
-        if ohlcv is None or not isinstance(ohlcv, list) or len(ohlcv) <= 0:
-            raise OHLCVDataUnavailable(f"No OHLCV data returned for symbol '{symbol}' with timeframe '{timeframe}'.")
         return ohlcv
 
     async def get_trading_market_config_by_symbol(
@@ -248,7 +231,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         max_tries=7,
         jitter=backoff.random_jitter,
         giveup=_backoff_giveup_handler,
-        on_backoff=_backoff_on_backoff_handler,
+        on_backoff=backoff_on_backoff_handler,
     )
     async def _perform_http_request(
         self,

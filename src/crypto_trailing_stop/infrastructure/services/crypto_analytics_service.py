@@ -1,5 +1,6 @@
 import logging
 
+import backoff
 import ccxt.async_support as ccxt
 import pandas as pd
 from httpx import AsyncClient
@@ -9,6 +10,7 @@ from ta.volatility import AverageTrueRange, BollingerBands
 
 from crypto_trailing_stop.commons.constants import DEFAULT_DIVERGENCE_WINDOW
 from crypto_trailing_stop.commons.patterns import SingletonMeta
+from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
@@ -54,6 +56,15 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         )
         return ret
 
+    # XXX: [JMSOLA] Add backoff to retry when no OHLCV data returned
+    @backoff.on_exception(
+        backoff.fibo,
+        exception=IndexError,
+        max_value=5,
+        max_tries=7,
+        jitter=backoff.random_jitter,
+        on_backoff=backoff_on_backoff_handler,
+    )
     async def calculate_technical_indicators(
         self,
         symbol: str,
