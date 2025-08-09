@@ -21,7 +21,16 @@
       "justMyCode": false
     },
     {
-      "name": "Backtesting",
+      "name": "CLI: Download data",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "src/crypto_trailing_stop/scripts/main.py",
+      "args": ["download-data", "ETH/EUR"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "CLI: Backtesting",
       "type": "debugpy",
       "request": "launch",
       "program": "src/crypto_trailing_stop/scripts/main.py",

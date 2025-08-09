@@ -2,8 +2,10 @@
 import os
 from datetime import UTC, datetime, timedelta
 from os import path
+from time import sleep
 
 import ccxt
+import httpx
 import pandas as pd
 import typer
 from backtesting import Backtest
@@ -11,11 +13,12 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 
 from crypto_trailing_stop.commons.constants import BIT2ME_TAKER_FEES
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.tasks.buy_sell_signals_task_service import BuySellSignalsTaskService
-from crypto_trailing_stop.scripts.constants import DEFAULT_TRADING_MARKET_CONFIG
+from crypto_trailing_stop.scripts.constants import DEFAULT_LIMIT_DOWNLOAD_BATCHES, DEFAULT_TRADING_MARKET_CONFIG
 from crypto_trailing_stop.scripts.strategy import SignalStrategy
 
 load_dotenv(dotenv_path=path.realpath(path.join(path.dirname(__file__), ".env.backtesting")))
@@ -26,8 +29,11 @@ load_dotenv(dotenv_path=path.realpath(path.join(path.dirname(__file__), ".env.ba
 
 app = typer.Typer()
 
+bit2me_remote_service = Bit2MeRemoteService()
 analytics_service = CryptoAnalyticsService(
-    bit2me_remote_service=None, ccxt_remote_service=CcxtRemoteService(), buy_sell_signals_config_service=None
+    bit2me_remote_service=bit2me_remote_service,
+    ccxt_remote_service=CcxtRemoteService(),
+    buy_sell_signals_config_service=None,
 )
 signal_service = BuySellSignalsTaskService()
 
@@ -36,43 +42,69 @@ signal_service = BuySellSignalsTaskService()
 def download_data(
     symbol: str = typer.Argument(..., help="The symbol to download, e.g., ETH/EUR"),
     exchange_name: str = typer.Option("binance", help="The name of the exchange to use."),
+    timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
     years_back: int = typer.Option(1, help="The number of years of data to download."),
 ):
     """
     Downloads the last 1 year of 1H historical data for a symbol and saves it to data/.
     """
+    _, fiat_currency, *_ = symbol.split("/")
     typer.secho(f"📥 Starting download for {symbol} on 1h timeframe...", fg=typer.colors.BLUE)
 
     if not os.path.exists("data"):
         os.makedirs("data")
 
-    start_date = (datetime.now(UTC) - timedelta(days=365 * years_back)).strftime("%Y-%m-%d")
-    exchange = getattr(ccxt, exchange_name)()
-    since_timestamp = int(datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=UTC).timestamp() * 1000)
-    all_ohlcv = []
+    end_date = datetime.now(UTC)
+    start_date = end_date - timedelta(days=365 * years_back)
+    since_timestamp = int(start_date.timestamp() * 1000)
 
+    interval = bit2me_remote_service._convert_timeframe_to_interval(timeframe)
+    exchange = getattr(ccxt, exchange_name)()
+
+    markets = exchange.load_markets()
+    supported_symbols = [
+        market["symbol"]
+        for market in markets.values()
+        if market.get("active", False) and str(market["quote"]).upper() == str(fiat_currency).upper()
+    ]
+    all_ohlcv = []
     with tqdm(desc="Downloading data batches") as pbar:
-        while True:
+        current_date = start_date
+        while current_date <= end_date:
             try:
-                ohlcv = exchange.fetch_ohlcv(symbol, "1h", since=since_timestamp, limit=1000)
-                if not ohlcv:
-                    break
-                all_ohlcv.extend(ohlcv)
-                since_timestamp = ohlcv[-1][0] + 1
-                pbar.update(1)
+                if symbol in supported_symbols:
+                    ohlcv = exchange.fetch_ohlcv(
+                        symbol, "1h", since=int(start_date.timestamp() * 1000), limit=DEFAULT_LIMIT_DOWNLOAD_BATCHES
+                    )
+                else:
+                    response = httpx.get(
+                        "https://gateway.bit2me.com/v1/trading/candle",
+                        params={
+                            "symbol": symbol,
+                            "interval": interval,
+                            "limit": DEFAULT_LIMIT_DOWNLOAD_BATCHES,
+                            "startTime": since_timestamp,
+                            "endTime": int(end_date.timestamp() * 1000),
+                        },
+                    )
+                    response.raise_for_status()
+                    ohlcv = response.json()
+                    sleep(1.0)
+                if ohlcv:
+                    all_ohlcv.extend(ohlcv)
+                    since_timestamp = ohlcv[-1][0] + 1
+                    pbar.update(1)
             except Exception as e:
                 typer.secho(f"❌ Error downloading data: {e}", fg=typer.colors.RED)
                 break
-
+            finally:
+                current_date = current_date + timedelta(minutes=DEFAULT_LIMIT_DOWNLOAD_BATCHES * interval)
     typer.secho(f"✅ Download complete. {len(all_ohlcv)} candles fetched.", fg=typer.colors.GREEN)
-    if not all_ohlcv:
-        return
-
-    df = pd.DataFrame(all_ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
-
-    filename = f"data/{symbol.replace('/', '_')}_1h.csv"
-    df.to_csv(filename, index=False)
-    typer.echo(f"💾 Data saved to '{filename}'")
+    if all_ohlcv:
+        df = pd.DataFrame(all_ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
+        filename = f"data/{symbol.replace('/', '_')}_1h.csv"
+        df.to_csv(filename, index=False)
+        typer.echo(f"💾 Data saved to '{filename}'")
 
 
 @app.command()
@@ -116,13 +148,13 @@ def backtesting(
         data_file = f"data/{symbol.replace('/', '_')}_1h.csv"
         df = pd.read_csv(data_file)
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+        df.dropna(inplace=True)
+        df.reset_index(drop=True, inplace=True)
 
         typer.echo(f"📊 {len(df)} candles loaded. Calculating indicators and signals...")
 
         analytics_service._calculate_simple_indicators(df, simulated_bs_config)
         analytics_service._calculate_complex_indicators(df)
-        df.dropna(inplace=True)
-        df.reset_index(drop=True, inplace=True)
 
         buy_signals = []
         sell_signals = []
