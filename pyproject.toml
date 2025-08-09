@@ -56,7 +56,7 @@ dev = [
 ]
 
 [project.scripts]
-cli = "crypto_trailing_stop.scripts.main:app"
+cli = "crypto_trailing_stop.scripts.cli:app"
 
 [build-system]
 requires = ["hatchling"]
