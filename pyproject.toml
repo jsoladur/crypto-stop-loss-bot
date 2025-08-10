@@ -96,6 +96,7 @@ python_functions = "should_* test_*"
 [tool.coverage.run]
 source = ["src"]
 omit = [
+    "src/crypto_trailing_stop/scripts/*",
     "src/crypto_trailing_stop/interfaces/telegram/*"
 ]
 branch = false
