@@ -3,7 +3,6 @@ import os
 import pandas as pd
 import typer
 from faker import Faker
-from tqdm import tqdm
 
 from crypto_trailing_stop.scripts.constants import DEFAULT_BIT2ME_BASE_URL
 from crypto_trailing_stop.scripts.services import BacktestingCliService
@@ -34,27 +33,27 @@ backtesting_cli_service = BacktestingCliService()
 @app.command()
 def download_data(
     symbol: str = typer.Argument(..., help="The symbol to download, e.g., ETH/EUR"),
-    exchange_name: str = typer.Option("binance", help="The name of the exchange to use."),
+    exchange: str = typer.Option("binance", help="The name of the exchange to use."),
     timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
-    years_back: int = typer.Option(1, help="The number of years of data to download."),
+    years_back: float = typer.Option(1.0, help="The number of years of data to download."),
 ):
     """
     Downloads the last 1 year of 1H historical data for a symbol and saves it to data/.
     """
+    symbol = symbol.strip().upper()
     try:
         typer.secho(f"📥 Starting download for {symbol} on 1h timeframe...", fg=typer.colors.BLUE)
-        with tqdm(desc="Downloading data batches") as pbar:
-            all_ohlcv = backtesting_cli_service.download_backtesting_data(
-                symbol, exchange_name, timeframe, years_back, callback_fn=lambda: pbar.update(1)
-            )
-            typer.secho(f"✅ Download complete. {len(all_ohlcv)} candles fetched.", fg=typer.colors.GREEN)
-            if all_ohlcv:
-                df = pd.DataFrame(all_ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
-                if not os.path.exists("data"):
-                    os.makedirs("data")
-                filename = f"data/{symbol.replace('/', '_')}_1h.csv"
-                df.to_csv(filename, index=False)
-                typer.echo(f"💾 Data saved to '{filename}'")
+        all_ohlcv = backtesting_cli_service.download_backtesting_data(
+            symbol, exchange, timeframe, years_back, echo_fn=typer.secho
+        )
+        typer.secho(f"✅ Download complete. {len(all_ohlcv)} candles fetched.", fg=typer.colors.GREEN)
+        if all_ohlcv:
+            df = pd.DataFrame(all_ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
+            if not os.path.exists("data"):
+                os.makedirs("data")
+            filename = f"data/{symbol.replace('/', '_')}.csv"
+            df.to_csv(filename, index=False)
+            typer.echo(f"💾 Data saved to '{filename}'")
     except Exception as e:
         typer.secho(f"❌ Error downloading data: {e}", fg=typer.colors.RED)
 
@@ -73,11 +72,13 @@ def backtesting(
     tp_multiplier: float = typer.Option(3.5, help="ATR multiplier for Take Profit."),
     # Initial cash and debug parameters
     initial_cash: float = typer.Option(3_000, help="Intial cash for the backtest."),
+    show_plot: bool = typer.Option(False, help="Show the backtesting plot."),
     debug: bool = typer.Option(False, help="Enable debug, opening backtesting plot."),
 ):
     """
     Runs a backtest of the signal strategy for a symbol, using local data and configurable parameters.
     """
+    symbol = symbol.strip().upper()
     typer.secho(f"⚙️  Starting backtest for {symbol} with the following parameters:", fg=typer.colors.BLUE)
     typer.echo(f"  - EMAs: {ema_short}/{ema_mid}/{ema_long}")
     typer.echo(
@@ -90,7 +91,7 @@ def backtesting(
     )
     # Create the config object from the CLI options
     try:
-        data_file = f"data/{symbol.replace('/', '_')}_1h.csv"
+        data_file = f"data/{symbol.replace('/', '_')}.csv"
         df = pd.read_csv(data_file)
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         df.dropna(inplace=True)
@@ -113,6 +114,13 @@ def backtesting(
             echo_fn=typer.secho,
         )
 
+        if debug:
+            if not os.path.exists("data"):
+                os.makedirs("data")
+            filename = f"data/{symbol.replace('/', '_')}_indicators.csv"
+            df.to_csv(filename, index=False)
+            typer.echo(f"💾 Indicators outcomes saved to '{filename}'")
+
         typer.secho("\n--- 📈 BACKTEST RESULTS ---", fg=typer.colors.MAGENTA, bold=True)
         typer.echo(stats)
 
@@ -134,7 +142,7 @@ def backtesting(
         typer.echo(f"Net Profit/Loss [EUR]:       {return_eur_str}")
         typer.echo(f"Net Return [%]:              {return_pct_str}")
 
-        if debug:
+        if show_plot:
             bt.plot()
     except FileNotFoundError:
         typer.secho(f"❌ Error: Data file '{data_file}' not found.", fg=typer.colors.RED)

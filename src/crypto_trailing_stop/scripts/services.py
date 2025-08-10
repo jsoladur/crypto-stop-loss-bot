@@ -34,19 +34,21 @@ class BacktestingCliService:
     def download_backtesting_data(
         self,
         symbol: str,
-        exchange_name: str,
+        exchange: str,
         timeframe: str,
         years_back: int,
         *,
         callback_fn: Callable[[], None] = None,
+        echo_fn: Callable[[str], None],
     ) -> list[list[Any]]:
         _, fiat_currency, *_ = symbol.split("/")
         interval = self._bit2me_remote_service._convert_timeframe_to_interval(timeframe)
-        exchange = getattr(ccxt, exchange_name)()
+        exchange = getattr(ccxt, exchange)()
 
         end_date = datetime.now(UTC)
-        current_date = start_date = end_date - timedelta(days=365 * years_back)
-        since_timestamp = int(start_date.timestamp() * 1000)
+        start_date = end_date - timedelta(days=365 * years_back)
+        previous_since_timestamp, since_timestamp = None, int(start_date.timestamp() * 1000)
+        end_timestamp = int(end_date.timestamp() * 1000)
 
         markets = exchange.load_markets()
         supported_symbols = [
@@ -54,34 +56,39 @@ class BacktestingCliService:
             for market in markets.values()
             if market.get("active", False) and str(market["quote"]).upper() == str(fiat_currency).upper()
         ]
-        ret = []
-        while current_date <= end_date:
-            try:
-                if symbol in supported_symbols:
-                    ohlcv = exchange.fetch_ohlcv(
-                        symbol, "1h", since=int(start_date.timestamp() * 1000), limit=DEFAULT_LIMIT_DOWNLOAD_BATCHES
-                    )
-                else:
-                    response = httpx.get(
-                        f"{self._bit2me_base_url}/v1/trading/candle",
-                        params={
-                            "symbol": symbol,
-                            "interval": interval,
-                            "limit": DEFAULT_LIMIT_DOWNLOAD_BATCHES,
-                            "startTime": since_timestamp,
-                            "endTime": int(end_date.timestamp() * 1000),
-                        },
-                    )
-                    response.raise_for_status()
-                    ohlcv = response.json()
-                    sleep(1.0)
-                if ohlcv:
-                    ret.extend(ohlcv)
-                    since_timestamp = ohlcv[-1][0] + 1
-                    if callback_fn:
-                        callback_fn()
-            finally:
-                current_date = current_date + timedelta(minutes=DEFAULT_LIMIT_DOWNLOAD_BATCHES * interval)
+        has_more_data, ret = True, []
+        while (
+            has_more_data
+            and since_timestamp < end_timestamp
+            and (previous_since_timestamp is None or previous_since_timestamp < since_timestamp)
+        ):
+            start_datetime = datetime.fromtimestamp(since_timestamp / 1000)
+            end_datetime = start_datetime + timedelta(minutes=DEFAULT_LIMIT_DOWNLOAD_BATCHES * interval)
+            echo_fn(f"📆 Dowloading candles from {start_datetime.isoformat()} to {end_datetime.isoformat()}")
+
+            if symbol in supported_symbols:
+                ohlcv = exchange.fetch_ohlcv(symbol, "1h", since=since_timestamp, limit=DEFAULT_LIMIT_DOWNLOAD_BATCHES)
+            else:
+                response = httpx.get(
+                    f"{self._bit2me_base_url}/v1/trading/candle",
+                    params={
+                        "symbol": symbol,
+                        "interval": interval,
+                        "limit": DEFAULT_LIMIT_DOWNLOAD_BATCHES,
+                        "startTime": since_timestamp,
+                        "endTime": int(end_datetime.timestamp() * 1000),
+                    },
+                )
+                response.raise_for_status()
+                ohlcv = response.json()
+                sleep(1.0)
+            has_more_data = ohlcv is not None and len(ohlcv) > 0
+            if has_more_data:
+                ret.extend(ohlcv)
+                previous_since_timestamp = since_timestamp
+                since_timestamp = ohlcv[-1][0] + 1
+                if callback_fn:
+                    callback_fn()
         return ret
 
     def execute_backtesting(

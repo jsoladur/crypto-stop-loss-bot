@@ -24,8 +24,8 @@
       "name": "CLI: Download data",
       "type": "debugpy",
       "request": "launch",
-      "program": "src/crypto_trailing_stop/scripts/main.py",
-      "args": ["download-data", "ETH/EUR"],
+      "program": "src/crypto_trailing_stop/scripts/cli.py",
+      "args": ["download-data", "ENA/EUR", "--exchange=kraken"],
       "console": "integratedTerminal",
       "justMyCode": false
     },
@@ -33,7 +33,7 @@
       "name": "CLI: Backtesting",
       "type": "debugpy",
       "request": "launch",
-      "program": "src/crypto_trailing_stop/scripts/main.py",
+      "program": "src/crypto_trailing_stop/scripts/cli.py",
       "args": ["backtesting", "SUI/EUR", "--adx-threshold=25", "--enable-tp", "--sl-multiplier=3.0", "--tp-multiplier=5.1"],
       "console": "integratedTerminal",
       "justMyCode": false
