@@ -67,9 +67,9 @@ class ConfigurationProperties(BaseSettings):
     buy_sell_signals_adx_threshold: int = 20
     # Auto-Entry Trader configuration properties
     max_atr_percent_for_auto_entry: int = STOP_LOSS_STEPS_VALUE_LIST[-1]
-    # XXX: EMA values
-    buy_sell_signals_ema_short_value: int = 8
-    buy_sell_signals_ema_mid_value: int = 20
+    # XXX: EMA values (after backtesting EMA 9/21 is the best for mostly all crypto currencies)
+    buy_sell_signals_ema_short_value: int = 9
+    buy_sell_signals_ema_mid_value: int = 21
     buy_sell_signals_ema_long_value: int = 200
     # Market Signals parameters
     market_signal_retention_days: int = 9
