@@ -14,11 +14,29 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_bal
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
+from crypto_trailing_stop.infrastructure.services.vo.global_summary import GlobalSummary
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 
 
 class MessagesFormatter(metaclass=SingletonMeta):
+    def format_global_summary(self, global_summary: GlobalSummary) -> str:
+        message_lines = [
+            "=============================",
+            "📊 BIT2ME GLOBAL SUMMARY 📊",
+            "=============================",
+            f"🏦 DEPOSITS: {global_summary.total_deposits:.2f}€",
+            f"🏧 WITHDRAWALS: {global_summary.withdrawls:.2f}€",
+            "----------------------------------------------------",
+            f"💸 TOTAL INVESTED: {global_summary.total_invested:.2f}€",
+            f"💰 CURRENT: {global_summary.current_value:.2f}€",
+            "----------------------------------------------------",
+            f"🤑 NET REVENUE: {(global_summary.net_revenue):.2f} EUR",
+            "=============================",
+        ]
+        message = "\n".join(message_lines)
+        return message
+
     def format_trading_wallet_balances(
         self,
         account_info: Bit2MeAccountInfoDto,

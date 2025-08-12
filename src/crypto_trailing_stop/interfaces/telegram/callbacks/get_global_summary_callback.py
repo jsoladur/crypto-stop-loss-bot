@@ -10,12 +10,14 @@ from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service i
 from crypto_trailing_stop.infrastructure.services.global_summary_service import GlobalSummaryService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
+from crypto_trailing_stop.interfaces.telegram.messages_formatter import MessagesFormatter
 
 logger = logging.getLogger(__name__)
 
 dp = get_dispacher()
 session_storage_service = SessionStorageService()
 keyboards_builder = KeyboardsBuilder()
+messages_formatter = MessagesFormatter()
 global_summary_service = GlobalSummaryService(bit2me_remote_service=Bit2MeRemoteService())
 
 
@@ -25,18 +27,7 @@ async def set_stop_loss_percent_callback_handler(callback_query: CallbackQuery, 
     if is_user_logged:
         try:
             global_summary = await global_summary_service.get_global_summary()
-            message_lines = [
-                "===========================",
-                "📊 BIT2ME GLOBAL SUMMARY 📊",
-                "===========================",
-                f"🏦 TOTAL DEPOSIT: {global_summary.total_deposits:.2f}€",
-                f"💸 WITHDRAWALS: {global_summary.withdrawls:.2f}€",
-                f"💰 CURRENT: {global_summary.current_value:.2f}€",
-                "---------------------------",
-                f"🤑 NET REVENUE: {(global_summary.net_revenue):.2f} EUR",
-                "===========================",
-            ]
-            message = "\n".join(message_lines)
+            message = messages_formatter.format_global_summary(global_summary)
             await callback_query.message.answer(text=message)
         except Exception as e:
             logger.error(f"Error fetching global summary: {str(e)}", exc_info=True)
