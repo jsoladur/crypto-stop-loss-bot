@@ -231,4 +231,8 @@ pyrightconfig.json
 ### SQLite3 Patch ###
 .db*/*.sqlite
 
+### Backtesting ###
+*.html
+data/**/*.csv
+
 # End of https://www.toptal.com/developers/gitignore/api/dotenv,python,macos,visualstudiocode
