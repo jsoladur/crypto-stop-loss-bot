@@ -17,6 +17,6 @@ class HomeHandler(metaclass=SingletonMeta):
         if is_user_logged:
             keyboard = self._keyboards_builder.get_home_keyboard()
         else:
-            reply_message += " ⚠️ Please log in to continue."
+            reply_message += "\n⚠️ Please log in to continue."
             keyboard = self._keyboards_builder.get_login_keyboard(state)
         await message.answer(reply_message, reply_markup=keyboard)
