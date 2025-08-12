@@ -12,5 +12,9 @@ class GlobalSummary:
     current_value: float = field(default=0.0)
 
     @property
+    def total_invested(self) -> float:
+        return self.total_deposits - self.withdrawls
+
+    @property
     def net_revenue(self) -> float:
         return (self.current_value - self.total_deposits) + self.withdrawls
