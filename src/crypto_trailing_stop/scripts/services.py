@@ -112,6 +112,8 @@ class BacktestingCliService:
             ema_short_value=ema_short,
             ema_mid_value=ema_mid,
             ema_long_value=ema_long,
+            stop_loss_atr_multiplier=sl_multiplier,
+            take_profit_atr_multiplier=tp_multiplier,
             adx_threshold=adx_threshold,
             filter_noise_using_adx=filter_adx,
         )
@@ -147,11 +149,7 @@ class BacktestingCliService:
         )
         bt = Backtest(df, SignalStrategy, cash=initial_cash, commission=BIT2ME_TAKER_FEES)
         stats = bt.run(
-            enable_tp=enable_tp,
-            atr_sl_multiplier=sl_multiplier,
-            atr_tp_multiplier=tp_multiplier,
-            simulated_bs_config=simulated_bs_config,
-            analytics_service=self._analytics_service,
+            enable_tp=enable_tp, simulated_bs_config=simulated_bs_config, analytics_service=self._analytics_service
         )
 
         return bt, stats

@@ -17,8 +17,6 @@ class SignalStrategy(Strategy):
 
     # Parameters that will be set by the backtest engine
     enable_tp: bool = False
-    atr_sl_multiplier: float = 2.5
-    atr_tp_multiplier: float = 3.5
     simulated_bs_config: BuySellSignalsConfigItem = None
     analytics_service: CryptoAnalyticsService = None
 
