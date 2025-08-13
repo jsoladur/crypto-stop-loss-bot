@@ -12,11 +12,14 @@ from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 from werkzeug import Response
 
-from crypto_trailing_stop.commons.constants import PERCENT_TO_SELL_LIST
+from crypto_trailing_stop.commons.constants import BIT2ME_TAKER_FEES, PERCENT_TO_SELL_LIST
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
+    Bit2MeTradingWalletBalanceDto,
+)
 from crypto_trailing_stop.infrastructure.database.models.push_notification import PushNotification
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
@@ -34,6 +37,7 @@ from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequ
 from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
     Bit2MeTickersDtoObjectMother,
+    Bit2MeTradingWalletBalanceDtoObjectMother,
     SignalsEvaluationResultObjectMother,
 )
 from tests.helpers.ohlcv_test_utils import get_fetch_ohlcv_random_result
@@ -56,7 +60,12 @@ async def should_create_market_sell_order_when_market_for_immediate_sell_order(
     await disable_all_background_jobs_except()
 
     *_, buy_prices = _prepare_httpserver_mock(
-        faker, httpserver, bit2me_api_key, bit2me_api_secret, closing_crypto_currency_price_multipler=0.495
+        faker,
+        httpserver,
+        bit2me_api_key,
+        bit2me_api_secret,
+        closing_crypto_currency_price_multipler=0.495,
+        percent_to_sell=percent_to_sell,
     )
     first_order_and_price, *_ = buy_prices
     first_order, buy_price = first_order_and_price
@@ -320,8 +329,10 @@ def _prepare_httpserver_mock(
     closing_crypto_currency_price_multipler: float,
     simulate_future_sell_orders: bool = False,
     sell_1h_signals_behind_break_even: bool = False,
+    percent_to_sell: float = 100.0,
 ) -> tuple[list[Bit2MeOrderDto], list[Bit2MeOrderDto, float]]:
     symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
+    crypto_currency, *_ = symbol.split("/")
     # Mock OHLCV /v1/trading/candle
     fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
     # Simulate that some times the Bit2Me API returns an empty list
@@ -435,6 +446,38 @@ def _prepare_httpserver_mock(
                     side="sell", order_type="market", status=faker.random_element(["open", "inactive"])
                 ).model_dump(by_alias=True, mode="json")
             )
+
+            if percent_to_sell < 100:
+                httpserver.expect(
+                    Bit2MeAPIRequestMacher(
+                        "/bit2me-api/v1/trading/wallet/balance",
+                        query_string=urlencode({"symbols": crypto_currency.upper()}, doseq=False),
+                        method="GET",
+                    ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+                    handler_type=HandlerType.ONESHOT,
+                ).respond_with_json(
+                    RootModel[list[Bit2MeTradingWalletBalanceDto]](
+                        [
+                            Bit2MeTradingWalletBalanceDtoObjectMother.create(
+                                currency=crypto_currency,
+                                balance=round(
+                                    sell_order.order_amount * ((percent_to_sell - BIT2ME_TAKER_FEES) / 100), ndigits=2
+                                ),
+                            )
+                        ]
+                    ).model_dump(mode="json", by_alias=True)
+                )
+                httpserver.expect(
+                    Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
+                        bit2me_api_key, bik2me_api_secret
+                    ),
+                    handler_type=HandlerType.ONESHOT,
+                ).respond_with_json(
+                    Bit2MeOrderDtoObjectMother.create(side="sell", order_type="limit", status="open").model_dump(
+                        by_alias=True, mode="json"
+                    )
+                )
+
     return opened_sell_bit2me_orders, buy_prices
 
 

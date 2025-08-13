@@ -155,21 +155,58 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             # Cancel current take-profit sell limit order
             await self._bit2me_remote_service.cancel_order_by_id(sell_order.id, client=client)
             if auto_exit_reason.percent_to_sell < 100:
-                raise NotImplementedError("To be implemented partial selling!")
+                final_amount_to_sell = self._floor_round(
+                    sell_order.order_amount * (auto_exit_reason.percent_to_sell / 100),
+                    ndigits=trading_market_config.price_precision,
+                )
             else:
-                new_market_order = await self._bit2me_remote_service.create_order(
+                final_amount_to_sell = sell_order.order_amount
+            # Create new market order
+            new_market_order = await self._bit2me_remote_service.create_order(
+                order=CreateNewBit2MeOrderDto(
+                    order_type="market",
+                    side=sell_order.side,
+                    symbol=sell_order.symbol,
+                    amount=str(final_amount_to_sell),
+                ),
+                client=client,
+            )
+            logger.info(
+                f"[LIMIT SELL ORDER GUARD] NEW MARKET ORDER Id: '{new_market_order.id}', "
+                + f"for selling {auto_exit_reason.percent_to_sell}% "
+                + f"of {sell_order.order_amount} {crypto_currency} immediately!"  # noqa: E501
+            )
+            if (remaining_amount := sell_order.order_amount - final_amount_to_sell) > 0:
+                # NOTE: If we sold a percent less than 100.0%,
+                #  we have to create again the sell order with the remaining order amount
+                crypto_currency_wallet, *_ = await self._bit2me_remote_service.get_trading_wallet_balances(
+                    symbols=crypto_currency, client=client
+                )
+                new_limit_sell_order_amount = self._floor_round(
+                    min(crypto_currency_wallet.balance, remaining_amount),
+                    ndigits=trading_market_config.amount_precision,
+                )
+                new_limit_sell_order = await self._bit2me_remote_service.create_order(
                     order=CreateNewBit2MeOrderDto(
-                        order_type="market",
-                        side=sell_order.side,
+                        order_type="limit",
+                        side="sell",
                         symbol=sell_order.symbol,
-                        amount=str(sell_order.order_amount),
+                        price=str(
+                            self._floor_round(
+                                # XXX: [JMSOLA] Price is unreachable in purpose,
+                                # for giving to the Limit Sell Order Guard the chance to
+                                # operate properly
+                                tickers.close * 2,
+                                ndigits=trading_market_config.price_precision,
+                            )
+                        ),
+                        amount=str(new_limit_sell_order_amount),
                     ),
                     client=client,
                 )
                 logger.info(
-                    f"[LIMIT SELL ORDER GUARD] NEW MARKET ORDER Id: '{new_market_order.id}', "
-                    + f"for selling {auto_exit_reason.percent_to_sell}% "
-                    + f"of {sell_order.order_amount} {crypto_currency} immediately!"  # noqa: E501
+                    f"[LIMIT SELL ORDER GUARD] NEW LIMIT SELL ORDER Id: '{new_limit_sell_order.id}', "
+                    + f"for selling continue monitoring the remaining {remaining_amount} {crypto_currency}!"
                 )
             await self._notify_new_market_order_created_via_telegram(
                 new_market_order,
