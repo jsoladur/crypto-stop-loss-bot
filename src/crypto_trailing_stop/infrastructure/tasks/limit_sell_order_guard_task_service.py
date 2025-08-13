@@ -154,18 +154,23 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         if auto_exit_reason.is_exit:
             # Cancel current take-profit sell limit order
             await self._bit2me_remote_service.cancel_order_by_id(sell_order.id, client=client)
-            new_market_order = await self._bit2me_remote_service.create_order(
-                order=CreateNewBit2MeOrderDto(
-                    order_type="market",
-                    side=sell_order.side,
-                    symbol=sell_order.symbol,
-                    amount=str(sell_order.order_amount),
-                ),
-                client=client,
-            )
-            logger.info(
-                f"[LIMIT SELL ORDER GUARD] NEW MARKET ORDER Id: '{new_market_order.id}', for selling everything immediately!"  # noqa: E501
-            )
+            if auto_exit_reason.percent_to_sell < 100:
+                raise NotImplementedError("To be implemented partial selling!")
+            else:
+                new_market_order = await self._bit2me_remote_service.create_order(
+                    order=CreateNewBit2MeOrderDto(
+                        order_type="market",
+                        side=sell_order.side,
+                        symbol=sell_order.symbol,
+                        amount=str(sell_order.order_amount),
+                    ),
+                    client=client,
+                )
+                logger.info(
+                    f"[LIMIT SELL ORDER GUARD] NEW MARKET ORDER Id: '{new_market_order.id}', "
+                    + f"for selling {auto_exit_reason.percent_to_sell}% "
+                    + f"of {sell_order.order_amount} {crypto_currency} immediately!"  # noqa: E501
+                )
             await self._notify_new_market_order_created_via_telegram(
                 new_market_order,
                 current_symbol_price=tickers.close,
@@ -186,9 +191,10 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     ) -> AutoExitReason:
         """Determines if it's the right moment to exit the sell order based on various conditions."""
         # Check if the sell order is marked for immediate sell
-        is_marked_for_immediate_sell = (
-            self._limit_sell_order_guard_cache_service.is_sell_order_marked_as_immediate_sell(sell_order.id)
-        )
+        immediate_sell_order_item = self._limit_sell_order_guard_cache_service.pop_immediate_sell_order(sell_order.id)
+        # Initialize variables
+        is_marked_for_immediate_sell = immediate_sell_order_item is not None
+        percent_to_sell = immediate_sell_order_item.percent_to_sell if is_marked_for_immediate_sell else 100.0
         safeguard_stop_price_reached, atr_take_profit_limit_price_reached, auto_exit_sell_1h = False, False, False
         if not is_marked_for_immediate_sell:
             # Check if the safeguard stop price is reached
@@ -218,6 +224,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             safeguard_stop_price_reached=safeguard_stop_price_reached,
             auto_exit_sell_1h=auto_exit_sell_1h,
             atr_take_profit_limit_price_reached=atr_take_profit_limit_price_reached,
+            percent_to_sell=percent_to_sell,
         )
 
     def _is_safeguard_stop_price_reached(

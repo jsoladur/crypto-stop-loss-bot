@@ -12,6 +12,7 @@ from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 from werkzeug import Response
 
+from crypto_trailing_stop.commons.constants import PERCENT_TO_SELL_LIST
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -25,6 +26,7 @@ from crypto_trailing_stop.infrastructure.services.limit_sell_order_guard_cache_s
 )
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
+from crypto_trailing_stop.infrastructure.services.vo.immediate_sell_order_item import ImmediateSellOrderItem
 from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.limit_sell_order_guard_task_service import LimitSellOrderGuardTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
@@ -40,9 +42,10 @@ from tests.helpers.sell_orders_test_utils import generate_trades
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.parametrize("percent_to_sell", PERCENT_TO_SELL_LIST[::-1])
 @pytest.mark.asyncio
 async def should_create_market_sell_order_when_market_for_immediate_sell_order(
-    faker: Faker, integration_test_env: tuple[HTTPServer, str]
+    faker: Faker, percent_to_sell: float, integration_test_env: tuple[HTTPServer, str]
 ) -> None:
     """
     Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
@@ -67,7 +70,9 @@ async def should_create_market_sell_order_when_market_for_immediate_sell_order(
 
     await _create_fake_market_signals(first_order, closing_price_sell_1h_signal=buy_price)
     limit_sell_order_guard_cache_service = LimitSellOrderGuardCacheService()
-    limit_sell_order_guard_cache_service.trigger_immediate_sell_limit_order(first_order.id)
+    limit_sell_order_guard_cache_service.mark_immediate_sell_order(
+        ImmediateSellOrderItem(sell_order_id=first_order.id, percent_to_sell=percent_to_sell)
+    )
 
     # Provoke send a notification via Telegram
     telegram_chat_id = faker.random_number(digits=9, fix_len=True)

@@ -7,6 +7,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
 from crypto_trailing_stop.commons.constants import (
     AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST,
+    PERCENT_TO_SELL_LIST,
     SP_TP_PAIRS,
     STOP_LOSS_STEPS_VALUE_LIST,
 )
@@ -112,6 +113,19 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
                     text=f"🧮 {crypto_currency}", callback_data=f"choose_metrics_candle$${crypto_currency}"
                 )
             )
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
+        return builder.as_markup()
+
+    def get_choose_sell_percent_keyboard(self, sell_order_id: str) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        builder.row(
+            *[
+                InlineKeyboardButton(
+                    text=f"📤 {percent_value}%", callback_data=f"immediate_sell_order$${sell_order_id}$${percent_value}"
+                )
+                for percent_value in PERCENT_TO_SELL_LIST
+            ]
+        )
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 

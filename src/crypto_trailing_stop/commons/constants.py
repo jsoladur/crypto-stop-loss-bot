@@ -6,6 +6,7 @@ DEFAULT_TRAILING_STOP_LOSS_PERCENT = 5.0  # Best Spot Loss value intra-day, base
 STOP_LOSS_STEPS_VALUE_LIST = np.concatenate(
     (np.arange(0.25, 5.25, 0.25), np.arange(5.50, 10.50, 0.50), np.arange(11, 21, 1))
 ).tolist()
+PERCENT_TO_SELL_LIST = np.arange(25, 125, 25).tolist()
 TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD = 0.00025
 DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS = 86_400  # 1 day
 # Removing number of executions
