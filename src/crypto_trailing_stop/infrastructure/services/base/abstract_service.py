@@ -1,4 +1,5 @@
 import logging
+import math
 from abc import ABC
 from html import escape as html_escape
 
@@ -56,3 +57,7 @@ class AbstractService(ABC):
                 )
         except Exception as e:
             logger.warning(f"Unexpected error, notifying fatal error via Telegram: {exception_text}", exc_info=True)
+
+    def _floor_round(self, value: float, *, ndigits: int) -> float:
+        factor = 10**ndigits
+        return math.floor(value * factor) / factor
