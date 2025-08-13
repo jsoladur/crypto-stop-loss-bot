@@ -154,18 +154,60 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         if auto_exit_reason.is_exit:
             # Cancel current take-profit sell limit order
             await self._bit2me_remote_service.cancel_order_by_id(sell_order.id, client=client)
+            if auto_exit_reason.percent_to_sell < 100:
+                final_amount_to_sell = self._floor_round(
+                    sell_order.order_amount * (auto_exit_reason.percent_to_sell / 100),
+                    ndigits=trading_market_config.price_precision,
+                )
+            else:
+                final_amount_to_sell = sell_order.order_amount
+            # Create new market order
             new_market_order = await self._bit2me_remote_service.create_order(
                 order=CreateNewBit2MeOrderDto(
                     order_type="market",
                     side=sell_order.side,
                     symbol=sell_order.symbol,
-                    amount=str(sell_order.order_amount),
+                    amount=str(final_amount_to_sell),
                 ),
                 client=client,
             )
             logger.info(
-                f"[LIMIT SELL ORDER GUARD] NEW MARKET ORDER Id: '{new_market_order.id}', for selling everything immediately!"  # noqa: E501
+                f"[LIMIT SELL ORDER GUARD] NEW MARKET ORDER Id: '{new_market_order.id}', "
+                + f"for selling {auto_exit_reason.percent_to_sell}% "
+                + f"of {sell_order.order_amount} {crypto_currency} immediately!"  # noqa: E501
             )
+            if (remaining_amount := sell_order.order_amount - final_amount_to_sell) > 0:
+                # NOTE: If we sold a percent less than 100.0%,
+                #  we have to create again the sell order with the remaining order amount
+                crypto_currency_wallet, *_ = await self._bit2me_remote_service.get_trading_wallet_balances(
+                    symbols=crypto_currency, client=client
+                )
+                new_limit_sell_order_amount = self._floor_round(
+                    min(crypto_currency_wallet.balance, remaining_amount),
+                    ndigits=trading_market_config.amount_precision,
+                )
+                new_limit_sell_order = await self._bit2me_remote_service.create_order(
+                    order=CreateNewBit2MeOrderDto(
+                        order_type="limit",
+                        side="sell",
+                        symbol=sell_order.symbol,
+                        price=str(
+                            self._floor_round(
+                                # XXX: [JMSOLA] Price is unreachable in purpose,
+                                # for giving to the Limit Sell Order Guard the chance to
+                                # operate properly
+                                tickers.close * 2,
+                                ndigits=trading_market_config.price_precision,
+                            )
+                        ),
+                        amount=str(new_limit_sell_order_amount),
+                    ),
+                    client=client,
+                )
+                logger.info(
+                    f"[LIMIT SELL ORDER GUARD] NEW LIMIT SELL ORDER Id: '{new_limit_sell_order.id}', "
+                    + f"for selling continue monitoring the remaining {remaining_amount} {crypto_currency}!"
+                )
             await self._notify_new_market_order_created_via_telegram(
                 new_market_order,
                 current_symbol_price=tickers.close,
@@ -186,9 +228,10 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     ) -> AutoExitReason:
         """Determines if it's the right moment to exit the sell order based on various conditions."""
         # Check if the sell order is marked for immediate sell
-        is_marked_for_immediate_sell = (
-            self._limit_sell_order_guard_cache_service.is_sell_order_marked_as_immediate_sell(sell_order.id)
-        )
+        immediate_sell_order_item = self._limit_sell_order_guard_cache_service.pop_immediate_sell_order(sell_order.id)
+        # Initialize variables
+        is_marked_for_immediate_sell = immediate_sell_order_item is not None
+        percent_to_sell = immediate_sell_order_item.percent_to_sell if is_marked_for_immediate_sell else 100.0
         safeguard_stop_price_reached, atr_take_profit_limit_price_reached, auto_exit_sell_1h = False, False, False
         if not is_marked_for_immediate_sell:
             # Check if the safeguard stop price is reached
@@ -218,6 +261,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             safeguard_stop_price_reached=safeguard_stop_price_reached,
             auto_exit_sell_1h=auto_exit_sell_1h,
             atr_take_profit_limit_price_reached=atr_take_profit_limit_price_reached,
+            percent_to_sell=percent_to_sell,
         )
 
     def _is_safeguard_stop_price_reached(

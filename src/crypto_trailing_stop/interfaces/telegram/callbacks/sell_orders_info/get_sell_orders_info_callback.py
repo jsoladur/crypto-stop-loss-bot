@@ -63,7 +63,7 @@ async def get_sell_orders_info_callback_handler(callback_query: CallbackQuery, s
                             "ℹ️️ Would you like to immediate sell this operation via Limit Sell Guard manually?"
                         )
                         inline_keyboard_markup = keyboards_builder.get_yes_no_keyboard(
-                            yes_button_callback_data=f"immediate_sell_limit_order$${metrics.sell_order.id}"
+                            yes_button_callback_data=f"choose_sell_percent$${metrics.sell_order.id}"
                         )
                     else:
                         answer_text += f"💡 {html.italic('The Limit Sell Order Guard is currently disabled. Please enable it if you want to immediate sell this operation')}"  # noqa: E501

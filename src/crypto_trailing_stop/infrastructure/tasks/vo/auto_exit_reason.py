@@ -7,6 +7,7 @@ class AutoExitReason:
     safeguard_stop_price_reached: bool
     auto_exit_sell_1h: bool
     atr_take_profit_limit_price_reached: bool
+    percent_to_sell: float = 100.0
 
     @property
     def is_exit(self) -> bool:
