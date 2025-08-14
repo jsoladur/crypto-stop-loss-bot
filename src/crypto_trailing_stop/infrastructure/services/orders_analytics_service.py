@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from httpx import AsyncClient
 
-from crypto_trailing_stop.commons.constants import BIT2ME_MAKER_AND_TAKER_FEES_SUM, STOP_LOSS_STEPS_VALUE_LIST
+from crypto_trailing_stop.commons.constants import BIT2ME_TAKER_FEES, STOP_LOSS_STEPS_VALUE_LIST
 from crypto_trailing_stop.commons.patterns import SingletonABCMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
@@ -194,7 +194,7 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
         self, avg_buy_price: float, *, trading_market_config: Bit2MeMarketConfigDto
     ) -> float:
         break_even_price = round(
-            avg_buy_price * (1.0 + BIT2ME_MAKER_AND_TAKER_FEES_SUM), ndigits=trading_market_config.price_precision
+            avg_buy_price * (1.0 + BIT2ME_TAKER_FEES), ndigits=trading_market_config.price_precision
         )
         return break_even_price
 
