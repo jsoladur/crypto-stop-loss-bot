@@ -66,16 +66,20 @@
       "justMyCode": false
     },
     {
+      "name": "Pytest: Limit Sell Order Guard",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-x", "--log-cli-level=INFO", "tests/integration_tests/tasks/limit_sell_order_guard_task_service_test.py"],
+      "envFile": "${workspaceFolder}/.env.pytest",
+      "justMyCode": false
+    },
+    {
       "name": "Pytest: Specific test",
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": [
-        "-x",
-        "--log-cli-level=INFO",
-        "-k",
-        "should_create_market_sell_order_when_auto_exit_sell_or_bearish_divergence_1h_signal[False-True]"
-      ],
+      "args": ["-x", "--log-cli-level=INFO", "-k", "should_create_market_sell_order_when_market_for_immediate_sell_order[75]"],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false
     }
