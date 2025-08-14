@@ -34,6 +34,7 @@ jobs:
           uv run task test:coverage
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
+        continue-on-error: true
         with:
           format: cobertura
           file: coverage.xml

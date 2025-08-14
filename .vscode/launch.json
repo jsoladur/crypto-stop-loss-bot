@@ -48,6 +48,15 @@
       "justMyCode": false
     },
     {
+      "name": "Pytest: Limit Sell Order Guard",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-x", "--log-cli-level=INFO", "tests/integration_tests/tasks/limit_sell_order_guard_task_service_test.py"],
+      "envFile": "${workspaceFolder}/.env.pytest",
+      "justMyCode": false
+    }
+    {
       "name": "Pytest: Specific test",
       "type": "debugpy",
       "request": "launch",

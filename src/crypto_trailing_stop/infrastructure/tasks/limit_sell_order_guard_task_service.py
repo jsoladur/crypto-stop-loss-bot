@@ -84,11 +84,11 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = await self._fetch_tickers_for_open_sell_orders(
             opened_sell_orders, client=client
         )
-        previous_used_buy_trade_ids: set[str] = set()
+        previous_used_buy_trades: dict[str, float] = {}
         for sell_order in opened_sell_orders:
             try:
-                previous_used_buy_trade_ids, *_ = await self._handle_single_sell_order(
-                    sell_order, current_tickers_by_symbol, previous_used_buy_trade_ids, client=client
+                previous_used_buy_trades, *_ = await self._handle_single_sell_order(
+                    sell_order, current_tickers_by_symbol, previous_used_buy_trades, client=client
                 )
             except Exception as e:  # pragma: no cover
                 logger.error(str(e), exc_info=True)
@@ -98,7 +98,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         self,
         sell_order: Bit2MeOrderDto,
         current_tickers_by_symbol: dict[str, Bit2MeTickersDto],
-        previous_used_buy_trade_ids: set[str],
+        previous_used_buy_trades: dict[str, float],
         *,
         client: AsyncClient,
     ) -> set[str]:
@@ -121,13 +121,13 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         )
         (
             guard_metrics,
-            previous_used_buy_trade_ids,
+            previous_used_buy_trades,
         ) = await self._orders_analytics_service.calculate_guard_metrics_by_sell_order(
             sell_order,
             tickers=tickers,
             buy_sell_signals_config=buy_sell_signals_config,
             technical_indicators=technical_indicators,
-            previous_used_buy_trade_ids=previous_used_buy_trade_ids,
+            previous_used_buy_trades=previous_used_buy_trades,
             client=client,
         )
         tickers_close_formatted = round(tickers.close, ndigits=trading_market_config.price_precision)
@@ -214,7 +214,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                 guard_metrics=guard_metrics,
                 auto_exit_reason=auto_exit_reason,
             )
-        return (previous_used_buy_trade_ids,)
+        return (previous_used_buy_trades,)
 
     async def _is_moment_to_exit(
         self,
