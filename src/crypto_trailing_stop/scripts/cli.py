@@ -126,6 +126,9 @@ def backtesting(
 
         typer.secho("\n--- 📝 SUMMARY ---", fg=typer.colors.MAGENTA, bold=True)
         # Calculate the net profit/loss
+        number_of_trades = typer.style(
+            str(int(stats["# Trades"])), fg=typer.colors.GREEN if stats["# Trades"] > 0 else typer.colors.RED
+        )
         net_profit_loss = stats["Equity Final [$]"] - initial_cash
         # Style the output strings
         win_rate_str = typer.style(
@@ -138,6 +141,7 @@ def backtesting(
             f"{(stats['Return [%]']):.2f}%", fg=typer.colors.GREEN if stats["Return [%]"] > 0 else typer.colors.RED
         )
 
+        typer.echo(f"Number of Trades [n]:        {number_of_trades}")
         typer.echo(f"Win Rate [%]:                {win_rate_str}")
         typer.echo(f"Net Profit/Loss [EUR]:       {return_eur_str}")
         typer.echo(f"Net Return [%]:              {return_pct_str}")

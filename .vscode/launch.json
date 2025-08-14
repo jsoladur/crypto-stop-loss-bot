@@ -34,7 +34,7 @@
       "type": "debugpy",
       "request": "launch",
       "program": "src/crypto_trailing_stop/scripts/cli.py",
-      "args": ["backtesting", "SUI/EUR", "--adx-threshold=25", "--enable-tp", "--sl-multiplier=3.0", "--tp-multiplier=5.1"],
+      "args": ["backtesting", "SUI/EUR", "--adx-threshold=15", "--enable-tp", "--sl-multiplier=2.5", "--tp-multiplier=4.0"],
       "console": "integratedTerminal",
       "justMyCode": false
     },
