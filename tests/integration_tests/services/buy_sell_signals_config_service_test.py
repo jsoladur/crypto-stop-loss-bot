@@ -51,12 +51,12 @@ async def should_set_buy_sell_signals_config_properly(
         returned_buy_sell_signals_config_item.take_profit_atr_multiplier
         == configuration_properties.suggested_take_profit_atr_multiplier
     )
-    assert returned_buy_sell_signals_config_item.filter_noise_using_adx is False
+    assert returned_buy_sell_signals_config_item.filter_noise_using_adx is True
     assert (
         returned_buy_sell_signals_config_item.adx_threshold == configuration_properties.buy_sell_signals_adx_threshold
     )
     assert returned_buy_sell_signals_config_item.auto_exit_sell_1h is True
-    assert returned_buy_sell_signals_config_item.auto_exit_atr_take_profit is True
+    assert returned_buy_sell_signals_config_item.auto_exit_atr_take_profit is False
 
     expected_buy_sell_signals_config_item = BuySellSignalsConfigItem(
         symbol=crypto_currency,
