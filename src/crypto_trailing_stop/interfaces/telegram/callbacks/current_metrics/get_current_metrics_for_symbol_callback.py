@@ -36,9 +36,7 @@ crypto_analytics_service = CryptoAnalyticsService(
 
 
 @dp.callback_query(F.data.regexp(r"^get_current_metrics_for_symbol\$\$(.+)\$\$(.+)$"))
-async def auto_entry_trader_config_for_symbol_callback_handler(
-    callback_query: CallbackQuery, state: FSMContext
-) -> None:
+async def get_current_metrics_for_symbol_callback_handler(callback_query: CallbackQuery, state: FSMContext) -> None:
     is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:
@@ -73,7 +71,7 @@ async def auto_entry_trader_config_for_symbol_callback_handler(
         except Exception as e:
             logger.error(f"Error retrieving current crypto metrics: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ An error occurred while retrieving current crypto metrics for {symbol}. "
+                "⚠️ An error occurred while retrieving current crypto metrics. "
                 + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
             )
     else:

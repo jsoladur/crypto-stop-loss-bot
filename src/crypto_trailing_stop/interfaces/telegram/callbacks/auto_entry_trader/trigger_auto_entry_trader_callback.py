@@ -37,7 +37,7 @@ async def trigger_auto_entry_trader_callback_handler(callback_query: CallbackQue
         except Exception as e:
             logger.error(f"Error triggering Auto-Entry Trader: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ An error occurred while triggering Auto-Entry Trader for {symbol}. "
+                "⚠️ An error occurred while triggering Auto-Entry Trader"
                 + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
             )
     else:

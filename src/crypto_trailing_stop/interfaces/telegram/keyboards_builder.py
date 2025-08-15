@@ -65,6 +65,8 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
         )
         builder.row(InlineKeyboardButton(text="🚏 Stop Loss %", callback_data="stop_loss_percent_home"))
         builder.row(InlineKeyboardButton(text="🚥 Market Signals", callback_data="last_market_signals_home"))
+        if self._configuration_properties.gemini_pro_api_enabled:
+            builder.row(InlineKeyboardButton(text="🪄 Gemini Generative AI", callback_data="gemini_generative_ai_home"))
         builder.row(InlineKeyboardButton(text="📴 Logout", callback_data="logout"))
         return builder.as_markup()
 
@@ -155,6 +157,17 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
         for buttons_chunk in pydash.chunk(buttons, size=5):
             builder.row(*buttons_chunk)
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="stop_loss_percent_home"))
+        return builder.as_markup()
+
+    def get_gemini_generative_ai_home_keyboard(self, crypto_currencies: str) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        for crypto_currency in crypto_currencies:
+            builder.row(
+                InlineKeyboardButton(
+                    text=f"🪄 {crypto_currency}", callback_data=f"generate_generative_ai_content$${crypto_currency}"
+                )
+            )
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 
     def get_auto_entry_trader_config_values_by_symbol_keyboard(self, symbol: str) -> InlineKeyboardMarkup:

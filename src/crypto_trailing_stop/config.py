@@ -71,6 +71,8 @@ class ConfigurationProperties(BaseSettings):
     buy_sell_signals_ema_short_value: int = 9
     buy_sell_signals_ema_mid_value: int = 21
     buy_sell_signals_ema_long_value: int = 200
+    # Trailing stop loss configuration
+    trailing_stop_loss_percent: float | int = DEFAULT_TRAILING_STOP_LOSS_PERCENT
     # Market Signals parameters
     market_signal_retention_days: int = 9
     # XXX: ATR multipliers (RRR = 1.4)
@@ -80,8 +82,9 @@ class ConfigurationProperties(BaseSettings):
     authorized_google_user_emails_comma_separated: list[str]
     google_oauth_client_id: str
     google_oauth_client_secret: str
-    # Trailing stop loss configuration
-    trailing_stop_loss_percent: float | int = DEFAULT_TRAILING_STOP_LOSS_PERCENT
+    # Gemini Pro configuration
+    gemini_pro_api_enabled: bool = False
+    gemini_pro_api_key: str | None = None
     # Jobs configuration
     job_interval_seconds: int = DEFAULT_JOB_INTERVAL_SECONDS
 
