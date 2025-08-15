@@ -81,16 +81,6 @@ def backtesting(
     Runs a backtest of the signal strategy for a symbol, using local data and configurable parameters.
     """
     symbol = symbol.strip().upper()
-    typer.secho(f"⚙️  Starting backtest for {symbol} with the following parameters:", fg=typer.colors.BLUE)
-    typer.echo(f"  - EMAs: {ema_short}/{ema_mid}/{ema_long}")
-    typer.echo(
-        f"  - ADX Filter: {'Enabled' if filter_adx else 'Disabled'}, Threshold: {adx_threshold if filter_adx else 'N/A'}"  # noqa: E501
-    )
-    # NEW: Print SL/TP settings
-    typer.echo(f"  - Stop Loss Multiplier: {sl_multiplier}x ATR")
-    typer.echo(
-        f"  - Take Profit: {'Enabled' if enable_tp else 'Disabled'}, Multiplier: {tp_multiplier if enable_tp else 'N/A'}x ATR"  # noqa: E501
-    )
     # Create the config object from the CLI options
     try:
         data_file = f"data/{symbol.replace('/', '_')}.csv"
@@ -126,7 +116,23 @@ def backtesting(
             typer.echo(f"💾 Indicators outcomes saved to '{filename}'")
 
         typer.secho("\n--- 📈 BACKTEST RESULTS ---", fg=typer.colors.MAGENTA, bold=True)
+        typer.echo("-----")
+        typer.secho("⚙️  Parameters:", fg=typer.colors.BLUE)
+        typer.echo(f"  - EMAs: {ema_short}/{ema_mid}/{ema_long}")
+        typer.echo(
+            f"  - ADX Filter: {'Enabled' if filter_adx else 'Disabled'}, Threshold: {adx_threshold if filter_adx else 'N/A'}"  # noqa: E501
+        )
+        typer.echo(
+            f"  - Volume Filter: {'Enabled' if filter_volume else 'Disabled'}, Threshold: {volume_threshold if filter_volume else 'N/A'}"  # noqa: E501
+        )
+        # NEW: Print SL/TP settings
+        typer.echo(f"  - Stop Loss Multiplier: {sl_multiplier}x ATR")
+        typer.echo(
+            f"  - Take Profit: {'Enabled' if enable_tp else 'Disabled'}, Multiplier: {tp_multiplier if enable_tp else 'N/A'}x ATR"  # noqa: E501
+        )
+        typer.echo("-----")
         typer.echo(stats)
+        typer.echo("-----")
 
         typer.secho("\n--- 📝 SUMMARY ---", fg=typer.colors.MAGENTA, bold=True)
         # Calculate the net profit/loss
