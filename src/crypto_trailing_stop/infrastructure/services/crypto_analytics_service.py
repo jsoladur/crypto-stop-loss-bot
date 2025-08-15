@@ -41,12 +41,14 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         *,
         timeframe: Timeframe = "1h",
         over_candlestick: CandleStickEnum = CandleStickEnum.LAST,
+        technical_indicators: pd.DataFrame | None = None,
         client: AsyncClient | None = None,
         exchange: ccxt.Exchange | None = None,
     ) -> CryptoMarketMetrics:
-        technical_indicators, *_ = await self.calculate_technical_indicators(
-            symbol, timeframe=timeframe, client=client, exchange=exchange
-        )
+        if technical_indicators is None:
+            technical_indicators, *_ = await self.calculate_technical_indicators(
+                symbol, timeframe=timeframe, client=client, exchange=exchange
+            )
         trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
             symbol, client=client
         )
