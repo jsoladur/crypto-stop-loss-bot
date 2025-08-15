@@ -8,6 +8,7 @@ from crypto_trailing_stop.commons.constants import (
     EMA_LONG_VALUES,
     EMA_SHORT_MID_PAIRS,
     SP_TP_PAIRS,
+    VOLUME_THRESHOLD_VALUES,
     YES_NO_VALUES,
 )
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
@@ -53,6 +54,21 @@ class BuySellSignalsConfigForm(Form):
         .add(*(KeyboardButton(text=str(value)) for value in ADX_THRESHOLD_VALUES))
         .as_markup(),
     )
+    apply_volume_filter: str = FormField(
+        enter_message_text="🚩 Apply Relative Volume Filter?",
+        error_message_text=f"❌ Invalid value. Valid values: {', '.join(YES_NO_VALUES)}",
+        filter=F.text.in_(YES_NO_VALUES) & F.text,
+        reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
+    )
+    volume_threshold: float = FormField(
+        enter_message_text="🔊 Select Volume Threshold",
+        error_message_text="❌ Invalid Volume Threshold value. Valid values: "
+        + f"{', '.join([str(value) for value in VOLUME_THRESHOLD_VALUES])}",
+        filter=F.text.in_([str(value) for value in VOLUME_THRESHOLD_VALUES]) & F.text,
+        reply_markup=ReplyKeyboardBuilder()
+        .add(*(KeyboardButton(text=str(value)) for value in VOLUME_THRESHOLD_VALUES))
+        .as_markup(),
+    )
     auto_exit_sell_1h: str = FormField(
         enter_message_text="🚨 Auto-Exit SELL 1H enabled?",
         error_message_text=f"❌ Invalid value. Valid values: {', '.join(YES_NO_VALUES)}",
@@ -78,6 +94,8 @@ class BuySellSignalsConfigForm(Form):
             take_profit_atr_multiplier=take_profit_atr_multiplier,
             filter_noise_using_adx=bool(self.filter_noise_using_adx.lower() == "yes"),
             adx_threshold=int(self.adx_threshold),
+            apply_volume_filter=bool(self.apply_volume_filter.lower() == "yes"),
+            volume_threshold=float(self.volume_threshold),
             auto_exit_sell_1h=bool(self.auto_exit_sell_1h.lower() == "yes"),
             auto_exit_atr_take_profit=bool(self.auto_exit_atr_take_profit.lower() == "yes"),
         )
