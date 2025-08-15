@@ -13,6 +13,8 @@ ${"\n\n".join(formatted_metrics_list)}
 * Use `<b>...</b>` for all titles and section headings.
 * Use `<i>...</i>` for emphasis or for words like "bullish" or "bearish".
 * Use `<code>...</code>` for numerical values, technical indicator names (e.g., `RSI`, `MACD`), and the crypto pair.
+* **For bulleted lists, do NOT use `<ul>` and `<li>` tags.** Instead, start each list item on a **new line** with a hyphen (`-`) followed by a space.
+* **Crucially, ensure every HTML tag you open is correctly closed.** For example, `<b>text</b>` is correct, but `<b>text` is invalid.
 * **Important:** Any literal `<` or `>` characters that are not part of an HTML tag MUST be escaped as `&lt;` and `&gt;` respectively.
 
 **[ANALYSIS INSTRUCTIONS]**

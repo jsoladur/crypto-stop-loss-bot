@@ -63,7 +63,7 @@ async def get_generative_ai_market_analysis_for_symbol_callback_handler(
             )
             title = html.bold(f"GENERATIVE AI MARKET ANALYSIS FOR {symbol}")
             full_title = f"🪄 {title} 🪄\n\n"
-            sent_message = await callback_query.message.answer(f"{full_title}🧠 Thinking...")
+            sent_message = await callback_query.message.answer(f"{full_title}🧠 {html.italic('Thinking...')}")
             last_update_time = time.monotonic()
             streaming_message = full_title
             async for chunk in response:
@@ -72,13 +72,14 @@ async def get_generative_ai_market_analysis_for_symbol_callback_handler(
                 current_time = time.monotonic()
                 if current_time - last_update_time > 1.5:  # Update every 1.5 seconds
                     try:
-                        await sent_message.edit_text(streaming_message)
+                        await sent_message.edit_text(streaming_message + f"\n\n✍️ {html.italic('Typing...')}")
                         last_update_time = current_time
                     except TelegramBadRequest as e:
                         if "message is not modified" not in str(e):
                             logger.debug(f"Error editing message: {e}")
                         else:
                             logger.warning(f"Unexpected error editing message: {str(e)}")
+            await sent_message.edit_text(streaming_message)
         except Exception as e:
             logger.error(f"Error retrieving Generative AI market analysis: {str(e)}", exc_info=True)
             await callback_query.message.answer(
