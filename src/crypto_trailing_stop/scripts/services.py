@@ -93,18 +93,20 @@ class BacktestingCliService:
 
     def execute_backtesting(
         self,
+        *,
         symbol: str,
         ema_short: int,
         ema_mid: int,
         ema_long: int,
         filter_adx: bool,
         adx_threshold: int,
+        filter_volume: bool,
+        volume_threshold: float,
         enable_tp: bool,
         sl_multiplier: float,
         tp_multiplier: float,
         initial_cash: float,
         df: pd.DataFrame,
-        *,
         echo_fn: Callable[[str], None],
     ) -> tuple[Backtest, pd.Series]:
         simulated_bs_config = BuySellSignalsConfigItem(
@@ -114,8 +116,10 @@ class BacktestingCliService:
             ema_long_value=ema_long,
             stop_loss_atr_multiplier=sl_multiplier,
             take_profit_atr_multiplier=tp_multiplier,
-            adx_threshold=adx_threshold,
             filter_noise_using_adx=filter_adx,
+            adx_threshold=adx_threshold,
+            apply_volume_filter=filter_volume,
+            volume_threshold=volume_threshold,
         )
 
         self._analytics_service._calculate_simple_indicators(df, simulated_bs_config)
