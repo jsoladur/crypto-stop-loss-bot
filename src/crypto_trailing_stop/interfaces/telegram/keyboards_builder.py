@@ -10,6 +10,7 @@ from crypto_trailing_stop.commons.constants import (
     PERCENT_TO_SELL_LIST,
     SP_TP_PAIRS,
     STOP_LOSS_STEPS_VALUE_LIST,
+    VOLUME_THRESHOLD_VALUES,
 )
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
@@ -243,6 +244,14 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
     def get_sp_tp_pairs_keyboard() -> ReplyKeyboardMarkup:
         builder = ReplyKeyboardBuilder()
         keyboard_buttons = [KeyboardButton(text=text) for text in SP_TP_PAIRS]
+        for buttons_chunk in pydash.chunk(keyboard_buttons, size=2):
+            builder.row(*buttons_chunk)
+        return builder.as_markup()
+
+    @staticmethod
+    def get_volume_threshold_keyboard() -> ReplyKeyboardMarkup:
+        builder = ReplyKeyboardBuilder()
+        keyboard_buttons = [KeyboardButton(text=str(value)) for value in VOLUME_THRESHOLD_VALUES]
         for buttons_chunk in pydash.chunk(keyboard_buttons, size=2):
             builder.row(*buttons_chunk)
         return builder.as_markup()

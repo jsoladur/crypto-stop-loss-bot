@@ -65,9 +65,7 @@ class BuySellSignalsConfigForm(Form):
         error_message_text="❌ Invalid Volume Threshold value. Valid values: "
         + f"{', '.join([str(value) for value in VOLUME_THRESHOLD_VALUES])}",
         filter=F.text.in_([str(value) for value in VOLUME_THRESHOLD_VALUES]) & F.text,
-        reply_markup=ReplyKeyboardBuilder()
-        .add(*(KeyboardButton(text=str(value)) for value in VOLUME_THRESHOLD_VALUES))
-        .as_markup(),
+        reply_markup=KeyboardsBuilder.get_volume_threshold_keyboard(),
     )
     auto_exit_sell_1h: str = FormField(
         enter_message_text="🚨 Auto-Exit SELL 1H enabled?",
