@@ -252,6 +252,6 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
     def get_volume_threshold_keyboard() -> ReplyKeyboardMarkup:
         builder = ReplyKeyboardBuilder()
         keyboard_buttons = [KeyboardButton(text=str(value)) for value in VOLUME_THRESHOLD_VALUES]
-        for buttons_chunk in pydash.chunk(keyboard_buttons, size=2):
+        for buttons_chunk in pydash.chunk(keyboard_buttons, size=3):
             builder.row(*buttons_chunk)
         return builder.as_markup()

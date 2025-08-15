@@ -39,6 +39,6 @@ SP_TP_PAIRS = [
 EMA_LONG_VALUES = [150, 200, 233]
 ADX_THRESHOLD_VALUES = [15, 20, 25]
 VOLUME_THRESHOLD_VALUES = [
-    round(volume_threshold, ndigits=2) for volume_threshold in np.arange(0.25, 0.80, 0.05).tolist()
+    round(volume_threshold, ndigits=2) for volume_threshold in np.arange(0.25, 2.30, 0.05).tolist()
 ]
 YES_NO_VALUES = ["Yes", "No"]
