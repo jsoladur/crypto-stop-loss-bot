@@ -19,6 +19,10 @@ class BuySellSignalsConfigItem:
     )
     filter_noise_using_adx: bool = True
     adx_threshold: int = field(default_factory=lambda: get_configuration_properties().buy_sell_signals_adx_threshold)
+    apply_volume_filter: bool = True
+    volume_threshold: float = field(
+        default_factory=lambda: get_configuration_properties().buy_sell_signals_volume_threshold
+    )
     auto_exit_sell_1h: bool = True
     auto_exit_atr_take_profit: bool = False
 
