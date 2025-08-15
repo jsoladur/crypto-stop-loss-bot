@@ -59,6 +59,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             config.take_profit_atr_multiplier = item.take_profit_atr_multiplier
             config.filter_noise_using_adx = item.filter_noise_using_adx
             config.adx_threshold = item.adx_threshold
+            config.apply_volume_filter = item.apply_volume_filter
+            config.volume_threshold = item.volume_threshold
             config.auto_exit_sell_1h = item.auto_exit_sell_1h
             config.auto_exit_atr_take_profit = item.auto_exit_atr_take_profit
         else:
@@ -72,6 +74,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
                     BuySellSignalsConfig.take_profit_atr_multiplier: item.take_profit_atr_multiplier,
                     BuySellSignalsConfig.filter_noise_using_adx: item.filter_noise_using_adx,
                     BuySellSignalsConfig.adx_threshold: item.adx_threshold,
+                    BuySellSignalsConfig.apply_volume_filter: item.apply_volume_filter,
+                    BuySellSignalsConfig.volume_threshold: item.volume_threshold,
                     BuySellSignalsConfig.auto_exit_sell_1h: item.auto_exit_sell_1h,
                     BuySellSignalsConfig.auto_exit_atr_take_profit: item.auto_exit_atr_take_profit,
                 }
@@ -88,6 +92,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             take_profit_atr_multiplier=buy_sell_signals_config.take_profit_atr_multiplier,
             filter_noise_using_adx=buy_sell_signals_config.filter_noise_using_adx,
             adx_threshold=buy_sell_signals_config.adx_threshold,
+            apply_volume_filter=buy_sell_signals_config.apply_volume_filter,
+            volume_threshold=buy_sell_signals_config.volume_threshold,
             auto_exit_sell_1h=buy_sell_signals_config.auto_exit_sell_1h,
             auto_exit_atr_take_profit=buy_sell_signals_config.auto_exit_atr_take_profit,
         )

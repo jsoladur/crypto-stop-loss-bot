@@ -15,5 +15,7 @@ class BuySellSignalsConfig(Table):
     take_profit_atr_multiplier: float = Float(required=True)
     filter_noise_using_adx: bool = Boolean(required=True)
     adx_threshold: int = Integer(required=True)
+    apply_volume_filter: bool = Boolean(required=True)
+    volume_threshold: float = Float(required=True)
     auto_exit_sell_1h: bool = Boolean(required=True)
     auto_exit_atr_take_profit: bool = Boolean(required=True)
