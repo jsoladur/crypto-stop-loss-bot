@@ -167,10 +167,12 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
     ) -> None:
         # XXX: [JMSOLA] Calculate buy order amount
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
+        # Introduces a security buffer deposit (e.g. 99.8% of capital)
+        amount_with_buffer = initial_amount_to_invest * 0.998
         # XXX: [JMSOLA] Get the current tickers.ask price for calculate the order_amount
         tickers = await self._bit2me_remote_service.get_tickers_by_symbol(market_signal_item.symbol)
         buy_order_amount = self._floor_round(
-            initial_amount_to_invest / tickers.ask, ndigits=trading_market_config.amount_precision
+            amount_with_buffer / tickers.ask, ndigits=trading_market_config.amount_precision
         )
         final_amount_to_invest = buy_order_amount * tickers.ask
         logger.info(
