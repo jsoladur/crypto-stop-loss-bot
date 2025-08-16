@@ -167,15 +167,17 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
     ) -> None:
         # XXX: [JMSOLA] Calculate buy order amount
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
-        # XXX: [JMSOLA] Get the current tickers.close price for calculate the order_amount
+        # Introduces a security buffer deposit (e.g. 99.8% of capital)
+        amount_with_buffer = initial_amount_to_invest * 0.998
+        # XXX: [JMSOLA] Get the current tickers.ask price for calculate the order_amount
         tickers = await self._bit2me_remote_service.get_tickers_by_symbol(market_signal_item.symbol)
         buy_order_amount = self._floor_round(
-            initial_amount_to_invest / tickers.close, ndigits=trading_market_config.amount_precision
+            amount_with_buffer / tickers.ask, ndigits=trading_market_config.amount_precision
         )
-        final_amount_to_invest = buy_order_amount * tickers.close
+        final_amount_to_invest = buy_order_amount * tickers.ask
         logger.info(
             f"[Auto-Entry Trader] Trying to create BUY MARKET ORDER for {market_signal_item.symbol}, "  # noqa: E501
-            + f"which has current price {tickers.close} {fiat_currency}. "
+            + f"which has current buy price {tickers.ask} {fiat_currency}. "
             + f"Investing {final_amount_to_invest:.2f} {fiat_currency}, "
             + f"buying {buy_order_amount} {crypto_currency}"
         )
@@ -184,20 +186,22 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         )
         # XXX [JMSOLA]: Disabling temporary Limit Sell Guard order for precaution
         await self._global_flag_service.force_disable_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
-        # Creating new sell limite order
-        new_limit_sell_order = await self._create_new_sell_limit_order(
-            new_buy_market_order, trading_market_config, tickers, crypto_currency, client=client
-        )
-        guard_metrics = await self._update_stop_loss(new_limit_sell_order, tickers, crypto_currency, client=client)
-        # Ensure Auto-exit on sudden SELL 1H signal is enabled
-        buy_sell_signals_config.auto_exit_sell_1h = True
-        await self._buy_sell_signals_config_service.save_or_update(buy_sell_signals_config)
-        # Re-enable Limit Sell Order Guard, once stop loss is setup!
-        await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
-        # Notifying via Telegram
-        await self._notify_success_alert(
-            new_buy_market_order, new_limit_sell_order, tickers, guard_metrics, buy_sell_signals_config
-        )
+        try:
+            # Creating new sell limite order
+            new_limit_sell_order = await self._create_new_sell_limit_order(
+                new_buy_market_order, trading_market_config, tickers, crypto_currency, client=client
+            )
+            guard_metrics = await self._update_stop_loss(new_limit_sell_order, tickers, crypto_currency, client=client)
+            # Ensure Auto-exit on sudden SELL 1H signal is enabled
+            buy_sell_signals_config.auto_exit_sell_1h = True
+            await self._buy_sell_signals_config_service.save_or_update(buy_sell_signals_config)
+            # Notifying via Telegram
+            await self._notify_success_alert(
+                new_buy_market_order, new_limit_sell_order, tickers, guard_metrics, buy_sell_signals_config
+            )
+        finally:
+            # Re-enable Limit Sell Order Guard, once stop loss is setup!
+            await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
 
     async def _calculate_total_amount_to_invest(
         self, buy_trader_config: AutoBuyTraderConfigItem, crypto_currency: str, fiat_currency: str, client: AsyncClient
@@ -328,8 +332,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         crypto_currency, fiat_currency = tickers.symbol.split("/")
         message = f"✅ {html.bold('MARKET BUY ORDER FILLED')} ✅\n\n"
         message += (
-            f"🔥 {new_buy_market_order.order_amount} {crypto_currency} "
-            + f"purchased at {tickers.close} {fiat_currency}"
+            f"🔥 {new_buy_market_order.order_amount} {crypto_currency} purchased at {tickers.ask} {fiat_currency}"
         )
         message += html.bold("\n\n⚠️ IMPORTANT CONSIDERATIONS ⚠️\n\n")
         new_limit_sell_order_price_formatted = f"{new_limit_sell_order.price} {fiat_currency}"
