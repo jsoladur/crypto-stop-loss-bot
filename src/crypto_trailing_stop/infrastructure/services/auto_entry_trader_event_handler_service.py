@@ -167,15 +167,15 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
     ) -> None:
         # XXX: [JMSOLA] Calculate buy order amount
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
-        # XXX: [JMSOLA] Get the current tickers.close price for calculate the order_amount
+        # XXX: [JMSOLA] Get the current tickers.ask price for calculate the order_amount
         tickers = await self._bit2me_remote_service.get_tickers_by_symbol(market_signal_item.symbol)
         buy_order_amount = self._floor_round(
-            initial_amount_to_invest / tickers.close, ndigits=trading_market_config.amount_precision
+            initial_amount_to_invest / tickers.ask, ndigits=trading_market_config.amount_precision
         )
-        final_amount_to_invest = buy_order_amount * tickers.close
+        final_amount_to_invest = buy_order_amount * tickers.ask
         logger.info(
             f"[Auto-Entry Trader] Trying to create BUY MARKET ORDER for {market_signal_item.symbol}, "  # noqa: E501
-            + f"which has current price {tickers.close} {fiat_currency}. "
+            + f"which has current buy price {tickers.ask} {fiat_currency}. "
             + f"Investing {final_amount_to_invest:.2f} {fiat_currency}, "
             + f"buying {buy_order_amount} {crypto_currency}"
         )
@@ -330,8 +330,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         crypto_currency, fiat_currency = tickers.symbol.split("/")
         message = f"✅ {html.bold('MARKET BUY ORDER FILLED')} ✅\n\n"
         message += (
-            f"🔥 {new_buy_market_order.order_amount} {crypto_currency} "
-            + f"purchased at {tickers.close} {fiat_currency}"
+            f"🔥 {new_buy_market_order.order_amount} {crypto_currency} " + f"purchased at {tickers.ask} {fiat_currency}"
         )
         message += html.bold("\n\n⚠️ IMPORTANT CONSIDERATIONS ⚠️\n\n")
         new_limit_sell_order_price_formatted = f"{new_limit_sell_order.price} {fiat_currency}"
