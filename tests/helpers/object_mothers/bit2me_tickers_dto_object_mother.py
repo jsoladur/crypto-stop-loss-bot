@@ -14,9 +14,12 @@ class Bit2MeTickersDtoObjectMother:
         """
         Create a Bit2MeTickersDto object with random values.
         """
+        close = close or cls._faker.pyfloat(positive=True)
         return Bit2MeTickersDto(
             timestamp=int(time()),
             symbol=symbol
             or cls._faker.random_element([f"{crypto_currency}/EUR" for crypto_currency in MOCK_CRYPTO_CURRENCIES]),
-            close=close or cls._faker.pyfloat(positive=True),
+            close=close,
+            ask=close + cls._faker.pyfloat(positive=True, min_value=0.01, max_value=0.1),
+            bid=close - cls._faker.pyfloat(positive=True, min_value=0.01, max_value=0.1),
         )
