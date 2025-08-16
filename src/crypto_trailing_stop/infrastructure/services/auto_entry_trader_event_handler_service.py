@@ -184,20 +184,22 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         )
         # XXX [JMSOLA]: Disabling temporary Limit Sell Guard order for precaution
         await self._global_flag_service.force_disable_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
-        # Creating new sell limite order
-        new_limit_sell_order = await self._create_new_sell_limit_order(
-            new_buy_market_order, trading_market_config, tickers, crypto_currency, client=client
-        )
-        guard_metrics = await self._update_stop_loss(new_limit_sell_order, tickers, crypto_currency, client=client)
-        # Ensure Auto-exit on sudden SELL 1H signal is enabled
-        buy_sell_signals_config.auto_exit_sell_1h = True
-        await self._buy_sell_signals_config_service.save_or_update(buy_sell_signals_config)
-        # Re-enable Limit Sell Order Guard, once stop loss is setup!
-        await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
-        # Notifying via Telegram
-        await self._notify_success_alert(
-            new_buy_market_order, new_limit_sell_order, tickers, guard_metrics, buy_sell_signals_config
-        )
+        try:
+            # Creating new sell limite order
+            new_limit_sell_order = await self._create_new_sell_limit_order(
+                new_buy_market_order, trading_market_config, tickers, crypto_currency, client=client
+            )
+            guard_metrics = await self._update_stop_loss(new_limit_sell_order, tickers, crypto_currency, client=client)
+            # Ensure Auto-exit on sudden SELL 1H signal is enabled
+            buy_sell_signals_config.auto_exit_sell_1h = True
+            await self._buy_sell_signals_config_service.save_or_update(buy_sell_signals_config)
+            # Notifying via Telegram
+            await self._notify_success_alert(
+                new_buy_market_order, new_limit_sell_order, tickers, guard_metrics, buy_sell_signals_config
+            )
+        finally:
+            # Re-enable Limit Sell Order Guard, once stop loss is setup!
+            await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
 
     async def _calculate_total_amount_to_invest(
         self, buy_trader_config: AutoBuyTraderConfigItem, crypto_currency: str, fiat_currency: str, client: AsyncClient
