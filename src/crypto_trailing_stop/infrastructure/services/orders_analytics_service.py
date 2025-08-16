@@ -207,7 +207,7 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
         trading_market_config: Bit2MeMarketConfigDto,
     ) -> float:
         ret = round(
-            (tickers.close - avg_buy_price) * sell_order.order_amount, ndigits=trading_market_config.price_precision
+            (tickers.bid - avg_buy_price) * sell_order.order_amount, ndigits=trading_market_config.price_precision
         )
         return ret
 
@@ -220,7 +220,7 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
         trading_market_config: Bit2MeMarketConfigDto,
     ) -> float:
         ret = round(
-            (tickers.close - break_even_price) * sell_order.order_amount, ndigits=trading_market_config.price_precision
+            (tickers.bid - break_even_price) * sell_order.order_amount, ndigits=trading_market_config.price_precision
         )
         return ret
 

@@ -208,7 +208,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                     f"[LIMIT SELL ORDER GUARD] NEW LIMIT SELL ORDER Id: '{new_limit_sell_order.id}', "
                     + f"for selling continue monitoring the remaining {remaining_amount} {crypto_currency}!"
                 )
-            await self._notify_new_market_order_created_via_telegram(
+            await self._notify_new_market_sell_order_created_via_telegram(
                 new_market_order,
                 current_symbol_price=tickers.close,
                 guard_metrics=guard_metrics,
@@ -273,11 +273,11 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     ) -> bool:
         # XXX: [JMSOLA] Check if the safeguard stop price is reached
         # If the latest candle's closing price is below the safeguard stop price,
-        # or the current price is below the breathe safeguard stop price
+        # or the current sell price (bid) is below the breathe safeguard stop price
         # We want to give breathe room to the price to fluctuate
         safeguard_stop_price_reached = (
             last_candle_market_metrics.closing_price < guard_metrics.safeguard_stop_price
-            or tickers.close < guard_metrics.breathe_safeguard_stop_price
+            or tickers.bid < guard_metrics.breathe_safeguard_stop_price
         )
         return safeguard_stop_price_reached
 
@@ -297,7 +297,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             auto_exit_sell_1h = bool(
                 last_market_1h_signal is not None
                 and last_market_1h_signal.timestamp > sell_order.created_at
-                and tickers.close >= guard_metrics.break_even_price
+                and tickers.bid >= guard_metrics.break_even_price  # Use bid for break-even check
                 and (
                     last_market_1h_signal.signal_type == "bearish_divergence"
                     or (
@@ -321,12 +321,12 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             # Ensuring we are not selling below the break even price,
             # regardless what the ATR Take profit limit price is!
             atr_take_profit_limit_price_reached = bool(
-                tickers.close >= guard_metrics.break_even_price
-                and tickers.close >= guard_metrics.suggested_take_profit_limit_price
+                tickers.bid >= guard_metrics.break_even_price  # Use bid
+                and tickers.bid >= guard_metrics.suggested_take_profit_limit_price  # Use bid
             )
         return atr_take_profit_limit_price_reached
 
-    async def _notify_new_market_order_created_via_telegram(
+    async def _notify_new_market_sell_order_created_via_telegram(
         self,
         new_market_order: Bit2MeOrderDto,
         *,
