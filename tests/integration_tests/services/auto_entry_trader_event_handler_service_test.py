@@ -292,7 +292,7 @@ def _prepare_httpserver_mock(
         if warning_type != AutoEntryTraderWarningTypeEnum.NOT_ENOUGH_FUNDS:
             # Mock call to POST /v1/trading/order
             buy_order_amount = _floor_round(
-                bit2me_pro_balance / tickers.ask, ndigits=trading_market_config.amount_precision
+                bit2me_pro_balance / tickers.ask_or_close, ndigits=trading_market_config.amount_precision
             )
             buy_order_created = Bit2MeOrderDtoObjectMother.create(
                 symbol=symbol, side="buy", order_amount=buy_order_amount, order_type="market", status="open"
