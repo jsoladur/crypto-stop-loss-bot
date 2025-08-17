@@ -94,7 +94,7 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
             sell_order.symbol, client=client
         )
         if tickers is None:
-            tickers = await self._bit2me_remote_service.get_tickers_by_symbol(sell_order.symbol, client=client)
+            tickers = await self._bit2me_remote_service.get_single_tickers_by_symbol(sell_order.symbol, client=client)
         if buy_sell_signals_config is None:
             crypto_currency, *_ = sell_order.symbol.split("/")
             buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)

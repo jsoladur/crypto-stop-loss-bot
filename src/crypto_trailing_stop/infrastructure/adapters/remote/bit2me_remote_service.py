@@ -99,12 +99,24 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         )
         return response.content
 
-    async def get_tickers_by_symbol(self, symbol: str, *, client: AsyncClient | None = None) -> Bit2MeTickersDto | None:
+    async def get_single_tickers_by_symbol(
+        self, symbol: str, *, client: AsyncClient | None = None
+    ) -> Bit2MeTickersDto | None:
         response = await self._perform_http_request(url="/v2/trading/tickers", params={"symbol": symbol}, client=client)
         tickers = RootModel[list[Bit2MeTickersDto]].model_validate_json(response.content).root
         ret: Bit2MeTickersDto | None = None
         if tickers:
             ret, *_ = tickers
+        return ret
+
+    async def get_tickers_by_symbols(
+        self, symbols: list[str] | str = [], *, client: AsyncClient | None = None
+    ) -> list[Bit2MeTickersDto]:
+        symbols = list(symbols) if isinstance(symbols, (list, set, tuple, frozenset)) else [symbols]
+        response = await self._perform_http_request(url="/v2/trading/tickers", client=client)
+        ret = RootModel[list[Bit2MeTickersDto]].model_validate_json(response.content).root
+        if symbols:
+            ret = [tickers for tickers in ret if tickers.symbol in symbols]
         return ret
 
     async def get_pending_sell_orders(

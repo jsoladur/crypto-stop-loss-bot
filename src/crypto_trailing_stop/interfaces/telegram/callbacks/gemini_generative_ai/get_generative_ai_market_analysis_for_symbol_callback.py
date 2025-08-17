@@ -46,7 +46,7 @@ async def get_generative_ai_market_analysis_for_symbol_callback_handler(
         try:
             match = re.match(REGEX, callback_query.data)
             symbol = match.group(1)
-            tickers = await bit2me_remote_service.get_tickers_by_symbol(symbol)
+            tickers = await bit2me_remote_service.get_single_tickers_by_symbol(symbol)
             technical_indicators, *_ = await crypto_analytics_service.calculate_technical_indicators(symbol)
             formatted_metrics_list = []
             for over_candlestick in CandleStickEnum:

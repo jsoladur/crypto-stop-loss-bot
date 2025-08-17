@@ -382,6 +382,8 @@ def _prepare_httpserver_mock(
     tickers = Bit2MeTickersDtoObjectMother.create(
         symbol=symbol, close=orders_price * closing_crypto_currency_price_multipler
     )
+    rest_tickers = Bit2MeTickersDtoObjectMother.list(exclude_symbols=symbol)
+    tickers_list = [tickers] + rest_tickers
     buy_trades, buy_prices = generate_trades(faker, opened_sell_bit2me_orders)
     # Mock call to /v1/trading/order to get opened sell orders
     httpserver.expect(
@@ -396,11 +398,11 @@ def _prepare_httpserver_mock(
     )
     # Mock call to /v2/trading/tickers
     httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": symbol}
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        Bit2MeAPIRequestMacher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
+            bit2me_api_key, bik2me_api_secret
+        ),
         handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
+    ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
 
     for sell_order in opened_sell_bit2me_orders:
         # Mock call to /v1/trading/trade to get closed buy trades

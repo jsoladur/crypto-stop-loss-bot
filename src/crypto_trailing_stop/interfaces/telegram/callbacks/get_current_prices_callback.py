@@ -33,7 +33,7 @@ async def get_current_prices_callback_handler(callback_query: CallbackQuery, sta
     is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:
-            tickers_list = await crypto_analytics_service.get_favourite_tickers()
+            tickers_list = await crypto_analytics_service.get_favourite_tickers(order_by_symbol=True)
             message = messages_formatter.format_current_prices_message(tickers_list)
             await callback_query.message.answer(text=message)
         except Exception as e:

@@ -119,7 +119,7 @@ def _prepare_httpserver_mock(
     )
     # Mock OHLCV /v1/trading/candle
     fetch_ohlcv_return_value = load_ohlcv_result_by_filename(fetch_ohlcv_return_value_filename)
-    symbol = (f"{favourite_crypto_currency}/{account_info.profile.currency_code}".upper(),)
+    symbol = f"{favourite_crypto_currency}/{account_info.profile.currency_code}".upper()
     httpserver.expect(
         Bit2MeAPIRequestMacher(
             "/bit2me-api/v1/trading/candle",
@@ -159,15 +159,15 @@ def _prepare_httpserver_mock(
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(account_info.model_dump(mode="json", by_alias=True))
 
-    tickers = Bit2MeTickersDtoObjectMother.create(
-        symbol=f"{favourite_crypto_currency}/{account_info.profile.currency_code}"
-    )
+    tickers = Bit2MeTickersDtoObjectMother.create(symbol=symbol)
+    rest_tickers = Bit2MeTickersDtoObjectMother.list(exclude_symbols=symbol)
+    tickers_list = [tickers] + rest_tickers
     # Mock call to /v2/trading/tickers
     httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": tickers.symbol}
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        Bit2MeAPIRequestMacher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
+            bit2me_api_key, bik2me_api_secret
+        ),
         handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
+    ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
 
     return favourite_crypto_currency
