@@ -277,7 +277,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         # We want to give breathe room to the price to fluctuate
         safeguard_stop_price_reached = (
             last_candle_market_metrics.closing_price < guard_metrics.safeguard_stop_price
-            or tickers.bid < guard_metrics.breathe_safeguard_stop_price
+            or tickers.bid_or_close < guard_metrics.breathe_safeguard_stop_price
         )
         return safeguard_stop_price_reached
 
@@ -297,7 +297,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             auto_exit_sell_1h = bool(
                 last_market_1h_signal is not None
                 and last_market_1h_signal.timestamp > sell_order.created_at
-                and tickers.bid >= guard_metrics.break_even_price  # Use bid for break-even check
+                and tickers.bid_or_close >= guard_metrics.break_even_price  # Use bid for break-even check
                 and (
                     last_market_1h_signal.signal_type == "bearish_divergence"
                     or (
@@ -321,8 +321,8 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             # Ensuring we are not selling below the break even price,
             # regardless what the ATR Take profit limit price is!
             atr_take_profit_limit_price_reached = bool(
-                tickers.bid >= guard_metrics.break_even_price  # Use bid
-                and tickers.bid >= guard_metrics.suggested_take_profit_limit_price  # Use bid
+                tickers.bid_or_close >= guard_metrics.break_even_price  # Use bid
+                and tickers.bid_or_close >= guard_metrics.suggested_take_profit_limit_price  # Use bid
             )
         return atr_take_profit_limit_price_reached
 

@@ -174,12 +174,12 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             market_signal_item.symbol, client=client
         )
         buy_order_amount = self._floor_round(
-            amount_with_buffer / tickers.ask, ndigits=trading_market_config.amount_precision
+            amount_with_buffer / tickers.ask_or_close, ndigits=trading_market_config.amount_precision
         )
-        final_amount_to_invest = buy_order_amount * tickers.ask
+        final_amount_to_invest = buy_order_amount * tickers.ask_or_close
         logger.info(
             f"[Auto-Entry Trader] Trying to create BUY MARKET ORDER for {market_signal_item.symbol}, "  # noqa: E501
-            + f"which has current buy price {tickers.ask} {fiat_currency}. "
+            + f"which has current buy price {tickers.ask_or_close} {fiat_currency}. "
             + f"Investing {final_amount_to_invest:.2f} {fiat_currency}, "
             + f"buying {buy_order_amount} {crypto_currency}"
         )
