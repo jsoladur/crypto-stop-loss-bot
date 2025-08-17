@@ -43,7 +43,7 @@ async def get_current_metrics_for_symbol_callback_handler(callback_query: Callba
             match = re.match(r"^get_current_metrics_for_symbol\$\$(.+)\$\$(.+)$", callback_query.data)
             symbol = match.group(1)
             over_candlestick = CandleStickEnum(int(match.group(2)))
-            tickers = await bit2me_remote_service.get_tickers_by_symbol(symbol)
+            tickers = await bit2me_remote_service.get_single_tickers_by_symbol(symbol)
             current_crypto_metrics = await crypto_analytics_service.get_crypto_market_metrics(
                 symbol, over_candlestick=over_candlestick
             )

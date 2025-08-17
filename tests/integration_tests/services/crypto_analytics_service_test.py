@@ -68,17 +68,18 @@ def _prepare_httpserver_mock_for_get_favourite_tickers(
     _, favourite_crypto_currencies, account_info = _prepare_httpserver_mock_for_favourite_symbols(
         faker, httpserver, bit2me_api_key, bik2me_api_secret
     )
-    for favourite_crypto_currency in favourite_crypto_currencies:
-        tickers = Bit2MeTickersDtoObjectMother.create(
-            symbol=f"{favourite_crypto_currency}/{account_info.profile.currency_code}"
-        )
-        # Mock call to /v2/trading/tickers
-        httpserver.expect(
-            Bit2MeAPIRequestMacher(
-                "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": tickers.symbol}
-            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-            handler_type=HandlerType.ONESHOT,
-        ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
+    tickers_list = Bit2MeTickersDtoObjectMother.list(
+        symbols=[
+            f"{crypto_currency}/{account_info.profile.currency_code}" for crypto_currency in favourite_crypto_currencies
+        ]
+    )
+    # Mock call to /v2/trading/tickers
+    httpserver.expect(
+        Bit2MeAPIRequestMacher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
+            bit2me_api_key, bik2me_api_secret
+        ),
+        handler_type=HandlerType.ONESHOT,
+    ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
 
 
 def _prepare_httpserver_mock_for_favourite_symbols(
