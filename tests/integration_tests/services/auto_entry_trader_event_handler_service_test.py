@@ -39,7 +39,7 @@ from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
-from tests.helpers.constants import MOCK_CRYPTO_CURRENCIES
+from tests.helpers.constants import MOCK_SYMBOLS
 from tests.helpers.enums import AutoEntryTraderWarningTypeEnum
 from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
 from tests.helpers.market_config_utils import get_market_config_by_symbol
@@ -141,7 +141,7 @@ def _prepare_httpserver_mock(
     *,
     warning_type: AutoEntryTraderWarningTypeEnum,
 ) -> tuple[str, str, str]:
-    symbol = faker.random_element([f"{crypto_currency}/EUR" for crypto_currency in MOCK_CRYPTO_CURRENCIES])
+    symbol = faker.random_element(MOCK_SYMBOLS)
     trading_market_config = get_market_config_by_symbol(symbol=symbol)
     # Mock OHLCV /v1/trading/candle
     fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
@@ -202,6 +202,8 @@ def _prepare_httpserver_mock(
 
         # Mock tickers
         tickers = Bit2MeTickersDtoObjectMother.create(symbol=symbol, close=closing_price * 1.02)
+        rest_tickers = Bit2MeTickersDtoObjectMother.list(exclude_symbols=symbol)
+        tickers_list = [tickers] + rest_tickers
         # Simulate previous orders
         previous_order_avg_buy_price = closing_price * 0.85
         opened_sell_bit2me_orders = [
@@ -278,8 +280,15 @@ def _prepare_httpserver_mock(
             Bit2MeAPIRequestMacher(
                 "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": symbol}
             ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-            handler_type=HandlerType.PERMANENT,
+            handler_type=HandlerType.ONESHOT,
         ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
+        httpserver.expect(
+            Bit2MeAPIRequestMacher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
+                bit2me_api_key, bik2me_api_secret
+            ),
+            handler_type=HandlerType.ONESHOT,
+        ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
+
         if warning_type != AutoEntryTraderWarningTypeEnum.NOT_ENOUGH_FUNDS:
             # Mock call to POST /v1/trading/order
             buy_order_amount = _floor_round(

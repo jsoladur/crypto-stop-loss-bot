@@ -105,6 +105,8 @@ def _prepare_httpserver_mock(
             + (0.5 if simulate_pending_buy_orders_to_filled else faker.pyfloat(min_value=10.000, max_value=100.000))
         ),
     )
+    rest_tickers = Bit2MeTickersDtoObjectMother.list(exclude_symbols=opened_sell_bit2me_order.symbol)
+    tickers_list = [tickers] + rest_tickers
     # Mock call to /v1/trading/order to get opened buy orders
     httpserver.expect(
         Bit2MeAPIRequestMacher(
@@ -132,11 +134,11 @@ def _prepare_httpserver_mock(
 
     # Mock call to /v2/trading/tickers
     httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": opened_sell_bit2me_order.symbol}
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        Bit2MeAPIRequestMacher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
+            bit2me_api_key, bik2me_api_secret
+        ),
         handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
+    ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
 
     lowest_buy_price = math.inf
     if opened_buy_orders:
