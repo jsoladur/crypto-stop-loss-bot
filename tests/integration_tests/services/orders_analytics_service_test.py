@@ -20,7 +20,6 @@ from crypto_trailing_stop.infrastructure.services.global_flag_service import Glo
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
-from tests.helpers.constants import MOCK_CRYPTO_CURRENCIES
 from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, Bit2MeTickersDtoObjectMother
 from tests.helpers.ohlcv_test_utils import get_fetch_ohlcv_random_result
@@ -107,14 +106,14 @@ async def should_calculate_all_limit_sell_order_guard_metrics_properly(
 def _prepare_httpserver_mock(
     faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str
 ) -> tuple[list[Bit2MeOrderDto]]:
-    symbol = f"{faker.random_element(MOCK_CRYPTO_CURRENCIES)}/EUR"
-    tickers = Bit2MeTickersDtoObjectMother.create(symbol=symbol)
+    tickers_list = Bit2MeTickersDtoObjectMother.list()
+    symbol = faker.random_element([ticker.symbol for ticker in tickers_list])
     httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": symbol}
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        Bit2MeAPIRequestMacher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
+            bit2me_api_key, bik2me_api_secret
+        ),
         handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
+    ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
     # Mock OHLCV /v1/trading/candle
     fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
     httpserver.expect(

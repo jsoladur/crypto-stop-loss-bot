@@ -94,7 +94,7 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
             sell_order.symbol, client=client
         )
         if tickers is None:
-            tickers = await self._bit2me_remote_service.get_tickers_by_symbol(sell_order.symbol, client=client)
+            tickers = await self._bit2me_remote_service.get_single_tickers_by_symbol(sell_order.symbol, client=client)
         if buy_sell_signals_config is None:
             crypto_currency, *_ = sell_order.symbol.split("/")
             buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
@@ -207,7 +207,8 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
         trading_market_config: Bit2MeMarketConfigDto,
     ) -> float:
         ret = round(
-            (tickers.bid - avg_buy_price) * sell_order.order_amount, ndigits=trading_market_config.price_precision
+            (tickers.bid_or_close - avg_buy_price) * sell_order.order_amount,
+            ndigits=trading_market_config.price_precision,
         )
         return ret
 
@@ -220,7 +221,8 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
         trading_market_config: Bit2MeMarketConfigDto,
     ) -> float:
         ret = round(
-            (tickers.bid - break_even_price) * sell_order.order_amount, ndigits=trading_market_config.price_precision
+            (tickers.bid_or_close - break_even_price) * sell_order.order_amount,
+            ndigits=trading_market_config.price_precision,
         )
         return ret
 

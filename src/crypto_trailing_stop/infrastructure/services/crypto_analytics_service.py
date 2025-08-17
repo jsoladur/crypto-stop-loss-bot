@@ -3,6 +3,7 @@ import logging
 import backoff
 import ccxt.async_support as ccxt
 import pandas as pd
+import pydash
 from httpx import AsyncClient
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, ADXIndicator, EMAIndicator
@@ -88,12 +89,13 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         df_with_indicators, buy_sell_signals_config = await self._calculate_indicators(symbol, df)
         return df_with_indicators, buy_sell_signals_config
 
-    async def get_favourite_tickers(self, *, client: AsyncClient | None = None) -> list[Bit2MeTickersDto]:
+    async def get_favourite_tickers(
+        self, *, order_by_symbol: bool = False, client: AsyncClient | None = None
+    ) -> list[Bit2MeTickersDto]:
         favourite_symbols = await self.get_favourite_symbols(client=client)
-        ret = [
-            await self._bit2me_remote_service.get_tickers_by_symbol(symbol=symbol, client=client)
-            for symbol in favourite_symbols
-        ]
+        ret = await self._bit2me_remote_service.get_tickers_by_symbols(symbols=favourite_symbols, client=client)
+        if order_by_symbol:
+            ret = pydash.order_by(ret, ["symbol"])
         return ret
 
     async def get_favourite_symbols(self, *, client: AsyncClient | None = None) -> list[str]:
