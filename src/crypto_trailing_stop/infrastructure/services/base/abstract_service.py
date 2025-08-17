@@ -30,10 +30,10 @@ class AbstractService(ABC):
         self, open_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
     ) -> dict[str, Bit2MeTickersDto]:
         open_sell_order_symbols = set([open_sell_order.symbol for open_sell_order in open_sell_orders])
-        ret = {
-            symbol: await self._bit2me_remote_service.get_tickers_by_symbol(symbol, client=client)
-            for symbol in open_sell_order_symbols
-        }
+        tickers_list = await self._bit2me_remote_service.get_tickers_by_symbols(
+            symbols=open_sell_order_symbols, client=client
+        )
+        ret = {tickers.symbol: tickers for tickers in tickers_list}
         return ret
 
     async def _notify_alert_by_type(self, notification_type: PushNotificationTypeEnum, message: str) -> None:
