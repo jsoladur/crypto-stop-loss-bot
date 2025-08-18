@@ -114,9 +114,11 @@ def backtesting(
             filename = f"data/{symbol.replace('/', '_')}_indicators.csv"
             df.to_csv(filename, index=False)
             typer.echo(f"💾 Indicators outcomes saved to '{filename}'")
+            typer.echo("-----")
+            typer.echo(stats)
+            typer.echo("-----")
 
-        typer.secho("\n--- 📈 BACKTEST RESULTS ---", fg=typer.colors.MAGENTA, bold=True)
-        typer.echo("-----")
+        typer.secho(f"\n--- 📈 {symbol.upper()} BACKTEST RESULTS ---", fg=typer.colors.MAGENTA, bold=True)
         typer.secho("⚙️  Parameters:", fg=typer.colors.BLUE)
         typer.echo(f"  - EMAs: {ema_short}/{ema_mid}/{ema_long}")
         typer.echo(
@@ -130,11 +132,7 @@ def backtesting(
         typer.echo(
             f"  - Take Profit: {'Enabled' if enable_tp else 'Disabled'}, Multiplier: {tp_multiplier if enable_tp else 'N/A'}x ATR"  # noqa: E501
         )
-        typer.echo("-----")
-        typer.echo(stats)
-        typer.echo("-----")
-
-        typer.secho("\n--- 📝 SUMMARY ---", fg=typer.colors.MAGENTA, bold=True)
+        typer.secho("\n--- 📝 Summary ---", fg=typer.colors.MAGENTA, bold=True)
         # Calculate the net profit/loss
         number_of_trades = typer.style(
             str(int(stats["# Trades"])), fg=typer.colors.GREEN if stats["# Trades"] > 0 else typer.colors.RED
