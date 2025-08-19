@@ -1,11 +1,9 @@
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from os import getenv
-from time import sleep
 from typing import Any
 
 import ccxt
-import httpx
 import pandas as pd
 from backtesting import Backtest
 from tqdm import tqdm
@@ -56,6 +54,11 @@ class BacktestingCliService:
             for market in markets.values()
             if market.get("active", False) and str(market["quote"]).upper() == str(fiat_currency).upper()
         ]
+        if symbol not in supported_symbols:
+            raise ValueError(
+                f"Symbol {symbol} is not supported by exchange {exchange.id} for fiat {fiat_currency}. "
+                + "Please, check other exchange (e.g. Kraken, Coinbase etc.)."
+            )
         has_more_data, ret = True, []
         while (
             has_more_data
@@ -65,23 +68,7 @@ class BacktestingCliService:
             start_datetime = datetime.fromtimestamp(since_timestamp / 1000)
             end_datetime = start_datetime + timedelta(minutes=DEFAULT_LIMIT_DOWNLOAD_BATCHES * interval)
             echo_fn(f"📆 Dowloading candles from {start_datetime.isoformat()} to {end_datetime.isoformat()}")
-
-            if symbol in supported_symbols:
-                ohlcv = exchange.fetch_ohlcv(symbol, "1h", since=since_timestamp, limit=DEFAULT_LIMIT_DOWNLOAD_BATCHES)
-            else:
-                response = httpx.get(
-                    f"{self._bit2me_base_url}/v1/trading/candle",
-                    params={
-                        "symbol": symbol,
-                        "interval": interval,
-                        "limit": DEFAULT_LIMIT_DOWNLOAD_BATCHES,
-                        "startTime": since_timestamp,
-                        "endTime": int(end_datetime.timestamp() * 1000),
-                    },
-                )
-                response.raise_for_status()
-                ohlcv = response.json()
-                sleep(1.0)
+            ohlcv = exchange.fetch_ohlcv(symbol, "1h", since=since_timestamp, limit=DEFAULT_LIMIT_DOWNLOAD_BATCHES)
             has_more_data = ohlcv is not None and len(ohlcv) > 0
             if has_more_data:
                 ret.extend(ohlcv)

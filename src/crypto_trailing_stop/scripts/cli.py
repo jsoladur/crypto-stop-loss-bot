@@ -4,7 +4,6 @@ import pandas as pd
 import typer
 from faker import Faker
 
-from crypto_trailing_stop.scripts.constants import DEFAULT_BIT2ME_BASE_URL
 from crypto_trailing_stop.scripts.services import BacktestingCliService
 
 # ------------------------------------------------------------------------------------
@@ -14,7 +13,7 @@ from crypto_trailing_stop.scripts.services import BacktestingCliService
 # .env.backtest
 faker = Faker()
 os.environ["TELEGRAM_BOT_TOKEN"] = f"{faker.pyint()}:{faker.uuid4().replace('-', '_')}"
-os.environ["BIT2ME_API_BASE_URL"] = DEFAULT_BIT2ME_BASE_URL
+os.environ["BIT2ME_API_BASE_URL"] = "https://api.example.com"  # nosec: B105
 os.environ["BIT2ME_API_KEY"] = "placeholder"  # nosec: B105
 os.environ["BIT2ME_API_SECRET"] = "placeholder"  # nosec: B105
 os.environ["AUTHORIZED_GOOGLE_USER_EMAILS_COMMA_SEPARATED"] = "user@example.com"
