@@ -121,6 +121,73 @@ docker-compose up --build
 
 ---
 
+## Backtesting with the CLI
+
+The project includes a powerful command-line interface (CLI) for backtesting your trading strategies against historical data. This allows you to fine-tune parameters and evaluate performance before deploying the bot with real funds.
+
+The backtesting process is a two-step process: first, you download the historical data for a specific cryptocurrency pair, and then you run the simulation with your desired strategy parameters.
+
+### Step 1: Download Historical Data
+
+Before you can run a backtest, you need to download the necessary historical candlestick (OHLCV) data. The CLI can fetch this data from various exchanges (like Binance, Kraken, etc.) via CCXT.
+
+> **Note:** It's crucial to run this command first, as the backtesting tool relies on the locally saved data file.
+
+Use the `download-data` command:
+
+```sh
+cli download-data <SYMBOL> [OPTIONS]
+```
+
+**Example:**
+
+To download the last 2 years of 1-hour data for `ETH/EUR` from Kraken:
+
+```sh
+cli download-data ETH/EUR --exchange=(binance|kraken) --years-back=1
+```
+
+This will create a `.csv` file in the `data/` directory (e.g., `data/ETH_EUR.csv`).
+
+### Step 2: Run the Backtest
+
+Once you have the data, you can run the backtesting simulation using the `backtesting` command. This command allows you to configure various technical indicator parameters to see how they would have performed.
+
+```sh
+cli backtesting <SYMBOL> [OPTIONS]
+```
+
+**Example:**
+
+To run a backtest for `ETH/EUR` with a 9/21 EMA crossover strategy, an ADX filter, and ATR-based take-profit enabled:
+
+```sh
+cli backtesting ETH/EUR --ema-short=9 --ema-mid=21 --adx-threshold=25 --enable-tp --sl-multiplier=2.0 --tp-multiplier=3.5 --filter-volume --volume-threshold=1.8
+```
+
+The CLI will output a summary of the backtest results, including net profit/loss, win rate, and the number of trades.
+
+### Backtesting Parameters
+
+| Parameter          | Type      | Default    | Description                                                                                                        |
+| ------------------ | --------- | ---------- | ------------------------------------------------------------------------------------------------------------------ |
+| `symbol`           | `string`  | **Required** | The symbol to backtest (e.g., `ETH/EUR`). Must match a downloaded data file.                                       |
+| `--ema-short`      | `integer` | `9`        | Length of the short-period Exponential Moving Average (EMA).                                                       |
+| `--ema-mid`        | `integer` | `21`       | Length of the mid-period EMA.                                                                                      |
+| `--ema-long`       | `integer` | `200`      | Length of the long-period EMA, used as a trend filter.                                                             |
+| `--filter-adx`     | `boolean` | `True`     | If enabled, uses the Average Directional Index (ADX) to filter out trades during choppy, non-trending markets.     |
+| `--adx-threshold`  | `integer` | `20`       | The minimum ADX value required to consider a trend strong enough to open a trade.                                  |
+| `--filter-volume`  | `boolean` | `False`    | If enabled, uses a relative volume filter to ensure trades are taken during periods of significant market activity. |
+| `--volume-threshold` | `float`   | `0.5`      | The minimum relative volume required to open a trade.                                                              |
+| `--enable-tp`      | `boolean` | `False`    | If enabled, the strategy will set a take-profit order based on the ATR.                                            |
+| `--sl-multiplier`  | `float`   | `2.5`      | The multiplier for the Average True Range (ATR) to calculate the stop-loss distance.                               |
+| `--tp-multiplier`  | `float`   | `3.5`      | The multiplier for the ATR to calculate the take-profit distance (only if `--enable-tp` is used).                  |
+| `--initial-cash`   | `float`   | `3000`     | The starting cash amount for the simulation.                                                                       |
+| `--show-plot`      | `boolean` | `False`    | If enabled, displays an interactive plot of the backtest results upon completion.                                  |
+| `--debug`          | `boolean` | `False`    | If enabled, saves the dataframe with all calculated indicators to a `.csv` file for analysis.                      |
+
+---
+
 ## Configuration
 All configuration is managed via environment variables (see `.env.example`).
 
