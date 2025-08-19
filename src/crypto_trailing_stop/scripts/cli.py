@@ -120,16 +120,16 @@ def backtesting(
         typer.secho(f"\n--- 📈 {symbol.upper()} BACKTEST RESULTS ---", fg=typer.colors.MAGENTA, bold=True)
         typer.secho("⚙️  Parameters:", fg=typer.colors.BLUE)
         typer.echo(f"  - EMAs: {ema_short}/{ema_mid}/{ema_long}")
+        typer.echo(f"  - Stop Loss Multiplier: {sl_multiplier}x ATR")
+        typer.echo(f"  - Take Profit Multiplier: {tp_multiplier if enable_tp else 'N/A'}x ATR")
         typer.echo(
             f"  - ADX Filter: {'Enabled' if filter_adx else 'Disabled'}, Threshold: {adx_threshold if filter_adx else 'N/A'}"  # noqa: E501
         )
         typer.echo(
             f"  - Volume Filter: {'Enabled' if filter_volume else 'Disabled'}, Threshold: {volume_threshold if filter_volume else 'N/A'}"  # noqa: E501
         )
-        # NEW: Print SL/TP settings
-        typer.echo(f"  - Stop Loss Multiplier: {sl_multiplier}x ATR")
         typer.echo(
-            f"  - Take Profit: {'Enabled' if enable_tp else 'Disabled'}, Multiplier: {tp_multiplier if enable_tp else 'N/A'}x ATR"  # noqa: E501
+            f"  - Take Profit: {'Enabled' if enable_tp else 'Disabled'}"  # noqa: E501
         )
         typer.secho("\n--- 📝 Summary ---", fg=typer.colors.MAGENTA, bold=True)
         # Calculate the net profit/loss
