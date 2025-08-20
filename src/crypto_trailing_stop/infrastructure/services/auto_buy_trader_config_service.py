@@ -18,7 +18,7 @@ class AutoBuyTraderConfigService(metaclass=SingletonMeta):
         self._bit2me_remote_service = bit2me_remote_service
 
     async def find_all(
-        self, *, order_by_symbol: bool = True, client: AsyncClient | None = None
+        self, *, include_favourite_cryptos: bool = True, order_by_symbol: bool = True, client: AsyncClient | None = None
     ) -> list[AutoBuyTraderConfigItem]:
         stored_config_list = await AutoBuyTraderConfig.objects()
         ret = [
@@ -27,10 +27,13 @@ class AutoBuyTraderConfigService(metaclass=SingletonMeta):
             )
             for current in stored_config_list
         ]
-        additional_crypto_currencies = await self._bit2me_remote_service.get_favourite_crypto_currencies(client=client)
-        for additional_crypto_currency in additional_crypto_currencies:
-            if not any(current.symbol.lower() == additional_crypto_currency.lower() for current in ret):
-                ret.append(AutoBuyTraderConfigItem(symbol=additional_crypto_currency.upper()))
+        if include_favourite_cryptos:
+            additional_crypto_currencies = await self._bit2me_remote_service.get_favourite_crypto_currencies(
+                client=client
+            )
+            for additional_crypto_currency in additional_crypto_currencies:
+                if not any(current.symbol.lower() == additional_crypto_currency.lower() for current in ret):
+                    ret.append(AutoBuyTraderConfigItem(symbol=additional_crypto_currency.upper()))
         if order_by_symbol:
             # Sort by symbol
             ret = pydash.order_by(ret, ["symbol"])

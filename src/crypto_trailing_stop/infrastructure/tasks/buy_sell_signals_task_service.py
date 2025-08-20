@@ -113,7 +113,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
 
     async def _get_prioritised_favourite_tickers(self, *, client: AsyncClient) -> list[Bit2MeTickersDto]:
         auto_buy_trader_config_list = await self._auto_buy_trader_config_service.find_all(
-            order_by_symbol=False, client=client
+            include_favourite_cryptos=False, order_by_symbol=False, client=client
         )
         auto_buy_trader_config_dict: dict[str, float] = {
             config.symbol: config.fiat_wallet_percent_assigned for config in auto_buy_trader_config_list
