@@ -1,6 +1,7 @@
 import logging
 
 import pydash
+from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.config import get_configuration_properties
@@ -16,7 +17,9 @@ class AutoBuyTraderConfigService(metaclass=SingletonMeta):
         self._configuration_properties = get_configuration_properties()
         self._bit2me_remote_service = bit2me_remote_service
 
-    async def find_all(self) -> list[AutoBuyTraderConfigItem]:
+    async def find_all(
+        self, *, order_by_symbol: bool = True, client: AsyncClient | None = None
+    ) -> list[AutoBuyTraderConfigItem]:
         stored_config_list = await AutoBuyTraderConfig.objects()
         ret = [
             AutoBuyTraderConfigItem(
@@ -24,11 +27,13 @@ class AutoBuyTraderConfigService(metaclass=SingletonMeta):
             )
             for current in stored_config_list
         ]
-        additional_crypto_currencies = await self._bit2me_remote_service.get_favourite_crypto_currencies()
+        additional_crypto_currencies = await self._bit2me_remote_service.get_favourite_crypto_currencies(client=client)
         for additional_crypto_currency in additional_crypto_currencies:
             if not any(current.symbol.lower() == additional_crypto_currency.lower() for current in ret):
                 ret.append(AutoBuyTraderConfigItem(symbol=additional_crypto_currency.upper()))
-        ret = pydash.order_by(ret, ["symbol"])
+        if order_by_symbol:
+            # Sort by symbol
+            ret = pydash.order_by(ret, ["symbol"])
         return ret
 
     async def find_by_symbol(self, symbol: str) -> AutoBuyTraderConfigItem:
