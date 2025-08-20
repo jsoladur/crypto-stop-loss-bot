@@ -186,7 +186,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
             )
         answer_text += (
             "\n"
-            + f"   🔥 {html.bold(crypto_currency.upper() + ' Price')} = {metrics.current_price} {fiat_currency}\n"
+            + f"   🔥 {html.bold(crypto_currency.upper() + ' (Bid) Price')} = {metrics.current_price} {fiat_currency}\n"
             + f"   🤑 {html.bold('Current Profit')} = {metrics.current_profit} {fiat_currency}\n"
             + f"   🏦 {html.bold('Net Revenue')} = {metrics.net_revenue} {fiat_currency}\n"
             + "   ---------------------------------------------------- \n"

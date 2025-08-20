@@ -24,3 +24,5 @@ tests/
 # Development files
 *.log
 .pre-commit-config.yaml
+# Do no COPY these files into the container
+src/crypto_trailing_stop/scripts/

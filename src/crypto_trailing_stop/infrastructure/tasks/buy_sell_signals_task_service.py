@@ -18,6 +18,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto 
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
@@ -49,6 +50,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 bit2me_remote_service=self._bit2me_remote_service
             ),
         )
+        self._auto_buy_trader_config_service = AutoBuyTraderConfigService(
+            bit2me_remote_service=self._bit2me_remote_service
+        )
         self._exchange = self._ccxt_remote_service.get_exchange()
         self._last_signal_evalutation_result_cache: dict[str, SignalsEvaluationResult] = {}
         self._job = self._create_job()
@@ -70,13 +74,13 @@ class BuySellSignalsTaskService(AbstractTaskService):
     @override
     async def _run(self) -> None:
         async with await self._bit2me_remote_service.get_http_client() as client:
-            favourite_tickers_list = await self._crypto_analytics_service.get_favourite_tickers(client=client)
+            sorted_favourite_tickers_list = await self._get_prioritised_favourite_tickers(client=client)
             current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = {
-                tickers.symbol: tickers for tickers in favourite_tickers_list
+                tickers.symbol: tickers for tickers in sorted_favourite_tickers_list
             }
             symbol_timeframe_tuples = [
-                (symbol, timeframe)
-                for symbol in list(current_tickers_by_symbol.keys())
+                (tickers.symbol, timeframe)
+                for tickers in sorted_favourite_tickers_list
                 for timeframe in get_args(Timeframe)
             ]
             async with self._exchange as exchange:
@@ -106,6 +110,23 @@ class BuySellSignalsTaskService(AbstractTaskService):
         else:
             trigger = IntervalTrigger(seconds=self._configuration_properties.job_interval_seconds)
         return trigger
+
+    async def _get_prioritised_favourite_tickers(self, *, client: AsyncClient) -> list[Bit2MeTickersDto]:
+        auto_buy_trader_config_list = await self._auto_buy_trader_config_service.find_all(
+            include_favourite_cryptos=False, order_by_symbol=False, client=client
+        )
+        auto_buy_trader_config_dict: dict[str, float] = {
+            config.symbol: config.fiat_wallet_percent_assigned for config in auto_buy_trader_config_list
+        }
+        favourite_tickers_list = await self._crypto_analytics_service.get_favourite_tickers(client=client)
+        sorted_favourite_tickers_list = sorted(
+            favourite_tickers_list,
+            key=lambda t: (
+                -auto_buy_trader_config_dict.get(t.symbol.split("/")[0].strip().upper(), 0.0),  # negative for desc
+                t.symbol.upper(),  # tie-breaker alphabetical
+            ),
+        )
+        return sorted_favourite_tickers_list
 
     async def _eval_and_notify_signals(
         self, symbol: str, timeframe: Timeframe, tickers: Bit2MeTickersDto, client: AsyncClient, exchange: ccxt.Exchange
