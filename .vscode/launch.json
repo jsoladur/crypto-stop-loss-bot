@@ -21,6 +21,24 @@
       "justMyCode": false
     },
     {
+      "name": "CLI: Download data",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "src/crypto_trailing_stop/scripts/cli.py",
+      "args": ["download-data", "ENA/EUR", "--exchange=kraken"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "CLI: Backtesting",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "src/crypto_trailing_stop/scripts/cli.py",
+      "args": ["backtesting", "SUI/EUR", "--adx-threshold=15", "--enable-tp", "--sl-multiplier=2.5", "--tp-multiplier=4.0"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Pytest",
       "type": "debugpy",
       "request": "launch",
@@ -55,7 +73,7 @@
       "args": ["-x", "--log-cli-level=INFO", "tests/integration_tests/tasks/limit_sell_order_guard_task_service_test.py"],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false
-    }
+    },
     {
       "name": "Pytest: Specific test",
       "type": "debugpy",
