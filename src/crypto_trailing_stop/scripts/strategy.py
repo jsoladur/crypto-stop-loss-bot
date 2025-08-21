@@ -34,6 +34,8 @@ class SignalStrategy(Strategy):
         self.atr = self.I(lambda x: x, self.data.atr)
         self.macd_hist = self.I(lambda x: x, self.data.macd_hist)
         self.prev_macd_hist = self.I(lambda x: x, self.data.prev_macd_hist)
+        # State variable to remember if a sell signal has occurred
+        self.sell_signal_active = False
 
     def next(self):
         # --- Calculate current candle metrics ONCE at the beginning ---
@@ -45,6 +47,14 @@ class SignalStrategy(Strategy):
             candlestick=candlestick,
             trading_market_config=DEFAULT_TRADING_MARKET_CONFIG,
         )
+
+        # --- Update State ---
+        # If a new SELL signal appears, activate our alert state.
+        if self.data.sell_signal[-1]:
+            self.sell_signal_active = True
+        # If a new BUY signal appears, it cancels any old sell alerts.
+        elif self.data.buy_signal[-1]:
+            self.sell_signal_active = False
 
         # --- ENTRY LOGIC ---
         # Now uses the pre-calculated 'last_candle_metrics'
@@ -61,6 +71,8 @@ class SignalStrategy(Strategy):
                 trading_market_config=DEFAULT_TRADING_MARKET_CONFIG,
             )
             self.buy(sl=sl_price, tp=None)
+            # We just bought, so reset any lingering sell signal alert
+            self.sell_signal_active = False
 
         # --- DYNAMIC TRADE MANAGEMENT (ONLY IF A POSITION IS OPEN) ---
         if self.position:
@@ -81,19 +93,22 @@ class SignalStrategy(Strategy):
                 if self.data.High[-1] >= tp_price and tp_price >= break_even_price:
                     exit_on_take_profit = True
 
-            # --- Check 2: Smart Signal Exit ---
+            # --- Check 2: Smart Signal Exit (now with memory) ---
             exit_on_signal = False
-            # A signal-based exit is only valid if the current CLOSE is above break-even.
             if self.data.Close[-1] >= break_even_price:
+                # Proactive exit on a NEW divergence
                 exit_on_divergence = self.data.bearish_divergence[-1]
-                exit_on_sell_signal = (
-                    self.data.sell_signal[-1]
-                    and self.macd_hist[-1] < 0
-                    and self.macd_hist[-1] < self.prev_macd_hist[-1]
+
+                # Exit if our SELL SIGNAL STATE is active AND momentum is confirmed
+                exit_on_sell_signal_state = (
+                    self.sell_signal_active and self.macd_hist[-1] < 0 and self.macd_hist[-1] < self.prev_macd_hist[-1]
                 )
-                if exit_on_divergence or exit_on_sell_signal:
+
+                if exit_on_divergence or exit_on_sell_signal_state:
                     exit_on_signal = True
 
             # --- Final Exit Decision ---
             if exit_on_take_profit or exit_on_signal:
                 self.position.close()
+                # Once the position is closed, reset the sell signal alert
+                self.sell_signal_active = False
