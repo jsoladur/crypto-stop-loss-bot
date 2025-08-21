@@ -194,7 +194,8 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
         self, avg_buy_price: float, *, trading_market_config: Bit2MeMarketConfigDto
     ) -> float:
         break_even_price = round(
-            avg_buy_price * (1.0 + BIT2ME_TAKER_FEES), ndigits=trading_market_config.price_precision
+            avg_buy_price * ((1.0 + BIT2ME_TAKER_FEES) / (1.0 - BIT2ME_TAKER_FEES)),
+            ndigits=trading_market_config.price_precision,
         )
         return break_even_price
 
