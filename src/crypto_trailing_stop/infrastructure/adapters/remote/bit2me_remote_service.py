@@ -11,7 +11,17 @@ from urllib.parse import urlencode
 
 import backoff
 import cachebox
-from httpx import URL, AsyncClient, HTTPStatusError, ReadTimeout, Response, Timeout, TimeoutException
+from httpx import (
+    URL,
+    AsyncClient,
+    HTTPStatusError,
+    NetworkError,
+    ReadError,
+    ReadTimeout,
+    Response,
+    Timeout,
+    TimeoutException,
+)
 from pandas import Timedelta
 from pydantic import RootModel
 
@@ -52,7 +62,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     @staticmethod
     def _backoff_giveup_handler(e: Exception) -> bool:
         should_give_up = False
-        if isinstance(e, ReadTimeout):
+        if isinstance(e, (ReadTimeout, ReadError)):
             method = getattr(e.request, "method", "GET").upper()
             should_give_up = method != "GET"
         elif isinstance(e, ValueError):
@@ -238,7 +248,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     # - Any unexpected timeout
     @backoff.on_exception(
         backoff.fibo,
-        exception=(ValueError, TimeoutException),
+        exception=(ValueError, NetworkError, TimeoutException),
         max_value=5,
         max_tries=7,
         jitter=backoff.random_jitter,
