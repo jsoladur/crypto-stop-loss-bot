@@ -34,7 +34,14 @@
       "type": "debugpy",
       "request": "launch",
       "program": "src/crypto_trailing_stop/scripts/cli.py",
-      "args": ["backtesting", "SUI/EUR", "--adx-threshold=15", "--enable-tp", "--sl-multiplier=2.5", "--tp-multiplier=4.0"],
+      "args": [
+        "backtesting",
+        "SUI/EUR",
+        "--adx-threshold=15",
+        "--enable-tp",
+        "--sl-multiplier=2.5",
+        "--tp-multiplier=4.0"
+      ],
       "console": "integratedTerminal",
       "justMyCode": false
     },
@@ -70,7 +77,11 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["-x", "--log-cli-level=INFO", "tests/integration_tests/tasks/limit_sell_order_guard_task_service_test.py"],
+      "args": [
+        "-x",
+        "--log-cli-level=INFO",
+        "tests/integration_tests/tasks/limit_sell_order_guard_task_service_test.py"
+      ],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false
     },
@@ -79,9 +90,21 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["-x", "--log-cli-level=INFO", "-k", "should_send_via_telegram_notifications_after_detecting_buy_sell_signals"],
+      "args": [
+        "-x",
+        "--log-cli-level=INFO",
+        "-k",
+        "should_send_via_telegram_notifications_after_detecting_buy_sell_signals"
+      ],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false
+    },
+    {
+      "name": "Python Debugger: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal"
     }
   ]
 }

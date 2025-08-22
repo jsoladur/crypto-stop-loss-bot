@@ -308,12 +308,14 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
             ndigits=trading_market_config.price_precision,
         )
         stop_loss_percent_value = (
-            self._ceil_round((1 - (first_suggested_safeguard_stop_price / avg_buy_price)) * 100, ndigits=2) + 0.50
+            self._ceil_round((1 - (first_suggested_safeguard_stop_price / avg_buy_price)) * 100, ndigits=4) + 0.50
         )
         if stop_loss_percent_value < STOP_LOSS_STEPS_VALUE_LIST[-1]:
             steps = np.array(STOP_LOSS_STEPS_VALUE_LIST)
             # Summing 0.5 to the calculated Stop Loss, to ensure enough gap when ATR is very low!
             stop_loss_percent_value = float(steps[steps >= stop_loss_percent_value].min())
+        else:  # Round to 2 decimal place if greater than the last step
+            stop_loss_percent_value = self._ceil_round(stop_loss_percent_value, ndigits=2)
         return stop_loss_percent_value
 
     def _calculate_suggested_safeguard_stop_price(
