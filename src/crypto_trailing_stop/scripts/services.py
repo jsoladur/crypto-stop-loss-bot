@@ -6,7 +6,8 @@ from typing import Any
 
 import ccxt
 import pandas as pd
-from backtesting import Backtest
+from backtesting import backtesting
+from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from crypto_trailing_stop.commons.constants import (
@@ -27,6 +28,7 @@ from crypto_trailing_stop.scripts.constants import (
     DEFAULT_TRADING_MARKET_CONFIG,
     MIN_TRADES_FOR_STATS,
 )
+from crypto_trailing_stop.scripts.jobs import run_single_backtest_combination
 from crypto_trailing_stop.scripts.strategy import SignalStrategy
 from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult, BacktestingExecutionSummary
 
@@ -129,47 +131,54 @@ class BacktestingCliService:
         df: pd.DataFrame,
         echo_fn: Callable[[str], None] | None = None,
         use_tqdm: bool = True,
-    ) -> tuple[BacktestingExecutionResult, Backtest, pd.Series]:
-        self._analytics_service._calculate_simple_indicators(df, simulated_bs_config)
-        self._analytics_service._calculate_complex_indicators(df)
+    ) -> tuple[BacktestingExecutionResult, backtesting.Backtest, pd.Series]:
+        original_backtesting_tqdm = backtesting._tqdm
+        try:
+            self._analytics_service._calculate_simple_indicators(df, simulated_bs_config)
+            self._analytics_service._calculate_complex_indicators(df)
 
-        buy_signals = []
-        sell_signals = []
+            buy_signals = []
+            sell_signals = []
 
-        if echo_fn:
-            echo_fn("🧠 Generating signals for each historical candle...")
-        range_of_values = range(4, len(df))
-        for i in tqdm(range_of_values) if use_tqdm else range_of_values:
-            window_df = df.iloc[: i + 1]
-            signals = self._signal_service._check_signals(
-                symbol=simulated_bs_config.symbol,
-                timeframe="1h",
-                df=window_df,
-                buy_sell_signals_config=simulated_bs_config,
-                trading_market_config=DEFAULT_TRADING_MARKET_CONFIG,
+            if echo_fn:
+                echo_fn("🧠 Generating signals for each historical candle...")
+            range_of_values = range(4, len(df))
+            for i in tqdm(range_of_values) if use_tqdm else range_of_values:
+                window_df = df.iloc[: i + 1]
+                signals = self._signal_service._check_signals(
+                    symbol=simulated_bs_config.symbol,
+                    timeframe="1h",
+                    df=window_df,
+                    buy_sell_signals_config=simulated_bs_config,
+                    trading_market_config=DEFAULT_TRADING_MARKET_CONFIG,
+                )
+                buy_signals.append(signals.buy)
+                sell_signals.append(signals.sell)
+
+            df["buy_signal"] = pd.Series(buy_signals, index=df.index[4:])
+            df["sell_signal"] = pd.Series(sell_signals, index=df.index[4:])
+            # NEW: Add previous MACD hist for the accelerating momentum check
+            df["prev_macd_hist"] = df["macd_hist"].shift(1)
+            df.fillna(False, inplace=True)
+
+            if echo_fn:
+                echo_fn("🚀 Running trading simulation...")
+            df.rename(
+                columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"},
+                inplace=True,
             )
-            buy_signals.append(signals.buy)
-            sell_signals.append(signals.sell)
-
-        df["buy_signal"] = pd.Series(buy_signals, index=df.index[4:])
-        df["sell_signal"] = pd.Series(sell_signals, index=df.index[4:])
-        # NEW: Add previous MACD hist for the accelerating momentum check
-        df["prev_macd_hist"] = df["macd_hist"].shift(1)
-        df.fillna(False, inplace=True)
-
-        if echo_fn:
-            echo_fn("🚀 Running trading simulation...")
-        df.rename(
-            columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"}, inplace=True
-        )
-        bt = Backtest(df, SignalStrategy, cash=initial_cash, commission=BIT2ME_TAKER_FEES)
-        stats = bt.run(
-            enable_tp=simulated_bs_config.auto_exit_atr_take_profit,
-            simulated_bs_config=simulated_bs_config,
-            analytics_service=self._analytics_service,
-        )
-        current_execution_result = self._to_execution_result(simulated_bs_config, initial_cash, stats)
-        return current_execution_result, bt, stats
+            bt = backtesting.Backtest(df, SignalStrategy, cash=initial_cash, commission=BIT2ME_TAKER_FEES)
+            if not use_tqdm:
+                backtesting._tqdm = lambda iterable=None, *args, **kwargs: iterable
+            stats = bt.run(
+                enable_tp=simulated_bs_config.auto_exit_atr_take_profit,
+                simulated_bs_config=simulated_bs_config,
+                analytics_service=self._analytics_service,
+            )
+            current_execution_result = self._to_execution_result(simulated_bs_config, initial_cash, stats)
+            return current_execution_result, bt, stats
+        finally:
+            backtesting._tqdm = original_backtesting_tqdm
 
     def _apply_cartesian_production_execution(
         self, symbol: str, initial_cash: float, df: pd.DataFrame, echo_fn: Callable[[str], None] | None = None
@@ -184,31 +193,14 @@ class BacktestingCliService:
         )
         if echo_fn:
             echo_fn(f"Total combinations to test: {len(cartesian_product)}")
-        executions_results = []
-        for i in tqdm(range(len(cartesian_product))):
-            ema_short_and_ema_mid, sp_percent_and_tp_factors, adx_threshold, volume_threshold = cartesian_product[i]
-            ema_short, ema_mid = map(int, ema_short_and_ema_mid.split("/"))
-            sl_multiplier, tp_multiplier = map(float, sp_percent_and_tp_factors.split("/"))
-            try:
-                simulated_bs_config = BuySellSignalsConfigItem(
-                    symbol=symbol,
-                    ema_short_value=ema_short,
-                    ema_mid_value=ema_mid,
-                    ema_long_value=200,
-                    stop_loss_atr_multiplier=sl_multiplier,
-                    take_profit_atr_multiplier=tp_multiplier,
-                    filter_noise_using_adx=True,
-                    adx_threshold=adx_threshold,
-                    apply_volume_filter=True,
-                    volume_threshold=volume_threshold,
-                )
-                *_, stats = self.execute_backtesting(
-                    simulated_bs_config=simulated_bs_config, initial_cash=initial_cash, df=df.copy(), use_tqdm=False
-                )
-                current_execution_result = self._to_execution_result(simulated_bs_config, initial_cash, stats)
-                executions_results.append(current_execution_result)
-            except Exception as e:
-                echo_fn(f"Combination {i + 1} failed with error: {e}")
+        # Use joblib to run the backtests in parallel across all available CPU cores
+        # tqdm is now wrapped around the parallel execution
+        results = Parallel(n_jobs=-1)(
+            delayed(run_single_backtest_combination)(params, symbol, initial_cash, df)
+            for params in tqdm(cartesian_product)
+        )
+        # Filter out any runs that failed (they will return None)
+        executions_results = [res for res in results if res is not None]
         return executions_results
 
     def _to_execution_result(
