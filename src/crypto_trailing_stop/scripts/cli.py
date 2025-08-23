@@ -132,7 +132,7 @@ def backtesting(
             bt.plot()
     except FileNotFoundError:
         typer.secho(f"❌ Error: Data file '{data_file}' not found.", fg=typer.colors.RED)
-        typer.echo(f"👉 Please run 'python scripts/main.py download-data {symbol}' first.")
+        typer.echo(f"👉 Please run 'cli download-data {symbol}' first.")
         raise typer.Exit()
 
 
@@ -147,6 +147,7 @@ def research(
     decent_win_rate: float = typer.Option(
         DECENT_WIN_RATE_THRESHOLD, help="The minimum win rate to consider a configuration decent."
     ),
+    disable_progress_bar: bool = typer.Option(False, help="Disable the progress bar."),
 ):
     """
     Runs a research process to find the best parameters for a symbol, using local data.
@@ -166,21 +167,27 @@ def research(
             initial_cash=initial_cash,
             downloaded_months_back=months_back,
             decent_win_rate=decent_win_rate,
+            disable_progress_bar=disable_progress_bar,
             df=df,
             echo_fn=typer.secho,
         )
         # Print the summary
         typer.secho(f"\n--- 🔬 {symbol.upper()} RESEARCH RESULTS ---", fg=typer.colors.MAGENTA, bold=True)
         execution_summary_fields = dataclasses.fields(execution_summary)
-        for field in execution_summary_fields:
-            value = getattr(execution_summary, field.name)
-            if value:
-                typer.secho(f"\n--- 🏆 Champion: {pydash.start_case(field.name)} ---")
-                echo_backtesting_execution_result(value)
+        if all(getattr(execution_summary, field.name) is None for field in execution_summary_fields):
+            typer.secho("❌ No decent configuration found. Try lowering the win rate threshold.", fg=typer.colors.RED)
+            raise typer.Exit()
+        else:
+            typer.secho("✅ Decent configurations found:", fg=typer.colors.GREEN)
+            for field in execution_summary_fields:
+                value = getattr(execution_summary, field.name)
+                if value:
+                    typer.secho(f"\n--- 🏆 Champion: {pydash.start_case(field.name)} ---")
+                    echo_backtesting_execution_result(value)
 
     except FileNotFoundError:
         typer.secho(f"❌ Error: Data file '{data_file}' not found.", fg=typer.colors.RED)
-        typer.echo(f"👉 Please run 'python scripts/main.py download-data {symbol}' first.")
+        typer.echo(f"👉 Please run 'cli download-data {symbol}' first.")
         raise typer.Exit()
 
 

@@ -103,6 +103,7 @@ class BacktestingCliService:
         initial_cash: float,
         downloaded_months_back: int = DEFAULT_MONTHS_BACK,
         decent_win_rate: float = DECENT_WIN_RATE_THRESHOLD,
+        disable_progress_bar: bool = False,
         df: pd.DataFrame,
         echo_fn: Callable[[str], None],
     ) -> BacktestingExecutionSummary:
@@ -110,7 +111,9 @@ class BacktestingCliService:
         num_of_weeks_downloaded = downloaded_months_back * 4
         min_trades_for_stats = max(MIN_TRADES_FOR_STATS, math.ceil(num_of_weeks_downloaded * MIN_ENTRIES_PER_WEEK))
         # 2. Run backtesting for all combinations
-        executions_results = self._apply_cartesian_production_execution(symbol, initial_cash, df, echo_fn)
+        executions_results = self._apply_cartesian_production_execution(
+            symbol, initial_cash, disable_progress_bar, df, echo_fn
+        )
         # 3. Filter for viable strategies to analyze
         # We only care about strategies that were profitable and had a meaningful number of trades
         profitable_results = [
@@ -206,7 +209,12 @@ class BacktestingCliService:
             backtesting._tqdm = original_backtesting_tqdm
 
     def _apply_cartesian_production_execution(
-        self, symbol: str, initial_cash: float, df: pd.DataFrame, echo_fn: Callable[[str], None] | None = None
+        self,
+        symbol: str,
+        initial_cash: float,
+        disable_progress_bar: bool,
+        df: pd.DataFrame,
+        echo_fn: Callable[[str], None] | None = None,
     ) -> list[BacktestingExecutionResult]:
         adx_threshold_values = ADX_THRESHOLD_VALUES.copy()
         adx_threshold_values.insert(0, 0)  # Adding the "No filter" option
@@ -222,7 +230,7 @@ class BacktestingCliService:
         # tqdm is now wrapped around the parallel execution
         results = Parallel(n_jobs=-1)(
             delayed(run_single_backtest_combination)(params, symbol, initial_cash, df)
-            for params in tqdm(cartesian_product)
+            for params in (tqdm(cartesian_product) if not disable_progress_bar else cartesian_product)
         )
         # Filter out any runs that failed (they will return None)
         executions_results = [res for res in results if res is not None]
