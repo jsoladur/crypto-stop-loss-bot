@@ -8,6 +8,9 @@ from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult
 def echo_backtesting_execution_result(result: BacktestingExecutionResult) -> None:
     simulated_bs_config: BuySellSignalsConfigItem = result.parameters
     typer.secho("⚙️  Parameters:", fg=typer.colors.BLUE)
+    typer.echo(
+        f"  - EMAs: {simulated_bs_config.ema_short_value}/{simulated_bs_config.ema_mid_value}/{simulated_bs_config.ema_long_value}"  # noqa: E501
+    )
     typer.echo(f"  - Stop Loss Multiplier: {simulated_bs_config.stop_loss_atr_multiplier}x ATR")
     typer.echo(
         f"  - Take Profit Multiplier: {simulated_bs_config.take_profit_atr_multiplier if simulated_bs_config.auto_exit_atr_take_profit else 'N/A'}x ATR"  # noqa: E501
