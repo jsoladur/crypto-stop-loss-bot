@@ -45,6 +45,18 @@
       "console": "integratedTerminal",
       "justMyCode": false
     },
+     {
+      "name": "CLI: Research",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "src/crypto_trailing_stop/scripts/cli.py",
+      "args": [
+        "research",
+        "SUI/EUR"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
     {
       "name": "Pytest",
       "type": "debugpy",

@@ -1,10 +1,17 @@
+import dataclasses
 import os
+import warnings
 
 import pandas as pd
+import pydash
 import typer
 from faker import Faker
 
+from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.scripts.services import BacktestingCliService
+from crypto_trailing_stop.scripts.utils import echo_backtesting_execution_result
+
+warnings.filterwarnings("ignore")
 
 # ------------------------------------------------------------------------------------
 # Mock env variables
@@ -90,21 +97,20 @@ def backtesting(
 
         typer.echo(f"📊 {len(df)} candles loaded. Calculating indicators and signals...")
 
-        bt, stats = backtesting_cli_service.execute_backtesting(
+        simulated_bs_config = BuySellSignalsConfigItem(
             symbol=symbol,
-            ema_short=ema_short,
-            ema_mid=ema_mid,
-            ema_long=ema_long,
-            filter_adx=filter_adx,
+            ema_short_value=ema_short,
+            ema_mid_value=ema_mid,
+            ema_long_value=ema_long,
+            stop_loss_atr_multiplier=sl_multiplier,
+            take_profit_atr_multiplier=tp_multiplier,
+            filter_noise_using_adx=filter_adx,
             adx_threshold=adx_threshold,
-            filter_volume=filter_volume,
+            apply_volume_filter=filter_volume,
             volume_threshold=volume_threshold,
-            enable_tp=enable_tp,
-            sl_multiplier=sl_multiplier,
-            tp_multiplier=tp_multiplier,
-            initial_cash=initial_cash,
-            df=df,
-            echo_fn=typer.secho,
+        )
+        current_execution_result, bt, stats = backtesting_cli_service.execute_backtesting(
+            simulated_bs_config=simulated_bs_config, initial_cash=initial_cash, df=df, echo_fn=typer.secho
         )
 
         if debug:
@@ -118,43 +124,45 @@ def backtesting(
             typer.echo("-----")
 
         typer.secho(f"\n--- 📈 {symbol.upper()} BACKTEST RESULTS ---", fg=typer.colors.MAGENTA, bold=True)
-        typer.secho("⚙️  Parameters:", fg=typer.colors.BLUE)
-        typer.echo(f"  - EMAs: {ema_short}/{ema_mid}/{ema_long}")
-        typer.echo(f"  - Stop Loss Multiplier: {sl_multiplier}x ATR")
-        typer.echo(f"  - Take Profit Multiplier: {tp_multiplier if enable_tp else 'N/A'}x ATR")
-        typer.echo(
-            f"  - ADX Filter: {'Enabled' if filter_adx else 'Disabled'}, Threshold: {adx_threshold if filter_adx else 'N/A'}"  # noqa: E501
-        )
-        typer.echo(
-            f"  - Volume Filter: {'Enabled' if filter_volume else 'Disabled'}, Threshold: {volume_threshold if filter_volume else 'N/A'}"  # noqa: E501
-        )
-        typer.echo(
-            f"  - Take Profit: {'Enabled' if enable_tp else 'Disabled'}"  # noqa: E501
-        )
-        typer.secho("\n--- 📝 Summary ---", fg=typer.colors.MAGENTA, bold=True)
-        # Calculate the net profit/loss
-        number_of_trades = typer.style(
-            str(int(stats["# Trades"])), fg=typer.colors.GREEN if stats["# Trades"] > 0 else typer.colors.RED
-        )
-        net_profit_loss = stats["Equity Final [$]"] - initial_cash
-        # Style the output strings
-        win_rate_str = typer.style(
-            f"{stats['Win Rate [%]']:.2f}%", fg=typer.colors.GREEN if stats["Win Rate [%]"] > 50 else typer.colors.RED
-        )
-        return_eur_str = typer.style(
-            f"{net_profit_loss:.2f} EUR", fg=typer.colors.GREEN if net_profit_loss > 0 else typer.colors.RED
-        )
-        return_pct_str = typer.style(
-            f"{(stats['Return [%]']):.2f}%", fg=typer.colors.GREEN if stats["Return [%]"] > 0 else typer.colors.RED
-        )
-
-        typer.echo(f"Number of Trades [n]:        {number_of_trades}")
-        typer.echo(f"Win Rate [%]:                {win_rate_str}")
-        typer.echo(f"Net Profit/Loss [EUR]:       {return_eur_str}")
-        typer.echo(f"Net Return [%]:              {return_pct_str}")
-
+        echo_backtesting_execution_result(current_execution_result)
         if show_plot:
             bt.plot()
+    except FileNotFoundError:
+        typer.secho(f"❌ Error: Data file '{data_file}' not found.", fg=typer.colors.RED)
+        typer.echo(f"👉 Please run 'python scripts/main.py download-data {symbol}' first.")
+        raise typer.Exit()
+
+
+@app.command()
+def research(
+    symbol: str = typer.Argument(..., help="The symbol to backtest, e.g., ETH/EUR"),
+    initial_cash: float = typer.Option(3_000, help="Intial cash for the backtest."),
+):
+    """
+    Runs a research process to find the best parameters for a symbol, using local data.
+    """
+    symbol = symbol.strip().upper()
+    try:
+        data_file = f"data/{symbol.replace('/', '_')}.csv"
+        df = pd.read_csv(data_file)
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+        df.dropna(inplace=True)
+        df.reset_index(drop=True, inplace=True)
+
+        typer.echo(f"📊 {len(df)} candles loaded. Starting research...")
+
+        execution_summary = backtesting_cli_service.find_out_best_parameters(
+            symbol=symbol, initial_cash=initial_cash, df=df, echo_fn=typer.secho
+        )
+        # Print the summary
+        typer.secho(f"\n--- 🔬 {symbol.upper()} RESEARCH RESULTS ---", fg=typer.colors.MAGENTA, bold=True)
+        execution_summary_fields = dataclasses.fields(execution_summary)
+        for field in execution_summary_fields:
+            value = getattr(execution_summary, field.name)
+            if value:
+                typer.secho(f"\n--- 🏆 Champion: {pydash.start_case(field.name)} ---")
+                echo_backtesting_execution_result(value)
+
     except FileNotFoundError:
         typer.secho(f"❌ Error: Data file '{data_file}' not found.", fg=typer.colors.RED)
         typer.echo(f"👉 Please run 'python scripts/main.py download-data {symbol}' first.")

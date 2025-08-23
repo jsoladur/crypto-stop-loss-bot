@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from itertools import product
 from os import getenv
 from typing import Any
 
@@ -8,14 +9,26 @@ import pandas as pd
 from backtesting import Backtest
 from tqdm import tqdm
 
-from crypto_trailing_stop.commons.constants import BIT2ME_TAKER_FEES
+from crypto_trailing_stop.commons.constants import (
+    ADX_THRESHOLD_VALUES,
+    BIT2ME_TAKER_FEES,
+    EMA_SHORT_MID_PAIRS,
+    SP_TP_PAIRS,
+    VOLUME_THRESHOLD_VALUES,
+)
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.tasks.buy_sell_signals_task_service import BuySellSignalsTaskService
-from crypto_trailing_stop.scripts.constants import DEFAULT_LIMIT_DOWNLOAD_BATCHES, DEFAULT_TRADING_MARKET_CONFIG
+from crypto_trailing_stop.scripts.constants import (
+    DECENT_WIN_RATE_THRESHOLD,
+    DEFAULT_LIMIT_DOWNLOAD_BATCHES,
+    DEFAULT_TRADING_MARKET_CONFIG,
+    MIN_TRADES_FOR_STATS,
+)
 from crypto_trailing_stop.scripts.strategy import SignalStrategy
+from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult, BacktestingExecutionSummary
 
 
 class BacktestingCliService:
@@ -78,48 +91,58 @@ class BacktestingCliService:
                     callback_fn()
         return ret
 
+    def find_out_best_parameters(
+        self, *, symbol: str, initial_cash: float, df: pd.DataFrame, echo_fn: Callable[[str], None]
+    ) -> BacktestingExecutionSummary:
+        executions_results = self._apply_cartesian_production_execution(symbol, initial_cash, df, echo_fn)
+        # 2. Filter for viable strategies to analyze
+        # We only care about strategies that were profitable and had a meaningful number of trades
+
+        profitable_results = [
+            res
+            for res in executions_results
+            if res.net_profit_percentage > 0 and res.number_of_trades >= MIN_TRADES_FOR_STATS
+        ]
+        best_profitable, best_win_rate, most_robust = None, None, None
+        if profitable_results:
+            # --- Category 1: Best Profitable Configuration ---
+            best_profitable = max(profitable_results, key=lambda r: r.net_profit_percentage)
+            # --- Category 2: Best Win Rate Configuration ---
+            best_win_rate = max(profitable_results, key=lambda r: r.win_rate)
+            # --- Category 3: Most Robust (High Trades + Decent Win Rate + High Profit) ---
+            robust_candidates = [res for res in profitable_results if res.win_rate >= DECENT_WIN_RATE_THRESHOLD]
+            if robust_candidates:
+                # From the high-win-rate group, find the one with the best blend of profit and trade frequency
+                # We define a score that rewards both high return and a high number of trades
+                most_robust = max(robust_candidates, key=lambda r: r.net_profit_percentage * r.number_of_trades)
+
+        ret = BacktestingExecutionSummary(
+            best_profitable=best_profitable, best_win_rate=best_win_rate, most_robust=most_robust
+        )
+        return ret
+
     def execute_backtesting(
         self,
         *,
-        symbol: str,
-        ema_short: int,
-        ema_mid: int,
-        ema_long: int,
-        filter_adx: bool,
-        adx_threshold: int,
-        filter_volume: bool,
-        volume_threshold: float,
-        enable_tp: bool,
-        sl_multiplier: float,
-        tp_multiplier: float,
+        simulated_bs_config: BuySellSignalsConfigItem,
         initial_cash: float,
         df: pd.DataFrame,
-        echo_fn: Callable[[str], None],
-    ) -> tuple[Backtest, pd.Series]:
-        simulated_bs_config = BuySellSignalsConfigItem(
-            symbol=symbol,
-            ema_short_value=ema_short,
-            ema_mid_value=ema_mid,
-            ema_long_value=ema_long,
-            stop_loss_atr_multiplier=sl_multiplier,
-            take_profit_atr_multiplier=tp_multiplier,
-            filter_noise_using_adx=filter_adx,
-            adx_threshold=adx_threshold,
-            apply_volume_filter=filter_volume,
-            volume_threshold=volume_threshold,
-        )
-
+        echo_fn: Callable[[str], None] | None = None,
+        use_tqdm: bool = True,
+    ) -> tuple[BacktestingExecutionResult, Backtest, pd.Series]:
         self._analytics_service._calculate_simple_indicators(df, simulated_bs_config)
         self._analytics_service._calculate_complex_indicators(df)
 
         buy_signals = []
         sell_signals = []
 
-        echo_fn("🧠 Generating signals for each historical candle...")
-        for i in tqdm(range(4, len(df))):
+        if echo_fn:
+            echo_fn("🧠 Generating signals for each historical candle...")
+        range_of_values = range(4, len(df))
+        for i in tqdm(range_of_values) if use_tqdm else range_of_values:
             window_df = df.iloc[: i + 1]
             signals = self._signal_service._check_signals(
-                symbol=symbol,
+                symbol=simulated_bs_config.symbol,
                 timeframe="1h",
                 df=window_df,
                 buy_sell_signals_config=simulated_bs_config,
@@ -134,13 +157,69 @@ class BacktestingCliService:
         df["prev_macd_hist"] = df["macd_hist"].shift(1)
         df.fillna(False, inplace=True)
 
-        echo_fn("🚀 Running trading simulation...")
+        if echo_fn:
+            echo_fn("🚀 Running trading simulation...")
         df.rename(
             columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"}, inplace=True
         )
         bt = Backtest(df, SignalStrategy, cash=initial_cash, commission=BIT2ME_TAKER_FEES)
         stats = bt.run(
-            enable_tp=enable_tp, simulated_bs_config=simulated_bs_config, analytics_service=self._analytics_service
+            enable_tp=simulated_bs_config.auto_exit_atr_take_profit,
+            simulated_bs_config=simulated_bs_config,
+            analytics_service=self._analytics_service,
         )
+        current_execution_result = self._to_execution_result(simulated_bs_config, initial_cash, stats)
+        return current_execution_result, bt, stats
 
-        return bt, stats
+    def _apply_cartesian_production_execution(
+        self, symbol: str, initial_cash: float, df: pd.DataFrame, echo_fn: Callable[[str], None] | None = None
+    ) -> list[BacktestingExecutionResult]:
+        adx_threshold_values = ADX_THRESHOLD_VALUES.copy()
+        adx_threshold_values.insert(0, 0)  # Adding the "No filter" option
+        volume_threshold_values = VOLUME_THRESHOLD_VALUES.copy()
+        volume_threshold_values.insert(0, 0.0)  # Adding the "No
+
+        cartesian_product = list(
+            product(EMA_SHORT_MID_PAIRS, SP_TP_PAIRS, adx_threshold_values, volume_threshold_values)
+        )
+        if echo_fn:
+            echo_fn(f"Total combinations to test: {len(cartesian_product)}")
+        executions_results = []
+        for i in tqdm(range(len(cartesian_product))):
+            ema_short_and_ema_mid, sp_percent_and_tp_factors, adx_threshold, volume_threshold = cartesian_product[i]
+            ema_short, ema_mid = map(int, ema_short_and_ema_mid.split("/"))
+            sl_multiplier, tp_multiplier = map(float, sp_percent_and_tp_factors.split("/"))
+            try:
+                simulated_bs_config = BuySellSignalsConfigItem(
+                    symbol=symbol,
+                    ema_short_value=ema_short,
+                    ema_mid_value=ema_mid,
+                    ema_long_value=200,
+                    stop_loss_atr_multiplier=sl_multiplier,
+                    take_profit_atr_multiplier=tp_multiplier,
+                    filter_noise_using_adx=True,
+                    adx_threshold=adx_threshold,
+                    apply_volume_filter=True,
+                    volume_threshold=volume_threshold,
+                )
+                *_, stats = self.execute_backtesting(
+                    simulated_bs_config=simulated_bs_config, initial_cash=initial_cash, df=df.copy(), use_tqdm=False
+                )
+                current_execution_result = self._to_execution_result(simulated_bs_config, initial_cash, stats)
+                executions_results.append(current_execution_result)
+            except Exception as e:
+                echo_fn(f"Combination {i + 1} failed with error: {e}")
+        return executions_results
+
+    def _to_execution_result(
+        self, simulated_bs_config: BuySellSignalsConfigItem, initial_cash: float, stats: pd.Series
+    ) -> BacktestingExecutionResult:
+        net_profit_amount = stats["Equity Final [$]"] - initial_cash
+        current_execution_result = BacktestingExecutionResult(
+            parameters=simulated_bs_config,
+            number_of_trades=stats["# Trades"],
+            win_rate=stats["Win Rate [%]"],
+            net_profit_amount=net_profit_amount,
+            net_profit_percentage=stats["Return [%]"],
+        )
+        return current_execution_result
