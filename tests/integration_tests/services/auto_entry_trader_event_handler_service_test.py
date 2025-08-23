@@ -82,7 +82,12 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
     global_flag_service = GlobalFlagService()
 
     market_signal_item, _, crypto_currency, *_ = _prepare_httpserver_mock(
-        faker, httpserver, bit2me_api_key, bit2me_api_secret, warning_type=warning_type
+        faker,
+        httpserver,
+        bit2me_api_key,
+        bit2me_api_secret,
+        use_event_emitter=use_event_emitter,
+        warning_type=warning_type,
     )
     if not enable_atr_auto_take_profit:
         await buy_sell_signals_config_service.save_or_update(
@@ -139,6 +144,7 @@ def _prepare_httpserver_mock(
     bit2me_api_key: str,
     bik2me_api_secret: str,
     *,
+    use_event_emitter: bool = False,
     warning_type: AutoEntryTraderWarningTypeEnum,
 ) -> tuple[str, str, str]:
     symbol = faker.random_element(MOCK_SYMBOLS)
@@ -286,7 +292,7 @@ def _prepare_httpserver_mock(
             Bit2MeAPIRequestMacher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
                 bit2me_api_key, bik2me_api_secret
             ),
-            handler_type=HandlerType.ONESHOT,
+            handler_type=HandlerType.PERMANENT,
         ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
 
         if warning_type != AutoEntryTraderWarningTypeEnum.NOT_ENOUGH_FUNDS:
@@ -297,6 +303,23 @@ def _prepare_httpserver_mock(
             buy_order_created = Bit2MeOrderDtoObjectMother.create(
                 symbol=symbol, side="buy", order_amount=buy_order_amount, order_type="market", status="open"
             )
+            # Simulation of NOT_ENOUGH_BALANCE error the first time we try to create the order
+            if not use_event_emitter:
+                for _ in range(7):
+                    httpserver.expect(
+                        Bit2MeAPIRequestMacher(
+                            "/bit2me-api/v1/trading/order", method="POST"
+                        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+                        handler_type=HandlerType.ONESHOT,
+                    ).respond_with_json(
+                        {
+                            "statusCode": 412,
+                            "error": "Precondition Failed",
+                            "message": "Not enough balance in the wallet",
+                            "errorPayload": {"code": "NOT_ENOUGH_BALANCE"},
+                        },
+                        status=412,
+                    )
             httpserver.expect(
                 Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
                     bit2me_api_key, bik2me_api_secret
