@@ -102,6 +102,7 @@ class BacktestingCliService:
         symbol: str,
         initial_cash: float,
         downloaded_months_back: int = DEFAULT_MONTHS_BACK,
+        decent_win_rate: float = DECENT_WIN_RATE_THRESHOLD,
         df: pd.DataFrame,
         echo_fn: Callable[[str], None],
     ) -> BacktestingExecutionSummary:
@@ -115,23 +116,37 @@ class BacktestingCliService:
         profitable_results = [
             res
             for res in executions_results
-            if res.net_profit_percentage > 0 and res.number_of_trades >= min_trades_for_stats
+            if res.net_profit_amount > 0 and res.number_of_trades >= min_trades_for_stats
         ]
-        best_profitable, best_win_rate, most_robust = None, None, None
+        best_profitable, best_win_rate, highest_quality, most_robust = None, None, None, None
         if profitable_results:
             # --- Category 1: Best Profitable Configuration ---
-            best_profitable = max(profitable_results, key=lambda r: r.net_profit_percentage)
-            # --- Category 2: Best Win Rate Configuration ---
-            best_win_rate = max(profitable_results, key=lambda r: r.win_rate)
-            # --- Category 3: Most Robust (High Trades + Decent Win Rate + High Profit) ---
-            robust_candidates = [res for res in profitable_results if res.win_rate >= DECENT_WIN_RATE_THRESHOLD]
+            best_profitable = max(profitable_results, key=lambda r: r.net_profit_amount)
+            # --- Category 2: Best Win Rate ---
+            # First, find the maximum win rate that was achieved
+            max_win_rate = max(p.win_rate for p in profitable_results)
+            # Create a group of "elite" candidates with a win rate close to the maximum
+            # (e.g., all strategies within 5 percentage points of the best result)
+            elite_win_rate_candidates = [res for res in profitable_results if res.win_rate >= (max_win_rate - 5.0)]
+            # From that elite group, pick the one with the highest NET RETURN.
+            if elite_win_rate_candidates:
+                best_win_rate = max(elite_win_rate_candidates, key=lambda r: r.net_profit_amount)
+            else:  # Fallback in case the list is empty (should not happen)
+                best_win_rate = max(profitable_results, key=lambda r: r.win_rate)
+            # --- Category 3: Highest Quality (Return x Win Rate) ---
+            highest_quality = max(profitable_results, key=lambda r: r.net_profit_percentage * r.win_rate)
+            # --- Category 4: Most Robust (High Trades + Decent Win Rate + High Profit) ---
+            robust_candidates = [res for res in profitable_results if res.win_rate >= decent_win_rate]
             if robust_candidates:
                 # From the high-win-rate group, find the one with the best blend of profit and trade frequency
                 # We define a score that rewards both high return and a high number of trades
                 most_robust = max(robust_candidates, key=lambda r: r.net_profit_percentage * r.number_of_trades)
 
         ret = BacktestingExecutionSummary(
-            best_profitable=best_profitable, best_win_rate=best_win_rate, most_robust=most_robust
+            best_profitable=best_profitable,
+            best_win_rate=best_win_rate,
+            highest_quality=highest_quality,
+            most_robust=most_robust,
         )
         return ret
 

@@ -8,7 +8,7 @@ import typer
 from faker import Faker
 
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
-from crypto_trailing_stop.scripts.constants import DEFAULT_MONTHS_BACK
+from crypto_trailing_stop.scripts.constants import DECENT_WIN_RATE_THRESHOLD, DEFAULT_MONTHS_BACK
 from crypto_trailing_stop.scripts.services import BacktestingCliService
 from crypto_trailing_stop.scripts.utils import echo_backtesting_execution_result
 
@@ -144,6 +144,9 @@ def research(
     exchange: str = typer.Option("binance", help="The name of the exchange to use."),
     timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
     months_back: int = typer.Option(DEFAULT_MONTHS_BACK, help="The number of months of data to download."),
+    decent_win_rate: float = typer.Option(
+        DECENT_WIN_RATE_THRESHOLD, help="The minimum win rate to consider a configuration decent."
+    ),
 ):
     """
     Runs a research process to find the best parameters for a symbol, using local data.
@@ -159,7 +162,12 @@ def research(
         df.reset_index(drop=True, inplace=True)
         typer.echo(f"📊 {len(df)} candles loaded. Starting research...")
         execution_summary = backtesting_cli_service.find_out_best_parameters(
-            symbol=symbol, initial_cash=initial_cash, downloaded_months_back=months_back, df=df, echo_fn=typer.secho
+            symbol=symbol,
+            initial_cash=initial_cash,
+            downloaded_months_back=months_back,
+            decent_win_rate=decent_win_rate,
+            df=df,
+            echo_fn=typer.secho,
         )
         # Print the summary
         typer.secho(f"\n--- 🔬 {symbol.upper()} RESEARCH RESULTS ---", fg=typer.colors.MAGENTA, bold=True)
