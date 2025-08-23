@@ -8,6 +8,7 @@ import typer
 from faker import Faker
 
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
+from crypto_trailing_stop.scripts.constants import DEFAULT_MONTHS_BACK
 from crypto_trailing_stop.scripts.services import BacktestingCliService
 from crypto_trailing_stop.scripts.utils import echo_backtesting_execution_result
 
@@ -41,7 +42,7 @@ def download_data(
     symbol: str = typer.Argument(..., help="The symbol to download, e.g., ETH/EUR"),
     exchange: str = typer.Option("binance", help="The name of the exchange to use."),
     timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
-    years_back: float = typer.Option(1.0, help="The number of years of data to download."),
+    months_back: int = typer.Option(DEFAULT_MONTHS_BACK, help="The number of months of data to download."),
 ):
     """
     Downloads the last 1 year of 1H historical data for a symbol and saves it to data/.
@@ -50,7 +51,7 @@ def download_data(
     try:
         typer.secho(f"📥 Starting download for {symbol} on 1h timeframe...", fg=typer.colors.BLUE)
         all_ohlcv = backtesting_cli_service.download_backtesting_data(
-            symbol, exchange, timeframe, years_back, echo_fn=typer.secho
+            symbol, exchange, timeframe, months_back, echo_fn=typer.secho
         )
         typer.secho(f"✅ Download complete. {len(all_ohlcv)} candles fetched.", fg=typer.colors.GREEN)
         if all_ohlcv:
@@ -108,6 +109,8 @@ def backtesting(
             adx_threshold=adx_threshold,
             apply_volume_filter=filter_volume,
             volume_threshold=volume_threshold,
+            auto_exit_sell_1h=True,
+            auto_exit_atr_take_profit=enable_tp,
         )
         current_execution_result, bt, stats = backtesting_cli_service.execute_backtesting(
             simulated_bs_config=simulated_bs_config, initial_cash=initial_cash, df=df, echo_fn=typer.secho
@@ -137,22 +140,26 @@ def backtesting(
 def research(
     symbol: str = typer.Argument(..., help="The symbol to backtest, e.g., ETH/EUR"),
     initial_cash: float = typer.Option(3_000, help="Intial cash for the backtest."),
+    download: bool = typer.Option(True, help="Download data before running the research."),
+    exchange: str = typer.Option("binance", help="The name of the exchange to use."),
+    timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
+    months_back: int = typer.Option(DEFAULT_MONTHS_BACK, help="The number of months of data to download."),
 ):
     """
     Runs a research process to find the best parameters for a symbol, using local data.
     """
     symbol = symbol.strip().upper()
     try:
+        if download:
+            download_data(symbol=symbol, exchange=exchange, timeframe=timeframe, months_back=months_back)
         data_file = f"data/{symbol.replace('/', '_')}.csv"
         df = pd.read_csv(data_file)
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)
-
         typer.echo(f"📊 {len(df)} candles loaded. Starting research...")
-
         execution_summary = backtesting_cli_service.find_out_best_parameters(
-            symbol=symbol, initial_cash=initial_cash, df=df, echo_fn=typer.secho
+            symbol=symbol, initial_cash=initial_cash, downloaded_months_back=months_back, df=df, echo_fn=typer.secho
         )
         # Print the summary
         typer.secho(f"\n--- 🔬 {symbol.upper()} RESEARCH RESULTS ---", fg=typer.colors.MAGENTA, bold=True)

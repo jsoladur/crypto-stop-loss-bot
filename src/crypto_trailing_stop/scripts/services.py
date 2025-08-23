@@ -1,3 +1,4 @@
+import math
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from itertools import product
@@ -25,7 +26,9 @@ from crypto_trailing_stop.infrastructure.tasks.buy_sell_signals_task_service imp
 from crypto_trailing_stop.scripts.constants import (
     DECENT_WIN_RATE_THRESHOLD,
     DEFAULT_LIMIT_DOWNLOAD_BATCHES,
+    DEFAULT_MONTHS_BACK,
     DEFAULT_TRADING_MARKET_CONFIG,
+    MIN_ENTRIES_PER_WEEK,
     MIN_TRADES_FOR_STATS,
 )
 from crypto_trailing_stop.scripts.jobs import run_single_backtest_combination
@@ -49,7 +52,7 @@ class BacktestingCliService:
         symbol: str,
         exchange: str,
         timeframe: str,
-        years_back: int,
+        months_back: int,
         *,
         callback_fn: Callable[[], None] = None,
         echo_fn: Callable[[str], None],
@@ -59,7 +62,7 @@ class BacktestingCliService:
         exchange = getattr(ccxt, exchange)()
 
         end_date = datetime.now(UTC)
-        start_date = end_date - timedelta(days=365 * years_back)
+        start_date = end_date - timedelta(days=30 * months_back)
         previous_since_timestamp, since_timestamp = None, int(start_date.timestamp() * 1000)
         end_timestamp = int(end_date.timestamp() * 1000)
 
@@ -94,16 +97,25 @@ class BacktestingCliService:
         return ret
 
     def find_out_best_parameters(
-        self, *, symbol: str, initial_cash: float, df: pd.DataFrame, echo_fn: Callable[[str], None]
+        self,
+        *,
+        symbol: str,
+        initial_cash: float,
+        downloaded_months_back: int = DEFAULT_MONTHS_BACK,
+        df: pd.DataFrame,
+        echo_fn: Callable[[str], None],
     ) -> BacktestingExecutionSummary:
+        # 1. Calculate the minimum number of trades required to consider a strategy for stats
+        num_of_weeks_downloaded = downloaded_months_back * 4
+        min_trades_for_stats = max(MIN_TRADES_FOR_STATS, math.ceil(num_of_weeks_downloaded * MIN_ENTRIES_PER_WEEK))
+        # 2. Run backtesting for all combinations
         executions_results = self._apply_cartesian_production_execution(symbol, initial_cash, df, echo_fn)
-        # 2. Filter for viable strategies to analyze
+        # 3. Filter for viable strategies to analyze
         # We only care about strategies that were profitable and had a meaningful number of trades
-
         profitable_results = [
             res
             for res in executions_results
-            if res.net_profit_percentage > 0 and res.number_of_trades >= MIN_TRADES_FOR_STATS
+            if res.net_profit_percentage > 0 and res.number_of_trades >= min_trades_for_stats
         ]
         best_profitable, best_win_rate, most_robust = None, None, None
         if profitable_results:
