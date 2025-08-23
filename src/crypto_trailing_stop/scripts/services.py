@@ -116,7 +116,9 @@ class BacktestingCliService:
         profitable_results = [
             res
             for res in executions_results
-            if res.net_profit_amount > 0 and res.number_of_trades >= min_trades_for_stats
+            if res.net_profit_amount > 0
+            and res.number_of_trades >= min_trades_for_stats
+            and res.win_rate >= decent_win_rate
         ]
         best_profitable, best_win_rate, highest_quality, most_robust = None, None, None, None
         if profitable_results:
@@ -136,11 +138,7 @@ class BacktestingCliService:
             # --- Category 3: Highest Quality (Return x Win Rate) ---
             highest_quality = max(profitable_results, key=lambda r: r.net_profit_percentage * r.win_rate)
             # --- Category 4: Most Robust (High Trades + Decent Win Rate + High Profit) ---
-            robust_candidates = [res for res in profitable_results if res.win_rate >= decent_win_rate]
-            if robust_candidates:
-                # From the high-win-rate group, find the one with the best blend of profit and trade frequency
-                # We define a score that rewards both high return and a high number of trades
-                most_robust = max(robust_candidates, key=lambda r: r.net_profit_percentage * r.number_of_trades)
+            most_robust = max(profitable_results, key=lambda r: r.net_profit_percentage * r.number_of_trades)
 
         ret = BacktestingExecutionSummary(
             best_profitable=best_profitable,
