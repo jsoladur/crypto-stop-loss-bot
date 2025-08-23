@@ -8,6 +8,7 @@ from aiogram import html
 from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import (
+    AUTO_ENTRY_TRADER_MAX_ATTEMPS_TO_BUY,
     AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST,
     TRIGGER_BUY_ACTION_EVENT_NAME,
 )
@@ -169,22 +170,13 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
         # Introduces a security buffer deposit (e.g. 99.8% of capital)
         amount_with_buffer = initial_amount_to_invest * 0.998
-        # XXX: [JMSOLA] Get the current tickers.ask price for calculate the order_amount
-        tickers = await self._bit2me_remote_service.get_single_tickers_by_symbol(
-            market_signal_item.symbol, client=client
-        )
-        buy_order_amount = self._floor_round(
-            amount_with_buffer / tickers.ask_or_close, ndigits=trading_market_config.amount_precision
-        )
-        final_amount_to_invest = buy_order_amount * tickers.ask_or_close
-        logger.info(
-            f"[Auto-Entry Trader] Trying to create BUY MARKET ORDER for {market_signal_item.symbol}, "  # noqa: E501
-            + f"which has current buy price {tickers.ask_or_close} {fiat_currency}. "
-            + f"Investing {final_amount_to_invest:.2f} {fiat_currency}, "
-            + f"buying {buy_order_amount} {crypto_currency}"
-        )
-        new_buy_market_order = await self._create_new_buy_market_order_and_wait_until_filled(
-            market_signal_item, buy_order_amount, client=client
+        new_buy_market_order, tickers = await self._execute_market_entry(
+            market_signal_item,
+            crypto_currency,
+            fiat_currency,
+            amount_with_buffer,
+            trading_market_config=trading_market_config,
+            client=client,
         )
         # XXX [JMSOLA]: Disabling temporary Limit Sell Guard order for precaution
         await self._global_flag_service.force_disable_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
@@ -237,6 +229,50 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             math.floor(eur_wallet_balance.balance), math.floor(remaining_to_invest) if remaining_to_invest > 0 else 0
         )
         return amount_to_invest
+
+    async def _execute_market_entry(
+        self,
+        market_signal_item: MarketSignalItem,
+        crypto_currency: str,
+        fiat_currency: str,
+        amount_with_buffer: float,
+        *,
+        trading_market_config: Bit2MeMarketConfigDto,
+        client: AsyncClient,
+    ) -> tuple[Bit2MeOrderDto, Bit2MeTickersDto]:
+        new_buy_market_order: Bit2MeOrderDto | None = None
+        last_exception: Exception | None = None
+        attemps = 0
+        while new_buy_market_order is None and attemps < AUTO_ENTRY_TRADER_MAX_ATTEMPS_TO_BUY:
+            try:
+                tickers = await self._bit2me_remote_service.get_single_tickers_by_symbol(
+                    market_signal_item.symbol, client=client
+                )
+                # XXX: [JMSOLA] Get the current tickers.ask price for calculate the order_amount
+                buy_order_amount = self._floor_round(
+                    amount_with_buffer / tickers.ask_or_close, ndigits=trading_market_config.amount_precision
+                )
+                final_amount_to_invest = buy_order_amount * tickers.ask_or_close
+                logger.info(
+                    f"[Auto-Entry Trader] Trying to create BUY MARKET ORDER for {market_signal_item.symbol}, "  # noqa: E501
+                    + f"which has current buy price {tickers.ask_or_close} {fiat_currency}. "
+                    + f"Investing {final_amount_to_invest:.2f} {fiat_currency}, "
+                    + f"buying {buy_order_amount} {crypto_currency}"
+                )
+                new_buy_market_order = await self._create_new_buy_market_order_and_wait_until_filled(
+                    market_signal_item, buy_order_amount, client=client
+                )
+            except Exception as e:  # pragma: no cover
+                last_exception = e
+                logger.warning(
+                    f"[Auto-Entry Trader] An error ocurred when creating the BUY MARKET ORDER for {market_signal_item.symbol}, "  # noqa: E501
+                    + f"which had current buy price {tickers.ask_or_close} {fiat_currency} and "
+                    + f"{buy_order_amount} {crypto_currency} as amount to invest. "
+                    + f"Re-calculating buy order amount and trying again... :: {str(e)}"
+                )
+        if new_buy_market_order is None and last_exception is not None:  # pragma: no cover
+            raise last_exception
+        return new_buy_market_order, tickers
 
     async def _create_new_buy_market_order_and_wait_until_filled(
         self, market_signal_item: MarketSignalItem, buy_order_amount: float | int, client: AsyncClient
