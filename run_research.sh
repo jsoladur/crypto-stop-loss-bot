@@ -7,7 +7,6 @@ source .venv/bin/activate
 PAIRS=(
     "AAVE/EUR:kraken"
     "ETH/EUR:binance"
-    "FIL/EUR:kraken"
     "LINK/EUR:binance"
     "RENDER/EUR:binance"
     "SOL/EUR:binance"
@@ -42,7 +41,7 @@ for pair in "${PAIRS[@]}"; do
 
     # 3. Execute the 'research' command, passing the exchange.
     # The 'research' command will handle the data download itself.
-    cli research "$symbol" --exchange "$exchange" --disable-progress-bar &> "$log_file"
+    cli research "$symbol" --exchange "$exchange" --disable-progress-bar "$@" &> "$log_file"
 
     echo "✅ Finished research for ${symbol} on ${exchange}."
     echo "--------------------------------------------------"
