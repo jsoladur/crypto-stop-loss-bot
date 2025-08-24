@@ -7,6 +7,7 @@ from typing import Any
 
 import ccxt
 import pandas as pd
+import pydash
 from backtesting import backtesting
 from joblib import Parallel, delayed
 from tqdm import tqdm
@@ -14,8 +15,8 @@ from tqdm import tqdm
 from crypto_trailing_stop.commons.constants import (
     ADX_THRESHOLD_VALUES,
     BIT2ME_TAKER_FEES,
-    EMA_SHORT_MID_PAIRS,
-    SP_TP_PAIRS,
+    EMA_SHORT_MID_PAIRS_AS_TUPLES,
+    SP_TP_PAIRS_AS_TUPLES,
     VOLUME_THRESHOLD_VALUES,
 )
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
@@ -218,17 +219,7 @@ class BacktestingCliService:
         df: pd.DataFrame,
         echo_fn: Callable[[str], None] | None = None,
     ) -> list[BacktestingExecutionResult]:
-        adx_threshold_values = ADX_THRESHOLD_VALUES.copy()
-        adx_threshold_values.insert(0, 0)  # Adding the "No filter" option
-        volume_threshold_values = VOLUME_THRESHOLD_VALUES.copy()
-        volume_threshold_values.insert(0, 0.0)  # Adding the "No
-        enable_tp_values = [True, False]
-
-        cartesian_product = list(
-            product(EMA_SHORT_MID_PAIRS, SP_TP_PAIRS, adx_threshold_values, volume_threshold_values, enable_tp_values)
-        )
-        if echo_fn:
-            echo_fn(f"Total combinations to test: {len(cartesian_product)}")
+        cartesian_product = self._calculate_cartesian_product(echo_fn=echo_fn)
         # Use joblib to run the backtests in parallel across all available CPU cores
         # tqdm is now wrapped around the parallel execution
         results = Parallel(n_jobs=-1)(
@@ -238,6 +229,37 @@ class BacktestingCliService:
         # Filter out any runs that failed (they will return None)
         executions_results = [res for res in results if res is not None]
         return executions_results
+
+    def _calculate_cartesian_product(self, *, echo_fn: Callable[[str], None] | None = None):
+        sp_tp_tuples_group_by_sp = pydash.group_by(SP_TP_PAIRS_AS_TUPLES, lambda pair: pair[0])
+        sp_tp_tuples_when_tp_disabled = [sp_tp_tuples[0] for sp_tp_tuples in sp_tp_tuples_group_by_sp.values()]
+        sp_tp_tuples_when_tp_enabled = SP_TP_PAIRS_AS_TUPLES
+        adx_threshold_values = ADX_THRESHOLD_VALUES.copy()
+        adx_threshold_values.insert(0, 0)  # Adding the "No filter" option
+        volume_threshold_values = VOLUME_THRESHOLD_VALUES.copy()
+        volume_threshold_values.insert(0, 0.0)  # Adding the "No
+        cartesian_product_when_tp_disabled = list(
+            product(
+                EMA_SHORT_MID_PAIRS_AS_TUPLES,
+                sp_tp_tuples_when_tp_disabled,
+                adx_threshold_values,
+                volume_threshold_values,
+                [False],
+            )
+        )
+        cartesian_product_when_tp_enabled = list(
+            product(
+                EMA_SHORT_MID_PAIRS_AS_TUPLES,
+                sp_tp_tuples_when_tp_enabled,
+                adx_threshold_values,
+                volume_threshold_values,
+                [True],
+            )
+        )
+        cartesian_product = cartesian_product_when_tp_disabled + cartesian_product_when_tp_enabled
+        if echo_fn:
+            echo_fn(f"Total combinations to test: {len(cartesian_product)}")
+        return cartesian_product
 
     def _to_execution_result(
         self, simulated_bs_config: BuySellSignalsConfigItem, initial_cash: float, stats: pd.Series

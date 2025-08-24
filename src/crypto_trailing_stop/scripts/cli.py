@@ -186,7 +186,7 @@ def research(
             for field in execution_summary_fields:
                 value = getattr(execution_summary, field.name)
                 if value:
-                    typer.secho(f"\n--- 🏆 Champion: {pydash.start_case(field.name)} ---")
+                    typer.secho(f"\n--- {symbol.upper()} 🏆 Champion: {pydash.start_case(field.name)} ---")
                     echo_backtesting_execution_result(value)
 
     except FileNotFoundError:

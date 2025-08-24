@@ -20,9 +20,7 @@ def run_single_backtest_combination(
 
     backtesting_cli_service = BacktestingCliService()
 
-    ema_short_and_ema_mid, sp_percent_and_tp_factors, adx_threshold, volume_threshold, enable_tp = params
-    ema_short, ema_mid = map(int, ema_short_and_ema_mid.split("/"))
-    sl_multiplier, tp_multiplier = map(float, sp_percent_and_tp_factors.split("/"))
+    (ema_short, ema_mid), (sl_multiplier, tp_multiplier), adx_threshold, volume_threshold, enable_tp = params
     ret: BacktestingExecutionResult | None = None
     try:
         simulated_bs_config = BuySellSignalsConfigItem(

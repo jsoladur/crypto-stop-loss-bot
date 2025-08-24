@@ -5,13 +5,15 @@ source .venv/bin/activate
 # --- CONFIGURATION ---
 # Define the "SYMBOL:EXCHANGE" pairs you want to test.
 PAIRS=(
-    "AAVE/EUR:kraken"
-    "ETH/EUR:binance"
+    "SUI/EUR:binance"
     "LINK/EUR:binance"
+    "ETH/EUR:binance"
     "RENDER/EUR:binance"
     "SOL/EUR:binance"
-    "SUI/EUR:binance"
     "XRP/EUR:binance"
+    "AAVE/EUR:kraken"
+    "ENA/EUR:kraken"
+    # "FIL/EUR:kraken"
 )
 
 # Define the directory where the result logs will be saved.
