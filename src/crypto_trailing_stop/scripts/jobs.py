@@ -20,7 +20,7 @@ def run_single_backtest_combination(
 
     backtesting_cli_service = BacktestingCliService()
 
-    ema_short_and_ema_mid, sp_percent_and_tp_factors, adx_threshold, volume_threshold = params
+    ema_short_and_ema_mid, sp_percent_and_tp_factors, adx_threshold, volume_threshold, enable_tp = params
     ema_short, ema_mid = map(int, ema_short_and_ema_mid.split("/"))
     sl_multiplier, tp_multiplier = map(float, sp_percent_and_tp_factors.split("/"))
     ret: BacktestingExecutionResult | None = None
@@ -36,6 +36,7 @@ def run_single_backtest_combination(
             adx_threshold=adx_threshold,
             apply_volume_filter=volume_threshold > 0,  # Volume filter is enabled if threshold > 0
             volume_threshold=volume_threshold,
+            auto_exit_atr_take_profit=enable_tp,
         )
         # We use df.copy() to ensure each process gets its own data
         ret, *_ = backtesting_cli_service.execute_backtesting(

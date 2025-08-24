@@ -222,9 +222,10 @@ class BacktestingCliService:
         adx_threshold_values.insert(0, 0)  # Adding the "No filter" option
         volume_threshold_values = VOLUME_THRESHOLD_VALUES.copy()
         volume_threshold_values.insert(0, 0.0)  # Adding the "No
+        enable_tp_values = [True, False]
 
         cartesian_product = list(
-            product(EMA_SHORT_MID_PAIRS, SP_TP_PAIRS, adx_threshold_values, volume_threshold_values)
+            product(EMA_SHORT_MID_PAIRS, SP_TP_PAIRS, adx_threshold_values, volume_threshold_values, enable_tp_values)
         )
         if echo_fn:
             echo_fn(f"Total combinations to test: {len(cartesian_product)}")
