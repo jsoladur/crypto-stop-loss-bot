@@ -102,6 +102,8 @@ class BacktestingCliService:
         symbol: str,
         initial_cash: float,
         downloaded_months_back: int = DEFAULT_MONTHS_BACK,
+        disable_minimal_trades: bool = False,
+        disable_decent_win_rate: bool = False,
         decent_win_rate: float = DECENT_WIN_RATE_THRESHOLD,
         disable_progress_bar: bool = False,
         df: pd.DataFrame,
@@ -120,8 +122,8 @@ class BacktestingCliService:
             res
             for res in executions_results
             if res.net_profit_amount > 0
-            and res.number_of_trades >= min_trades_for_stats
-            and res.win_rate >= decent_win_rate
+            and (disable_minimal_trades or res.number_of_trades >= min_trades_for_stats)
+            and (disable_decent_win_rate or res.win_rate >= decent_win_rate)
         ]
         best_profitable, best_win_rate, highest_quality, most_robust = None, None, None, None
         if profitable_results:

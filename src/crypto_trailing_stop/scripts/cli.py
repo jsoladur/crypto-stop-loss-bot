@@ -144,6 +144,8 @@ def research(
     exchange: str = typer.Option("binance", help="The name of the exchange to use."),
     timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
     months_back: int = typer.Option(DEFAULT_MONTHS_BACK, help="The number of months of data to download."),
+    disable_minimal_trades: bool = typer.Option(False, help="Disable the minimal trades threshold."),
+    disable_decent_win_rate: bool = typer.Option(False, help="Disable the decent win rate threshold."),
     decent_win_rate: float = typer.Option(
         DECENT_WIN_RATE_THRESHOLD, help="The minimum win rate to consider a configuration decent."
     ),
@@ -166,6 +168,8 @@ def research(
             symbol=symbol,
             initial_cash=initial_cash,
             downloaded_months_back=months_back,
+            disable_minimal_trades=disable_minimal_trades,
+            disable_decent_win_rate=disable_decent_win_rate,
             decent_win_rate=decent_win_rate,
             disable_progress_bar=disable_progress_bar,
             df=df,
