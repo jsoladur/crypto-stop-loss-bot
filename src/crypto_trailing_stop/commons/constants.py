@@ -42,6 +42,6 @@ MIN_VOLUME_THRESHOLD_VALUES = [
     round(min_volume_threshold, ndigits=2) for min_volume_threshold in np.arange(0.05, 2.05, 0.05).tolist()
 ]
 MAX_VOLUME_THRESHOLD_VALUES = [
-    round(max_volume_threshold, ndigits=2) for max_volume_threshold in np.arange(2.5, 5.5, 0.5).tolist()
+    round(max_volume_threshold, ndigits=2) for max_volume_threshold in np.arange(2.5, 4.5, 0.5).tolist()
 ]
 YES_NO_VALUES = ["Yes", "No"]
