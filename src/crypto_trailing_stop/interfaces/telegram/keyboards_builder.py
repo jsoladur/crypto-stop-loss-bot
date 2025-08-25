@@ -65,6 +65,7 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
             InlineKeyboardButton(text="🔔 Alerts", callback_data="push_notificacions_home"),
         )
         builder.row(InlineKeyboardButton(text="🚏 Stop Loss %", callback_data="stop_loss_percent_home"))
+        builder.row(InlineKeyboardButton(text="🎯 Take-Profit Toggler", callback_data="take_profit_toggler_home"))
         builder.row(InlineKeyboardButton(text="🚥 Market Signals", callback_data="last_market_signals_home"))
         if self._configuration_properties.gemini_pro_api_enabled:
             builder.row(InlineKeyboardButton(text="🪄 Gemini Generative AI", callback_data="gemini_generative_ai_home"))
@@ -91,6 +92,20 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
             builder.row(
                 InlineKeyboardButton(
                     text=f"⚡ {item.symbol}", callback_data=f"set_buy_sell_signals_config$${item.symbol}"
+                )
+            )
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
+        return builder.as_markup()
+
+    def get_take_profit_toggler_home_keyboard(self, items: list[BuySellSignalsConfigItem]) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        for item in items:
+            action_icon = "⏸️" if item.auto_exit_atr_take_profit else "▶️"
+            state_icon = "🟢" if item.auto_exit_atr_take_profit else "🟥"
+            builder.row(
+                InlineKeyboardButton(
+                    text=f"{state_icon} {action_icon} {item.symbol}",
+                    callback_data=f"take_profit_toggler$${item.symbol}",
                 )
             )
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))

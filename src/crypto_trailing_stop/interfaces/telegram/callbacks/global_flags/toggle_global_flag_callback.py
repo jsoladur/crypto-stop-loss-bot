@@ -21,7 +21,7 @@ global_flag_service = GlobalFlagService()
 
 
 @dp.callback_query(F.data.regexp(r"^toggle_global_flag\$\$(.+)$"))
-async def toggle_push_notification_callback_handler(callback_query: CallbackQuery, state: FSMContext) -> None:
+async def toggle_global_flag_callback_handler(callback_query: CallbackQuery, state: FSMContext) -> None:
     is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:
@@ -34,9 +34,9 @@ async def toggle_push_notification_callback_handler(callback_query: CallbackQuer
                 reply_markup=keyboards_builder.get_home_keyboard(),
             )
         except Exception as e:
-            logger.error(f"Error trying to toggle push notifications for this chat: {str(e)}", exc_info=True)
+            logger.error(f"Error trying to toggle global flag: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ An error occurred while toggling push notifications. Please try again later:\n\n{html.code(html_escape(str(e)))}"  # noqa: E501
+                f"⚠️ An error occurred while toggling global flag. Please try again later:\n\n{html.code(html_escape(str(e)))}"  # noqa: E501
             )
     else:
         await callback_query.message.answer(
