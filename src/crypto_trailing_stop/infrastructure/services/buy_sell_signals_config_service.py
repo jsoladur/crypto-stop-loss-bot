@@ -47,6 +47,13 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
         logger.info(f"Using {repr(ret)} for {symbol}...")
         return ret
 
+    async def toggle_auto_exit_atr_take_profit_by_symbol(self, symbol: str) -> BuySellSignalsConfigItem:
+        item = await self.find_by_symbol(symbol)
+        item.auto_exit_atr_take_profit = not item.auto_exit_atr_take_profit
+        await self.save_or_update(item)
+        logger.info(f"Auto Exit ATR Take Profit for {symbol} has been set to {item.auto_exit_atr_take_profit}")
+        return item
+
     async def save_or_update(self, item: BuySellSignalsConfigItem) -> None:
         # XXX: [JMSOLA] Disable Limit Sell Order Guard job for as a precaution,
         #      just in case we provoked expected situation!
