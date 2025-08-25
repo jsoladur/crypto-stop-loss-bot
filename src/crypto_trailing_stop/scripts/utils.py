@@ -19,7 +19,7 @@ def echo_backtesting_execution_result(result: BacktestingExecutionResult) -> Non
         f"  - ADX Filter: {'Enabled' if simulated_bs_config.filter_noise_using_adx and simulated_bs_config.adx_threshold > 0 else 'Disabled'}, Threshold: {simulated_bs_config.adx_threshold if simulated_bs_config.filter_noise_using_adx and simulated_bs_config.adx_threshold > 0 else 'N/A'}"  # noqa: E501
     )
     typer.echo(
-        f"  - Volume Filter: {'Enabled' if simulated_bs_config.apply_volume_filter and simulated_bs_config.volume_threshold > 0 else 'Disabled'}, Threshold: {simulated_bs_config.volume_threshold if simulated_bs_config.apply_volume_filter and simulated_bs_config.volume_threshold > 0 else 'N/A'}"  # noqa: E501
+        f"  - Volume Filter: {'Enabled' if simulated_bs_config.apply_volume_filter and simulated_bs_config.min_volume_threshold > 0 else 'Disabled'}, Min. Threshold: {simulated_bs_config.min_volume_threshold if simulated_bs_config.apply_volume_filter and simulated_bs_config.min_volume_threshold > 0 else 'N/A'}, Max. Threshold: {simulated_bs_config.max_volume_threshold if simulated_bs_config.apply_volume_filter and simulated_bs_config.min_volume_threshold > 0 else 'N/A'}"  # noqa: E501
     )
     typer.echo(
         f"  - Take Profit: {'Enabled' if simulated_bs_config.auto_exit_atr_take_profit else 'Disabled'}"  # noqa: E501
