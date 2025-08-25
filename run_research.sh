@@ -7,12 +7,12 @@ source .venv/bin/activate
 PAIRS=(
     "SUI/EUR:binance"
     "LINK/EUR:binance"
-    "ETH/EUR:binance"
     "RENDER/EUR:binance"
     "SOL/EUR:binance"
+    "ETH/EUR:binance"
     "XRP/EUR:binance"
-    "AAVE/EUR:kraken"
-    "ENA/EUR:kraken"
+    # "AAVE/EUR:kraken"
+    # "ENA/EUR:kraken"
     # "FIL/EUR:kraken"
 )
 
