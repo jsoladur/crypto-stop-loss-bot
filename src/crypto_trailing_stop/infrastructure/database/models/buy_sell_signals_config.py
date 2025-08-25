@@ -16,6 +16,7 @@ class BuySellSignalsConfig(Table):
     filter_noise_using_adx: bool = Boolean(required=True)
     adx_threshold: int = Integer(required=True)
     apply_volume_filter: bool = Boolean(required=True)
-    volume_threshold: float = Float(required=True)
+    min_volume_threshold: float = Float(required=True)
+    max_volume_threshold: float = Float(required=True)
     auto_exit_sell_1h: bool = Boolean(required=True)
     auto_exit_atr_take_profit: bool = Boolean(required=True)

@@ -60,7 +60,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             config.filter_noise_using_adx = item.filter_noise_using_adx
             config.adx_threshold = item.adx_threshold
             config.apply_volume_filter = item.apply_volume_filter
-            config.volume_threshold = item.volume_threshold
+            config.min_volume_threshold = item.min_volume_threshold
+            config.max_volume_threshold = item.max_volume_threshold
             config.auto_exit_sell_1h = item.auto_exit_sell_1h
             config.auto_exit_atr_take_profit = item.auto_exit_atr_take_profit
         else:
@@ -75,7 +76,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
                     BuySellSignalsConfig.filter_noise_using_adx: item.filter_noise_using_adx,
                     BuySellSignalsConfig.adx_threshold: item.adx_threshold,
                     BuySellSignalsConfig.apply_volume_filter: item.apply_volume_filter,
-                    BuySellSignalsConfig.volume_threshold: item.volume_threshold,
+                    BuySellSignalsConfig.min_volume_threshold: item.min_volume_threshold,
+                    BuySellSignalsConfig.max_volume_threshold: item.max_volume_threshold,
                     BuySellSignalsConfig.auto_exit_sell_1h: item.auto_exit_sell_1h,
                     BuySellSignalsConfig.auto_exit_atr_take_profit: item.auto_exit_atr_take_profit,
                 }
@@ -93,7 +95,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             filter_noise_using_adx=buy_sell_signals_config.filter_noise_using_adx,
             adx_threshold=buy_sell_signals_config.adx_threshold,
             apply_volume_filter=buy_sell_signals_config.apply_volume_filter,
-            volume_threshold=buy_sell_signals_config.volume_threshold,
+            min_volume_threshold=buy_sell_signals_config.min_volume_threshold,
+            max_volume_threshold=buy_sell_signals_config.max_volume_threshold,
             auto_exit_sell_1h=buy_sell_signals_config.auto_exit_sell_1h,
             auto_exit_atr_take_profit=buy_sell_signals_config.auto_exit_atr_take_profit,
         )

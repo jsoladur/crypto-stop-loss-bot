@@ -7,8 +7,9 @@ from crypto_trailing_stop.commons.constants import (
     ADX_THRESHOLD_VALUES,
     EMA_LONG_VALUES,
     EMA_SHORT_MID_PAIRS,
+    MAX_VOLUME_THRESHOLD_VALUES,
+    MIN_VOLUME_THRESHOLD_VALUES,
     SP_TP_PAIRS,
-    VOLUME_THRESHOLD_VALUES,
     YES_NO_VALUES,
 )
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
@@ -60,12 +61,19 @@ class BuySellSignalsConfigForm(Form):
         filter=F.text.in_(YES_NO_VALUES) & F.text,
         reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
     )
-    volume_threshold: float = FormField(
-        enter_message_text="🔊 Select Volume Threshold",
-        error_message_text="❌ Invalid Volume Threshold value. Valid values: "
-        + f"{', '.join([str(value) for value in VOLUME_THRESHOLD_VALUES])}",
-        filter=F.text.in_([str(value) for value in VOLUME_THRESHOLD_VALUES]) & F.text,
-        reply_markup=KeyboardsBuilder.get_volume_threshold_keyboard(),
+    min_volume_threshold: float = FormField(
+        enter_message_text="🔊 Select Min. Rel. Volume Threshold",
+        error_message_text="❌ Invalid Min. Rel. Vol. Threshold value. Valid values: "
+        + f"{', '.join([str(value) for value in MIN_VOLUME_THRESHOLD_VALUES])}",
+        filter=F.text.in_([str(value) for value in MIN_VOLUME_THRESHOLD_VALUES]) & F.text,
+        reply_markup=KeyboardsBuilder.get_min_volume_threshold_keyboard(),
+    )
+    max_volume_threshold: float = FormField(
+        enter_message_text="🔇 Select Max. Rel. Volume Threshold",
+        error_message_text="❌ Invalid Max. Rel. Volume Threshold value. Valid values: "
+        + f"{', '.join([str(value) for value in MAX_VOLUME_THRESHOLD_VALUES])}",
+        filter=F.text.in_([str(value) for value in MAX_VOLUME_THRESHOLD_VALUES]) & F.text,
+        reply_markup=KeyboardsBuilder.get_max_volume_threshold_keyboard(),
     )
     auto_exit_sell_1h: str = FormField(
         enter_message_text="🚨 Auto-Exit SELL 1H enabled?",
@@ -93,7 +101,8 @@ class BuySellSignalsConfigForm(Form):
             filter_noise_using_adx=bool(self.filter_noise_using_adx.lower() == "yes"),
             adx_threshold=int(self.adx_threshold),
             apply_volume_filter=bool(self.apply_volume_filter.lower() == "yes"),
-            volume_threshold=float(self.volume_threshold),
+            min_volume_threshold=float(self.min_volume_threshold),
+            max_volume_threshold=float(self.max_volume_threshold),
             auto_exit_sell_1h=bool(self.auto_exit_sell_1h.lower() == "yes"),
             auto_exit_atr_take_profit=bool(self.auto_exit_atr_take_profit.lower() == "yes"),
         )
