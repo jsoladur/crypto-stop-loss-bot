@@ -142,9 +142,8 @@ cli download-data <SYMBOL> [OPTIONS]
 **Example:**
 
 To download the last 2 years of 1-hour data for `ETH/EUR` from Kraken:
-
 ```sh
-cli download-data ETH/EUR --exchange=(binance|kraken) --years-back=1
+cli download-data ETH/EUR --exchange=kraken --months-back=24
 ```
 
 This will create a `.csv` file in the `data/` directory (e.g., `data/ETH_EUR.csv`).
@@ -167,6 +166,24 @@ cli backtesting ETH/EUR --ema-short=9 --ema-mid=21 --adx-threshold=25 --enable-t
 
 The CLI will output a summary of the backtest results, including net profit/loss, win rate, and the number of trades.
 
+### Step 3: Research Best Parameters
+
+The `research` command automates finding the optimal strategy parameters for a given symbol. It iterates through various combinations of indicators to identify the most profitable configurations based on historical data.
+
+```sh
+cli research <SYMBOL> [OPTIONS]
+```
+
+**Example:**
+
+To find the best parameters for `BTC/USDT` using the last 12 months of data:
+
+```sh
+cli research BTC/USDT --months-back=12
+```
+
+The command will output a summary of the best-performing configurations, ranked by profitability.
+
 ### Backtesting Parameters
 
 | Parameter          | Type      | Default    | Description                                                                                                        |
@@ -185,6 +202,18 @@ The CLI will output a summary of the backtest results, including net profit/loss
 | `--initial-cash`   | `float`   | `3000`     | The starting cash amount for the simulation.                                                                       |
 | `--show-plot`      | `boolean` | `False`    | If enabled, displays an interactive plot of the backtest results upon completion.                                  |
 | `--debug`          | `boolean` | `False`    | If enabled, saves the dataframe with all calculated indicators to a `.csv` file for analysis.                      |
+
+### Research Parameters
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `symbol` | `string` | **Required** | The symbol to research (e.g., `BTC/USDT`). |
+| `--initial-cash` | `float` | `3000` | The starting cash amount for the simulation. |
+| `--download` | `boolean` | `True` | If enabled, downloads the latest data before running the research. |
+| `--exchange` | `string` | `binance` | The exchange to download data from. |
+| `--timeframe` | `string` | `1h` | The timeframe to download data for. |
+| `--months-back` | `integer` | `6` | The number of months of historical data to download. |
+| `--decent-win-rate`| `float` | `55.0` | The minimum win rate to consider a configuration as "decent". |
 
 ---
 
