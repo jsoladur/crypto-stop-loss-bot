@@ -20,7 +20,14 @@ def run_single_backtest_combination(
 
     backtesting_cli_service = BacktestingCliService()
 
-    (ema_short, ema_mid), (sl_multiplier, tp_multiplier), adx_threshold, volume_threshold, enable_tp = params
+    (
+        (ema_short, ema_mid),
+        (sl_multiplier, tp_multiplier),
+        adx_threshold,
+        min_volume_threshold,
+        max_volume_threshold,
+        enable_tp,
+    ) = params
     ret: BacktestingExecutionResult | None = None
     try:
         simulated_bs_config = BuySellSignalsConfigItem(
@@ -32,8 +39,9 @@ def run_single_backtest_combination(
             take_profit_atr_multiplier=tp_multiplier,
             filter_noise_using_adx=adx_threshold > 0,  # ADX is enabled if threshold > 0
             adx_threshold=adx_threshold,
-            apply_volume_filter=volume_threshold > 0,  # Volume filter is enabled if threshold > 0
-            volume_threshold=volume_threshold,
+            apply_volume_filter=min_volume_threshold > 0,  # Volume filter is enabled if threshold > 0
+            min_volume_threshold=min_volume_threshold,
+            max_volume_threshold=max_volume_threshold,
             auto_exit_atr_take_profit=enable_tp,
         )
         # We use df.copy() to ensure each process gets its own data

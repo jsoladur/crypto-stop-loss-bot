@@ -65,8 +65,9 @@ class ConfigurationProperties(BaseSettings):
     buy_sell_signals_rsi_oversold: int = 30
     # XXX: ADX threshold
     buy_sell_signals_adx_threshold: int = 15
-    # XXX: Min Relative Volume threshold
-    buy_sell_signals_volume_threshold: float = 0.5
+    # XXX: Min/Max Relative Volume threshold
+    buy_sell_signals_min_volume_threshold: float = 0.5
+    buy_sell_signals_max_volume_threshold: float = 3.5
     # Auto-Entry Trader configuration properties
     max_atr_percent_for_auto_entry: int = STOP_LOSS_STEPS_VALUE_LIST[-1]
     # XXX: EMA values (after backtesting EMA 9/21 is the best for mostly all crypto currencies)

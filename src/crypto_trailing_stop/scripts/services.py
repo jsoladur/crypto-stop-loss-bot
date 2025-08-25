@@ -16,8 +16,9 @@ from crypto_trailing_stop.commons.constants import (
     ADX_THRESHOLD_VALUES,
     BIT2ME_TAKER_FEES,
     EMA_SHORT_MID_PAIRS_AS_TUPLES,
+    MAX_VOLUME_THRESHOLD_VALUES,
+    MIN_VOLUME_THRESHOLD_VALUES,
     SP_TP_PAIRS_AS_TUPLES,
-    VOLUME_THRESHOLD_VALUES,
 )
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
@@ -236,14 +237,16 @@ class BacktestingCliService:
         sp_tp_tuples_when_tp_enabled = SP_TP_PAIRS_AS_TUPLES
         adx_threshold_values = ADX_THRESHOLD_VALUES.copy()
         adx_threshold_values.insert(0, 0)  # Adding the "No filter" option
-        volume_threshold_values = VOLUME_THRESHOLD_VALUES.copy()
-        volume_threshold_values.insert(0, 0.0)  # Adding the "No
+        min_volume_threshold_values = MIN_VOLUME_THRESHOLD_VALUES.copy()
+        min_volume_threshold_values.insert(0, 0.0)  # Adding the "No filter" option
+        max_volume_threshold_values = MAX_VOLUME_THRESHOLD_VALUES.copy()
         cartesian_product_when_tp_disabled = list(
             product(
                 EMA_SHORT_MID_PAIRS_AS_TUPLES,
                 sp_tp_tuples_when_tp_disabled,
                 adx_threshold_values,
-                volume_threshold_values,
+                min_volume_threshold_values,
+                max_volume_threshold_values,
                 [False],
             )
         )
@@ -252,7 +255,8 @@ class BacktestingCliService:
                 EMA_SHORT_MID_PAIRS_AS_TUPLES,
                 sp_tp_tuples_when_tp_enabled,
                 adx_threshold_values,
-                volume_threshold_values,
+                min_volume_threshold_values,
+                max_volume_threshold_values,
                 [True],
             )
         )

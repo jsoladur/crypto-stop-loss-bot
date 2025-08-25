@@ -57,8 +57,12 @@ async def should_set_buy_sell_signals_config_properly(
     )
     assert returned_buy_sell_signals_config_item.apply_volume_filter is True
     assert (
-        returned_buy_sell_signals_config_item.volume_threshold
-        == configuration_properties.buy_sell_signals_volume_threshold
+        returned_buy_sell_signals_config_item.min_volume_threshold
+        == configuration_properties.buy_sell_signals_min_volume_threshold
+    )
+    assert (
+        returned_buy_sell_signals_config_item.max_volume_threshold
+        == configuration_properties.buy_sell_signals_max_volume_threshold
     )
     assert returned_buy_sell_signals_config_item.auto_exit_sell_1h is True
     assert returned_buy_sell_signals_config_item.auto_exit_atr_take_profit is False
@@ -73,7 +77,8 @@ async def should_set_buy_sell_signals_config_properly(
         filter_noise_using_adx=faker.pybool(truth_probability=99),
         adx_threshold=faker.random_element([15, 20, 25]),
         apply_volume_filter=faker.pybool(truth_probability=1),
-        volume_threshold=faker.pyfloat(min_value=0.25, max_value=0.75),
+        min_volume_threshold=faker.pyfloat(min_value=0.25, max_value=0.75),
+        max_volume_threshold=faker.pyfloat(min_value=2.5, max_value=5.0),
         auto_exit_sell_1h=faker.pybool(truth_probability=1),
         auto_exit_atr_take_profit=faker.pybool(truth_probability=99),
     )
@@ -107,7 +112,12 @@ async def should_set_buy_sell_signals_config_properly(
         == expected_buy_sell_signals_config_item.apply_volume_filter
     )
     assert (
-        returned_buy_sell_signals_config_item.volume_threshold == expected_buy_sell_signals_config_item.volume_threshold
+        returned_buy_sell_signals_config_item.min_volume_threshold
+        == expected_buy_sell_signals_config_item.min_volume_threshold
+    )
+    assert (
+        returned_buy_sell_signals_config_item.max_volume_threshold
+        == expected_buy_sell_signals_config_item.max_volume_threshold
     )
     assert (
         returned_buy_sell_signals_config_item.auto_exit_sell_1h

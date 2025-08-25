@@ -161,7 +161,7 @@ cli backtesting <SYMBOL> [OPTIONS]
 To run a backtest for `ETH/EUR` with a 9/21 EMA crossover strategy, an ADX filter, and ATR-based take-profit enabled:
 
 ```sh
-cli backtesting ETH/EUR --ema-short=9 --ema-mid=21 --adx-threshold=25 --enable-tp --sl-multiplier=2.0 --tp-multiplier=3.5 --filter-volume --volume-threshold=1.8
+cli backtesting ETH/EUR --ema-short=9 --ema-mid=21 --adx-threshold=25 --enable-tp --sl-multiplier=2.0 --tp-multiplier=3.5 --filter-volume --min-volume-threshold=1.8 --max-volume-threshold=3.5
 ```
 
 The CLI will output a summary of the backtest results, including net profit/loss, win rate, and the number of trades.
@@ -188,14 +188,15 @@ The command will output a summary of the best-performing configurations, ranked 
 
 | Parameter          | Type      | Default    | Description                                                                                                        |
 | ------------------ | --------- | ---------- | ------------------------------------------------------------------------------------------------------------------ |
-| `symbol`           | `string`  | **Required** | The symbol to backtest (e.g., `ETH/EUR`). Must match a downloaded data file.                                       |
+| `symbol`           | `string`  | **Required** | The symbol to backtest (e.g., `ETH/EUR`). Must match a downloaded data file.                                     |
 | `--ema-short`      | `integer` | `9`        | Length of the short-period Exponential Moving Average (EMA).                                                       |
 | `--ema-mid`        | `integer` | `21`       | Length of the mid-period EMA.                                                                                      |
 | `--ema-long`       | `integer` | `200`      | Length of the long-period EMA, used as a trend filter.                                                             |
 | `--filter-adx`     | `boolean` | `True`     | If enabled, uses the Average Directional Index (ADX) to filter out trades during choppy, non-trending markets.     |
 | `--adx-threshold`  | `integer` | `20`       | The minimum ADX value required to consider a trend strong enough to open a trade.                                  |
 | `--filter-volume`  | `boolean` | `False`    | If enabled, uses a relative volume filter to ensure trades are taken during periods of significant market activity. |
-| `--volume-threshold` | `float`   | `0.5`      | The minimum relative volume required to open a trade.                                                              |
+| `--min-volume-threshold` | `float`   | `0.5`      | The minimum relative volume required to open a trade.                                                         |
+| `--max-volume-threshold` | `float`   | `3.5`      | The maximum relative volume required to open a trade.                                                        |
 | `--enable-tp`      | `boolean` | `False`    | If enabled, the strategy will set a take-profit order based on the ATR.                                            |
 | `--sl-multiplier`  | `float`   | `2.5`      | The multiplier for the Average True Range (ATR) to calculate the stop-loss distance.                               |
 | `--tp-multiplier`  | `float`   | `3.5`      | The multiplier for the ATR to calculate the take-profit distance (only if `--enable-tp` is used).                  |
