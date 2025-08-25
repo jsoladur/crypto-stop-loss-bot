@@ -232,35 +232,37 @@ class BacktestingCliService:
         return executions_results
 
     def _calculate_cartesian_product(self, *, echo_fn: Callable[[str], None] | None = None):
-        sp_tp_tuples_group_by_sp = pydash.group_by(SP_TP_PAIRS_AS_TUPLES, lambda pair: pair[0])
-        sp_tp_tuples_when_tp_disabled = [sp_tp_tuples[0] for sp_tp_tuples in sp_tp_tuples_group_by_sp.values()]
-        sp_tp_tuples_when_tp_enabled = SP_TP_PAIRS_AS_TUPLES
+        # Adding the "No filter" option (0) to ADX thresholds
         adx_threshold_values = ADX_THRESHOLD_VALUES.copy()
         adx_threshold_values.insert(0, 0)  # Adding the "No filter" option
-        min_volume_threshold_values = MIN_VOLUME_THRESHOLD_VALUES.copy()
-        min_volume_threshold_values.insert(0, 0.0)  # Adding the "No filter" option
-        max_volume_threshold_values = MAX_VOLUME_THRESHOLD_VALUES.copy()
-        cartesian_product_when_tp_disabled = list(
+
+        # Group SL/TP pairs by SL value to ensure we have unique SL values when TP is disabled
+        sp_tp_tuples_group_by_sp = pydash.group_by(SP_TP_PAIRS_AS_TUPLES, lambda pair: pair[0])
+        sp_tp_tuples_when_tp_disabled = [
+            (False, *sp_tp_tuples[0]) for sp_tp_tuples in sp_tp_tuples_group_by_sp.values()
+        ]
+        sp_tp_tuples_when_tp_enabled = [(True, *sp_tp_tuple) for sp_tp_tuple in SP_TP_PAIRS_AS_TUPLES]
+        valid_sp_tp_tuples = sp_tp_tuples_when_tp_disabled + sp_tp_tuples_when_tp_enabled
+
+        # Volume thresholds combinations
+        volume_threshold_tuples_when_filter_volume_disabled = [
+            (False, MIN_VOLUME_THRESHOLD_VALUES[0], MAX_VOLUME_THRESHOLD_VALUES[0])
+        ]
+        volume_threshold_tuples = list(product(MIN_VOLUME_THRESHOLD_VALUES.copy(), MAX_VOLUME_THRESHOLD_VALUES.copy()))
+        volume_threshold_tuples_when_filter_volume_enabled = [
+            (True, *vol_threshold_tuple) for vol_threshold_tuple in volume_threshold_tuples
+        ]
+        # Final list of all valid Volume Filter combinations
+        valid_volume_threshold_tuples = (
+            volume_threshold_tuples_when_filter_volume_disabled + volume_threshold_tuples_when_filter_volume_enabled
+        )
+        # Now, create the full cartesian product considering all combinations
+        cartesian_product = list(
             product(
-                EMA_SHORT_MID_PAIRS_AS_TUPLES,
-                sp_tp_tuples_when_tp_disabled,
-                adx_threshold_values,
-                min_volume_threshold_values,
-                max_volume_threshold_values,
-                [False],
+                EMA_SHORT_MID_PAIRS_AS_TUPLES, valid_sp_tp_tuples, adx_threshold_values, valid_volume_threshold_tuples
             )
         )
-        cartesian_product_when_tp_enabled = list(
-            product(
-                EMA_SHORT_MID_PAIRS_AS_TUPLES,
-                sp_tp_tuples_when_tp_enabled,
-                adx_threshold_values,
-                min_volume_threshold_values,
-                max_volume_threshold_values,
-                [True],
-            )
-        )
-        cartesian_product = cartesian_product_when_tp_disabled + cartesian_product_when_tp_enabled
+
         if echo_fn:
             echo_fn(f"Total combinations to test: {len(cartesian_product)}")
         return cartesian_product
