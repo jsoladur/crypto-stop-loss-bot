@@ -15,7 +15,6 @@ class BacktestingExecutionResult:
 @dataclass
 class BacktestingExecutionSummary:
     best_overall: BacktestingExecutionResult | None = None
+    highest_quality: BacktestingExecutionResult | None = None
     best_profitable: BacktestingExecutionResult | None = None
     best_win_rate: BacktestingExecutionResult | None = None
-    highest_quality: BacktestingExecutionResult | None = None
-    most_robust: BacktestingExecutionResult | None = None
