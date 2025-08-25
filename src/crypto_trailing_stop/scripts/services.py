@@ -257,15 +257,29 @@ class BacktestingCliService:
             volume_threshold_tuples_when_filter_volume_disabled + volume_threshold_tuples_when_filter_volume_enabled
         )
         # Now, create the full cartesian product considering all combinations
-        cartesian_product = list(
+        full_cartesian_product = list(
             product(
                 EMA_SHORT_MID_PAIRS_AS_TUPLES, valid_sp_tp_tuples, adx_threshold_values, valid_volume_threshold_tuples
             )
         )
-
         if echo_fn:
-            echo_fn(f"Total combinations to test: {len(cartesian_product)}")
-        return cartesian_product
+            echo_fn(f"Full raw combinations to test: {len(full_cartesian_product)}")
+        ret = []
+        # --- HEURISTIC PRUNING ---
+        for params in full_cartesian_product:
+            (_, (auto_exit_atr_take_profit, _, tp_multiplier), adx_threshold, _) = params
+            # Filter out combinations that don't make sense based on heuristic rules
+            # 1. If ADX filter is disabled, TP should not be too high (to avoid over-leveraging in non-trending markets)
+            is_valid_tp_for_no_trend = adx_threshold > 0 or not auto_exit_atr_take_profit or tp_multiplier <= 4.0
+            # 2. If ADX filter is enabled with a high threshold,
+            # TP should not be too low (to ensure we capture strong trends)
+            is_valid_tp_for_strong_trend = adx_threshold < 25 or not auto_exit_atr_take_profit or tp_multiplier >= 4.0
+            if is_valid_tp_for_no_trend and is_valid_tp_for_strong_trend:
+                ret.append(params)
+        if echo_fn:
+            echo_fn(f"Total combinations to test: {len(ret)}")
+            echo_fn(f"  -- Discarded combinations by heuristic: {len(full_cartesian_product) - len(ret)}")
+        return ret
 
     def _to_execution_result(
         self, simulated_bs_config: BuySellSignalsConfigItem, initial_cash: float, stats: pd.Series
