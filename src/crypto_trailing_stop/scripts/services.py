@@ -129,9 +129,13 @@ class BacktestingCliService:
         ]
         best_profitable, best_win_rate, highest_quality, most_robust = None, None, None, None
         if profitable_results:
-            # --- Category 1: Best Profitable Configuration ---
+            # --- Category 1: Best Overall (Profit x Win Rate x Trades) ---
+            best_overall = max(
+                profitable_results, key=lambda r: r.net_profit_percentage * r.win_rate * r.number_of_trades
+            )
+            # --- Category 2: Best Profitable Configuration ---
             best_profitable = max(profitable_results, key=lambda r: r.net_profit_amount)
-            # --- Category 2: Best Win Rate ---
+            # --- Category 3: Best Win Rate ---
             # First, find the maximum win rate that was achieved
             max_win_rate = max(p.win_rate for p in profitable_results)
             # Create a group of "elite" candidates with a win rate close to the maximum
@@ -142,12 +146,13 @@ class BacktestingCliService:
                 best_win_rate = max(elite_win_rate_candidates, key=lambda r: r.net_profit_amount)
             else:  # Fallback in case the list is empty (should not happen)
                 best_win_rate = max(profitable_results, key=lambda r: r.win_rate)
-            # --- Category 3: Highest Quality (Return x Win Rate) ---
+            # --- Category 4: Highest Quality (Return x Win Rate) ---
             highest_quality = max(profitable_results, key=lambda r: r.net_profit_percentage * r.win_rate)
-            # --- Category 4: Most Robust (High Trades + Decent Win Rate + High Profit) ---
+            # --- Category 5: Most Robust (High Trades + Decent Win Rate + High Profit) ---
             most_robust = max(profitable_results, key=lambda r: r.net_profit_percentage * r.number_of_trades)
 
         ret = BacktestingExecutionSummary(
+            best_overall=best_overall,
             best_profitable=best_profitable,
             best_win_rate=best_win_rate,
             highest_quality=highest_quality,
