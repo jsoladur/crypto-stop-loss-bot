@@ -8,6 +8,7 @@ from aiogram import html
 from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import (
+    AUTO_ENTRY_MARKET_ORDER_SAFETY_FACTOR,
     AUTO_ENTRY_TRADER_MAX_ATTEMPS_TO_BUY,
     AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST,
     TRIGGER_BUY_ACTION_EVENT_NAME,
@@ -168,8 +169,8 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
     ) -> None:
         # XXX: [JMSOLA] Calculate buy order amount
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
-        # Introduces a security buffer deposit (e.g. 99.8% of capital)
-        amount_with_buffer = initial_amount_to_invest * 0.998
+        # Introduces a security buffer deposit (e.g. 99.5% of capital)
+        amount_with_buffer = initial_amount_to_invest * AUTO_ENTRY_MARKET_ORDER_SAFETY_FACTOR
         new_buy_market_order, tickers = await self._execute_market_entry(
             market_signal_item,
             crypto_currency,
