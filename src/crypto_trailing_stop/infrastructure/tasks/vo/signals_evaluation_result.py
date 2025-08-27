@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 
-from crypto_trailing_stop.commons.constants import ANTICIPATION_ZONE_TIMEFRAMES, BUY_SELL_RELIABLE_TIMEFRAMES
 from crypto_trailing_stop.infrastructure.tasks.vo.types import RSIState, Timeframe
 
 
@@ -20,14 +19,6 @@ class SignalsEvaluationResult:
     atr: float = field(compare=False)
     closing_price: float = field(compare=False)
     ema_long_price: float = field(compare=False)
-
-    @property
-    def is_reliable(self) -> bool:
-        return self.timeframe in BUY_SELL_RELIABLE_TIMEFRAMES
-
-    @property
-    def is_anticipation_zone(self) -> bool:
-        return self.timeframe in ANTICIPATION_ZONE_TIMEFRAMES
 
     @property
     def is_positive(self) -> bool:
