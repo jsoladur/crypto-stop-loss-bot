@@ -158,25 +158,22 @@ class BuySellSignalsTaskService(AbstractTaskService):
                         )
                         base_symbol = symbol.split("/")[0].strip().upper()
                         # 1. Report RSI Anticipation Zones
-                        if signals.is_anticipation_zone:
-                            await self._notify_anticipation_zone_alerts(
-                                signals,
-                                previous_signals,
-                                telegram_chat_ids=telegram_chat_ids,
-                                timeframe=timeframe,
-                                tickers=tickers,
-                                base_symbol=base_symbol,
-                            )
-                        # 2. Report Confirmation Signals (now identical for both timeframes)
-                        elif signals.is_reliable:
-                            await self._notify_reliable_alerts(
-                                signals,
-                                previous_signals,
-                                telegram_chat_ids=telegram_chat_ids,
-                                timeframe=timeframe,
-                                tickers=tickers,
-                                base_symbol=base_symbol,
-                            )
+                        await self._notify_anticipation_zone_alerts(
+                            signals,
+                            previous_signals,
+                            telegram_chat_ids=telegram_chat_ids,
+                            timeframe=timeframe,
+                            tickers=tickers,
+                            base_symbol=base_symbol,
+                        )
+                        await self._notify_reliable_alerts(
+                            signals,
+                            previous_signals,
+                            telegram_chat_ids=telegram_chat_ids,
+                            timeframe=timeframe,
+                            tickers=tickers,
+                            base_symbol=base_symbol,
+                        )
             finally:
                 self._event_emitter.emit(SIGNALS_EVALUATION_RESULT_EVENT_NAME, signals)
         else:  # pragma: no cover

@@ -6,7 +6,7 @@ import logging
 import time
 from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
 import backoff
@@ -46,6 +46,9 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_bal
     Bit2MeTradingWalletBalanceDto,
 )
 from crypto_trailing_stop.infrastructure.adapters.remote.base import AbstractHttpRemoteAsyncService
+
+if TYPE_CHECKING:
+    from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +198,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         await self._perform_http_request(method="DELETE", url=f"/v1/trading/order/{id}", client=client)
 
     async def fetch_ohlcv(
-        self, symbol: str, timeframe: Literal["4h", "1h", "30m"], limit: int = 251, *, client: AsyncClient | None = None
+        self, symbol: str, timeframe: "Timeframe", limit: int = 251, *, client: AsyncClient | None = None
     ) -> list[list[Any]]:
         interval = self._convert_timeframe_to_interval(timeframe)
         now = datetime.now(UTC)
@@ -322,7 +325,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         hmac_digest = base64.b64encode(hmac_obj.digest()).decode()
         return hmac_digest
 
-    def _convert_timeframe_to_interval(self, timeframe: Literal["4h", "1h", "30m"]) -> int:
+    def _convert_timeframe_to_interval(self, timeframe: "Timeframe") -> int:
         # The interval of entries in minutes: 1, 5, 15, 30, 60 (1 hour), 240 (4 hours), 1440 (1 day)
         td = Timedelta(timeframe)
         ret = int(td.total_seconds() // 60)
