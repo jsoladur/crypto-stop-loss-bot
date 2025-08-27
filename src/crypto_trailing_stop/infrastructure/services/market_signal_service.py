@@ -9,7 +9,7 @@ from crypto_trailing_stop.infrastructure.database.models.market_signal import Ma
 from crypto_trailing_stop.infrastructure.services.base import AbstractEventHandlerService
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import SignalsEvaluationResult
-from crypto_trailing_stop.infrastructure.tasks.vo.types import ReliableTimeframe
+from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class MarketSignalService(AbstractEventHandlerService, metaclass=SingletonABCMet
         event_emitter.add_listener(SIGNALS_EVALUATION_RESULT_EVENT_NAME, self.on_signals_evaluation_result)
 
     async def find_by_symbol(
-        self, symbol: str, *, timeframe: ReliableTimeframe | None = None, ascending: bool = True
+        self, symbol: str, *, timeframe: Timeframe | None = None, ascending: bool = True
     ) -> list[MarketSignalItem]:
         query = MarketSignal.objects().where(MarketSignal.symbol == symbol)
         if timeframe:
@@ -34,9 +34,7 @@ class MarketSignalService(AbstractEventHandlerService, metaclass=SingletonABCMet
         ret = [self._convert_model_to_vo(market_signal) for market_signal in market_signals]
         return ret
 
-    async def find_last_market_signal(
-        self, symbol: str, *, timeframe: ReliableTimeframe = "1h"
-    ) -> MarketSignalItem | None:
+    async def find_last_market_signal(self, symbol: str, *, timeframe: Timeframe = "1h") -> MarketSignalItem | None:
         last_market_signal: MarketSignal | None = (
             await MarketSignal.objects()
             .where(MarketSignal.symbol == symbol)
