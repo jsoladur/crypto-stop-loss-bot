@@ -235,7 +235,9 @@ class BuySellSignalsTaskService(AbstractTaskService):
                 buy_sell_signals_config=buy_sell_signals_config,
             )
             # Sell Signal Logic
-            sell_signal = self._calculate_sell_signal(prev_candle_market_metrics, last_candle_market_metrics)
+            sell_signal = self._calculate_sell_signal(
+                prev_candle_market_metrics, last_candle_market_metrics, buy_sell_signals_config=buy_sell_signals_config
+            )
 
         ret = SignalsEvaluationResult(
             timestamp=last_candle_market_metrics.timestamp.timestamp(),
@@ -319,22 +321,20 @@ class BuySellSignalsTaskService(AbstractTaskService):
         return bool(buy_signal)
 
     def _calculate_sell_signal(
-        self, prev_candle_market_metrics: CryptoMarketMetrics, last_candle_market_metrics: CryptoMarketMetrics
+        self,
+        prev_candle_market_metrics: CryptoMarketMetrics,
+        last_candle_market_metrics: CryptoMarketMetrics,
+        buy_sell_signals_config: BuySellSignalsConfigItem,
     ) -> bool:
         ema_bearish_cross = (
             prev_candle_market_metrics.ema_short >= prev_candle_market_metrics.ema_mid
             and last_candle_market_metrics.ema_short < last_candle_market_metrics.ema_mid
         )
-        # XXX: [JMSOLA] Removed ADX filter for sell signals
-        # This is because we want to capture the bearish trend even if the ADX is not strong.
-        is_strong_downtrend = True  # Always consider the trend strong for sell signals
-        # is_strong_downtrend = not buy_sell_signals_config.filter_noise_using_adx or (
-        #     # NOTE: -DI > +DI
-        #     last_candle_market_metrics.adx_neg > last_candle_market_metrics.adx_pos
-        #     # NOTE: ADX > 20
-        #     and last_candle_market_metrics.adx > self._configuration_properties.buy_sell_signals_adx_threshold
-        # )
-        sell_signal = ema_bearish_cross and last_candle_market_metrics.macd_hist < 0 and is_strong_downtrend
+        is_volume_confirmed = (
+            not buy_sell_signals_config.apply_volume_filter
+            or last_candle_market_metrics.relative_vol >= buy_sell_signals_config.min_volume_threshold
+        )
+        sell_signal = ema_bearish_cross and last_candle_market_metrics.macd_hist < 0 and is_volume_confirmed
         return bool(sell_signal)
 
     def _get_volatility_threshold(self, timeframe: Timeframe) -> float:
