@@ -151,6 +151,7 @@ class MessagesFormatter(metaclass=SingletonMeta):
             + f"📶 Filter Noise using ADX? = {'🟢' if item.filter_noise_using_adx else '🟥'}\n"
             + f"🔦 ADX Threshold = {html.code(item.adx_threshold) if item.filter_noise_using_adx else html.italic('(not applicable)')}\n"  # noqa: E501
             + f"🚩 Apply Relative Volume Filter? = {'🟢' if item.apply_volume_filter else '🟥'}\n"
+            + f"💣 Volume Conviction on SELL 1H enabled? = {'🟢' if item.enable_volume_conviction_on_sell else '🟥'}\n"
             + f"🔊 Min. Rel. Volume Threshold = {html.code(item.min_volume_threshold) if item.apply_volume_filter else html.italic('(not applicable)')}\n"  # noqa: E501
             + f"🔇 Max. Rel. Volume Threshold = {html.code(item.max_volume_threshold) if item.apply_volume_filter else html.italic('(not applicable)')}\n"  # noqa: E501
             + f"🚨 Auto-Exit SELL 1h enabled? = {'🟢' if item.auto_exit_sell_1h else '🟥'}\n"

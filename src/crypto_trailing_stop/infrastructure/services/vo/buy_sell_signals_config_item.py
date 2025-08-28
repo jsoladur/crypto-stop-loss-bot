@@ -26,6 +26,7 @@ class BuySellSignalsConfigItem:
     max_volume_threshold: float = field(
         default_factory=lambda: get_configuration_properties().buy_sell_signals_max_volume_threshold
     )
+    enable_volume_conviction_on_sell: bool = False
     auto_exit_sell_1h: bool = True
     auto_exit_atr_take_profit: bool = False
 

@@ -69,6 +69,7 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             config.apply_volume_filter = item.apply_volume_filter
             config.min_volume_threshold = item.min_volume_threshold
             config.max_volume_threshold = item.max_volume_threshold
+            config.enable_volume_conviction_on_sell = item.enable_volume_conviction_on_sell
             config.auto_exit_sell_1h = item.auto_exit_sell_1h
             config.auto_exit_atr_take_profit = item.auto_exit_atr_take_profit
         else:
@@ -85,6 +86,7 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
                     BuySellSignalsConfig.apply_volume_filter: item.apply_volume_filter,
                     BuySellSignalsConfig.min_volume_threshold: item.min_volume_threshold,
                     BuySellSignalsConfig.max_volume_threshold: item.max_volume_threshold,
+                    BuySellSignalsConfig.enable_volume_conviction_on_sell: item.enable_volume_conviction_on_sell,
                     BuySellSignalsConfig.auto_exit_sell_1h: item.auto_exit_sell_1h,
                     BuySellSignalsConfig.auto_exit_atr_take_profit: item.auto_exit_atr_take_profit,
                 }
@@ -104,6 +106,7 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             apply_volume_filter=buy_sell_signals_config.apply_volume_filter,
             min_volume_threshold=buy_sell_signals_config.min_volume_threshold,
             max_volume_threshold=buy_sell_signals_config.max_volume_threshold,
+            enable_volume_conviction_on_sell=buy_sell_signals_config.enable_volume_conviction_on_sell,
             auto_exit_sell_1h=buy_sell_signals_config.auto_exit_sell_1h,
             auto_exit_atr_take_profit=buy_sell_signals_config.auto_exit_atr_take_profit,
         )

@@ -6,23 +6,22 @@ from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult
 
 # --- Helper function to print results in a clean format ---
 def echo_backtesting_execution_result(result: BacktestingExecutionResult) -> None:
-    simulated_bs_config: BuySellSignalsConfigItem = result.parameters
+    item: BuySellSignalsConfigItem = result.parameters
     typer.secho("⚙️  Parameters:", fg=typer.colors.BLUE)
     typer.echo(
-        f"  - EMAs: {simulated_bs_config.ema_short_value}/{simulated_bs_config.ema_mid_value}/{simulated_bs_config.ema_long_value}"  # noqa: E501
-    )
-    typer.echo(f"  - Stop Loss Multiplier: {simulated_bs_config.stop_loss_atr_multiplier}x ATR")
-    typer.echo(
-        f"  - Take Profit Multiplier: {simulated_bs_config.take_profit_atr_multiplier if simulated_bs_config.auto_exit_atr_take_profit else 'N/A'}x ATR"  # noqa: E501
-    )  # noqa: E501
-    typer.echo(
-        f"  - ADX Filter: {'Enabled' if simulated_bs_config.filter_noise_using_adx and simulated_bs_config.adx_threshold > 0 else 'Disabled'}, Threshold: {simulated_bs_config.adx_threshold if simulated_bs_config.filter_noise_using_adx and simulated_bs_config.adx_threshold > 0 else 'N/A'}"  # noqa: E501
-    )
-    typer.echo(
-        f"  - Volume Filter: {'Enabled' if simulated_bs_config.apply_volume_filter and simulated_bs_config.min_volume_threshold > 0 else 'Disabled'}, Min. Threshold: {simulated_bs_config.min_volume_threshold if simulated_bs_config.apply_volume_filter and simulated_bs_config.min_volume_threshold > 0 else 'N/A'}, Max. Threshold: {simulated_bs_config.max_volume_threshold if simulated_bs_config.apply_volume_filter and simulated_bs_config.min_volume_threshold > 0 else 'N/A'}"  # noqa: E501
-    )
-    typer.echo(
-        f"  - Take Profit: {'Enabled' if simulated_bs_config.auto_exit_atr_take_profit else 'Disabled'}"  # noqa: E501
+        f"📈 EMA Short Value = {item.ema_short_value}\n"
+        + f"📉 EMA Mid Value = {item.ema_mid_value}\n"
+        + f"📐 EMA Long Value = {item.ema_long_value}\n"
+        + f"🛡️ Stop Loss ATR Factor = {item.stop_loss_atr_multiplier}\n"
+        + f"🏁 Take Profit ATR Factor = {item.take_profit_atr_multiplier}\n"
+        + f"📶 Filter Noise using ADX? = {'🟢' if item.filter_noise_using_adx else '🟥'}\n"
+        + f"🔦 ADX Threshold = {item.adx_threshold if item.filter_noise_using_adx else '(not applicable)'}\n"  # noqa: E501
+        + f"🚩 Apply Relative Volume Filter? = {'🟢' if item.apply_volume_filter else '🟥'}\n"
+        + f"💣 Volume Conviction on SELL 1H enabled? = {'🟢' if item.enable_volume_conviction_on_sell else '🟥'}\n"
+        + f"🔊 Min. Rel. Volume Threshold = {item.min_volume_threshold if item.apply_volume_filter else '(not applicable)'}\n"  # noqa: E501
+        + f"🔇 Max. Rel. Volume Threshold = {item.max_volume_threshold if item.apply_volume_filter else '(not applicable)'}\n"  # noqa: E501
+        + f"🚨 Auto-Exit SELL 1h enabled? = {'🟢' if item.auto_exit_sell_1h else '🟥'}\n"
+        + f"🎯 Auto-Exit Take Profit enabled? = {'🟢' if item.auto_exit_atr_take_profit else '🟥'}"
     )
     typer.secho("\n--- 📝 Summary ---", fg=typer.colors.MAGENTA, bold=True)
     number_of_trades = typer.style(

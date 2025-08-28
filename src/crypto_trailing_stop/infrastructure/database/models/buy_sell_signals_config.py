@@ -18,5 +18,6 @@ class BuySellSignalsConfig(Table):
     apply_volume_filter: bool = Boolean(required=True)
     min_volume_threshold: float = Float(required=True)
     max_volume_threshold: float = Float(required=True)
+    enable_volume_conviction_on_sell: bool = Boolean(required=True)
     auto_exit_sell_1h: bool = Boolean(required=True)
     auto_exit_atr_take_profit: bool = Boolean(required=True)

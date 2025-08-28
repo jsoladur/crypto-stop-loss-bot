@@ -331,7 +331,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             and last_candle_market_metrics.ema_short < last_candle_market_metrics.ema_mid
         )
         is_volume_confirmed = (
-            not buy_sell_signals_config.apply_volume_filter
+            not buy_sell_signals_config.enable_volume_conviction_on_sell
             or last_candle_market_metrics.relative_vol >= buy_sell_signals_config.min_volume_threshold
         )
         sell_signal = ema_bearish_cross and last_candle_market_metrics.macd_hist < 0 and is_volume_confirmed

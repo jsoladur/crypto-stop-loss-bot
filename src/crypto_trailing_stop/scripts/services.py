@@ -247,16 +247,19 @@ class BacktestingCliService:
         valid_sp_tp_tuples = sp_tp_tuples_when_tp_disabled + sp_tp_tuples_when_tp_enabled
 
         # Volume thresholds combinations
-        volume_threshold_tuples_when_filter_volume_disabled = [
-            (False, MIN_VOLUME_THRESHOLD_VALUES[0], MAX_VOLUME_THRESHOLD_VALUES[0])
-        ]
         volume_threshold_tuples = list(product(MIN_VOLUME_THRESHOLD_VALUES.copy(), MAX_VOLUME_THRESHOLD_VALUES.copy()))
-        volume_threshold_tuples_when_filter_volume_enabled = [
-            (True, *vol_threshold_tuple) for vol_threshold_tuple in volume_threshold_tuples
-        ]
+        vol_case_both_disabled = [(False, False, MIN_VOLUME_THRESHOLD_VALUES[0], MAX_VOLUME_THRESHOLD_VALUES[0])]
+        # Case: Buy filter ON, Sell filter OFF
+        vol_case_buy_only = [(True, False, min_t, max_t) for min_t, max_t in volume_threshold_tuples]
+
+        # Case: Buy filter OFF, Sell filter ON
+        vol_case_sell_only = [(False, True, min_t, max_t) for min_t, max_t in volume_threshold_tuples]
+
+        # Case: Both filters ON
+        vol_case_both_enabled = [(True, True, min_t, max_t) for min_t, max_t in volume_threshold_tuples]
         # Final list of all valid Volume Filter combinations
         valid_volume_threshold_tuples = (
-            volume_threshold_tuples_when_filter_volume_disabled + volume_threshold_tuples_when_filter_volume_enabled
+            vol_case_both_disabled + vol_case_buy_only + vol_case_sell_only + vol_case_both_enabled
         )
         # Now, create the full cartesian product considering all combinations
         full_cartesian_product = list(

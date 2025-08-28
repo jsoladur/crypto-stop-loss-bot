@@ -61,6 +61,12 @@ class BuySellSignalsConfigForm(Form):
         filter=F.text.in_(YES_NO_VALUES) & F.text,
         reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
     )
+    enable_volume_conviction_on_sell: str = FormField(
+        enter_message_text="💣 Volume Conviction on SELL 1H enabled?",
+        error_message_text=f"❌ Invalid value. Valid values: {', '.join(YES_NO_VALUES)}",
+        filter=F.text.in_(YES_NO_VALUES) & F.text,
+        reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
+    )
     min_volume_threshold: float = FormField(
         enter_message_text="🔊 Select Min. Rel. Volume Threshold",
         error_message_text="❌ Invalid Min. Rel. Vol. Threshold value. Valid values: "
@@ -105,6 +111,7 @@ class BuySellSignalsConfigForm(Form):
             apply_volume_filter=bool(self.apply_volume_filter.lower() == "yes"),
             min_volume_threshold=float(self.min_volume_threshold),
             max_volume_threshold=float(self.max_volume_threshold),
+            enable_volume_conviction_on_sell=bool(self.enable_volume_conviction_on_sell.lower() == "yes"),
             auto_exit_sell_1h=bool(self.auto_exit_sell_1h.lower() == "yes"),
             auto_exit_atr_take_profit=bool(self.auto_exit_atr_take_profit.lower() == "yes"),
         )

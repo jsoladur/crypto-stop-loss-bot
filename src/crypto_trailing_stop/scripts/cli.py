@@ -77,6 +77,7 @@ def backtesting(
     filter_volume: bool = typer.Option(False, help="Enable/disable the volume filter."),
     min_volume_threshold: float = typer.Option(0.5, help="Enable/disable the minimum volume filter."),
     max_volume_threshold: float = typer.Option(3.5, help="Enable/disable the maximum volume filter."),
+    enable_volume_conviction_on_sell: bool = typer.Option(True, help="Enable volume conviction on sell signals."),
     enable_tp: bool = typer.Option(False, "--enable-tp", help="Enable the ATR-based Take Profit."),
     sl_multiplier: float = typer.Option(2.5, help="ATR multiplier for Stop Loss."),
     tp_multiplier: float = typer.Option(3.5, help="ATR multiplier for Take Profit."),
@@ -111,6 +112,7 @@ def backtesting(
             apply_volume_filter=filter_volume,
             min_volume_threshold=min_volume_threshold,
             max_volume_threshold=max_volume_threshold,
+            enable_volume_conviction_on_sell=enable_volume_conviction_on_sell,
             auto_exit_sell_1h=True,
             auto_exit_atr_take_profit=enable_tp,
         )
