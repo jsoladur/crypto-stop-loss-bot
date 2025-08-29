@@ -100,8 +100,8 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
     def get_take_profit_toggler_home_keyboard(self, items: list[BuySellSignalsConfigItem]) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
         for item in items:
-            action_icon = "⏸️" if item.auto_exit_atr_take_profit else "▶️"
-            state_icon = "🟢" if item.auto_exit_atr_take_profit else "🟥"
+            action_icon = "⏸️" if item.enable_exit_on_take_profit else "▶️"
+            state_icon = "🟢" if item.enable_exit_on_take_profit else "🟥"
             builder.row(
                 InlineKeyboardButton(
                     text=f"{state_icon} {action_icon} {item.symbol}",

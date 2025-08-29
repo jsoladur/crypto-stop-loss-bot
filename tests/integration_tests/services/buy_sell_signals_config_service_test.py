@@ -51,22 +51,22 @@ async def should_set_buy_sell_signals_config_properly(
         returned_buy_sell_signals_config_item.take_profit_atr_multiplier
         == configuration_properties.suggested_take_profit_atr_multiplier
     )
-    assert returned_buy_sell_signals_config_item.filter_noise_using_adx is True
+    assert returned_buy_sell_signals_config_item.enable_adx_filter is True
     assert (
         returned_buy_sell_signals_config_item.adx_threshold == configuration_properties.buy_sell_signals_adx_threshold
     )
-    assert returned_buy_sell_signals_config_item.apply_volume_filter is True
+    assert returned_buy_sell_signals_config_item.enable_buy_volume_filter is True
     assert (
         returned_buy_sell_signals_config_item.min_volume_threshold
         == configuration_properties.buy_sell_signals_min_volume_threshold
     )
-    assert returned_buy_sell_signals_config_item.enable_volume_conviction_on_sell is False
+    assert returned_buy_sell_signals_config_item.enable_sell_volume_filter is False
     assert (
         returned_buy_sell_signals_config_item.max_volume_threshold
         == configuration_properties.buy_sell_signals_max_volume_threshold
     )
-    assert returned_buy_sell_signals_config_item.auto_exit_sell_1h is True
-    assert returned_buy_sell_signals_config_item.auto_exit_atr_take_profit is False
+    assert returned_buy_sell_signals_config_item.enable_exit_on_sell_signal is True
+    assert returned_buy_sell_signals_config_item.enable_exit_on_take_profit is False
 
     expected_buy_sell_signals_config_item = BuySellSignalsConfigItem(
         symbol=crypto_currency,
@@ -75,14 +75,14 @@ async def should_set_buy_sell_signals_config_properly(
         ema_long_value=faker.pyint(min_value=200, max_value=250),
         stop_loss_atr_multiplier=faker.pyfloat(min_value=2.5, max_value=6.5),
         take_profit_atr_multiplier=faker.pyfloat(min_value=2.5, max_value=6.5),
-        filter_noise_using_adx=faker.pybool(truth_probability=99),
+        enable_adx_filter=faker.pybool(truth_probability=99),
         adx_threshold=faker.random_element([15, 20, 25]),
-        apply_volume_filter=faker.pybool(truth_probability=1),
-        enable_volume_conviction_on_sell=faker.pybool(truth_probability=99),
+        enable_buy_volume_filter=faker.pybool(truth_probability=1),
+        enable_sell_volume_filter=faker.pybool(truth_probability=99),
         min_volume_threshold=faker.pyfloat(min_value=0.25, max_value=0.75),
         max_volume_threshold=faker.pyfloat(min_value=2.5, max_value=5.0),
-        auto_exit_sell_1h=faker.pybool(truth_probability=1),
-        auto_exit_atr_take_profit=faker.pybool(truth_probability=99),
+        enable_exit_on_sell_signal=faker.pybool(truth_probability=1),
+        enable_exit_on_take_profit=faker.pybool(truth_probability=99),
     )
     await buy_sell_signals_config_service.save_or_update(expected_buy_sell_signals_config_item)
     buy_sell_signals_config_list = await buy_sell_signals_config_service.find_all()
@@ -105,17 +105,17 @@ async def should_set_buy_sell_signals_config_properly(
         == expected_buy_sell_signals_config_item.take_profit_atr_multiplier
     )
     assert (
-        returned_buy_sell_signals_config_item.filter_noise_using_adx
-        == expected_buy_sell_signals_config_item.filter_noise_using_adx
+        returned_buy_sell_signals_config_item.enable_adx_filter
+        == expected_buy_sell_signals_config_item.enable_adx_filter
     )
     assert returned_buy_sell_signals_config_item.adx_threshold == expected_buy_sell_signals_config_item.adx_threshold
     assert (
-        returned_buy_sell_signals_config_item.apply_volume_filter
-        == expected_buy_sell_signals_config_item.apply_volume_filter
+        returned_buy_sell_signals_config_item.enable_buy_volume_filter
+        == expected_buy_sell_signals_config_item.enable_buy_volume_filter
     )
     assert (
-        returned_buy_sell_signals_config_item.enable_volume_conviction_on_sell
-        == expected_buy_sell_signals_config_item.enable_volume_conviction_on_sell
+        returned_buy_sell_signals_config_item.enable_sell_volume_filter
+        == expected_buy_sell_signals_config_item.enable_sell_volume_filter
     )
     assert (
         returned_buy_sell_signals_config_item.min_volume_threshold
@@ -126,12 +126,12 @@ async def should_set_buy_sell_signals_config_properly(
         == expected_buy_sell_signals_config_item.max_volume_threshold
     )
     assert (
-        returned_buy_sell_signals_config_item.auto_exit_sell_1h
-        is expected_buy_sell_signals_config_item.auto_exit_sell_1h
+        returned_buy_sell_signals_config_item.enable_exit_on_sell_signal
+        is expected_buy_sell_signals_config_item.enable_exit_on_sell_signal
     )
     assert (
-        returned_buy_sell_signals_config_item.auto_exit_atr_take_profit
-        == expected_buy_sell_signals_config_item.auto_exit_atr_take_profit
+        returned_buy_sell_signals_config_item.enable_exit_on_take_profit
+        == expected_buy_sell_signals_config_item.enable_exit_on_take_profit
     )
 
     httpserver.check_assertions()

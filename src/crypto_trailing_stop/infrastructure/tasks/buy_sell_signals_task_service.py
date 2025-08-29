@@ -283,7 +283,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         # The immediate signal is only valid if there's no recent divergence warning.
         buy_signal = ema_bullish_cross_on_last and is_trend_momentum_confirmed_on_last and not recent_divergence_warning
         # If the ADX filter is off, we only check for the immediate signal.
-        if buy_sell_signals_config.filter_noise_using_adx:
+        if buy_sell_signals_config.enable_adx_filter:
             # --- ADX filter is ON from this point forward ---
             # 2. Check for a "Delayed Signal" from 1 candle ago.
             ema_bullish_cross_on_prev = self._is_ema_bullish_crossover(
@@ -331,7 +331,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             and last_candle_market_metrics.ema_short < last_candle_market_metrics.ema_mid
         )
         is_volume_confirmed = (
-            not buy_sell_signals_config.enable_volume_conviction_on_sell
+            not buy_sell_signals_config.enable_sell_volume_filter
             or last_candle_market_metrics.relative_vol >= buy_sell_signals_config.min_volume_threshold
         )
         sell_signal = ema_bearish_cross and last_candle_market_metrics.macd_hist < 0 and is_volume_confirmed
@@ -576,7 +576,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
     ) -> bool:
         """Checks if all non-crossover buy confirmations (MACD, ADX) are met for a given candle."""
         is_strong_uptrend = self._is_strong_uptrend(candle, buy_sell_signals_config)
-        is_volume_healthy = not buy_sell_signals_config.apply_volume_filter or (
+        is_volume_healthy = not buy_sell_signals_config.enable_buy_volume_filter or (
             candle.relative_vol >= buy_sell_signals_config.min_volume_threshold
             # NOTE: Impose a maximum volume threshold
             # to avoid Volume Climaxes that often precede reversals
@@ -589,7 +589,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         self, candle: CryptoMarketMetrics, buy_sell_signals_config: BuySellSignalsConfigItem
     ) -> bool:
         is_strong_uptrend = True
-        if buy_sell_signals_config.filter_noise_using_adx:
+        if buy_sell_signals_config.enable_adx_filter:
             # NOTE: ADX > 20
             trend_strength_confirmed = candle.adx > buy_sell_signals_config.adx_threshold
             # NOTE: +DI > -DI

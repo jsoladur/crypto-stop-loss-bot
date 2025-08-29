@@ -47,11 +47,11 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
         logger.info(f"Using {repr(ret)} for {symbol}...")
         return ret
 
-    async def toggle_auto_exit_atr_take_profit_by_symbol(self, symbol: str) -> BuySellSignalsConfigItem:
+    async def toggle_enable_exit_on_take_profit_by_symbol(self, symbol: str) -> BuySellSignalsConfigItem:
         item = await self.find_by_symbol(symbol)
-        item.auto_exit_atr_take_profit = not item.auto_exit_atr_take_profit
+        item.enable_exit_on_take_profit = not item.enable_exit_on_take_profit
         await self.save_or_update(item)
-        logger.info(f"Auto Exit ATR Take Profit for {symbol} has been set to {item.auto_exit_atr_take_profit}")
+        logger.info(f"Auto Exit ATR Take Profit for {symbol} has been set to {item.enable_exit_on_take_profit}")
         return item
 
     async def save_or_update(self, item: BuySellSignalsConfigItem) -> None:
@@ -64,14 +64,14 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             config.ema_long_value = item.ema_long_value
             config.stop_loss_atr_multiplier = item.stop_loss_atr_multiplier
             config.take_profit_atr_multiplier = item.take_profit_atr_multiplier
-            config.filter_noise_using_adx = item.filter_noise_using_adx
+            config.enable_adx_filter = item.enable_adx_filter
             config.adx_threshold = item.adx_threshold
-            config.apply_volume_filter = item.apply_volume_filter
+            config.enable_buy_volume_filter = item.enable_buy_volume_filter
             config.min_volume_threshold = item.min_volume_threshold
             config.max_volume_threshold = item.max_volume_threshold
-            config.enable_volume_conviction_on_sell = item.enable_volume_conviction_on_sell
-            config.auto_exit_sell_1h = item.auto_exit_sell_1h
-            config.auto_exit_atr_take_profit = item.auto_exit_atr_take_profit
+            config.enable_sell_volume_filter = item.enable_sell_volume_filter
+            config.enable_exit_on_sell_signal = item.enable_exit_on_sell_signal
+            config.enable_exit_on_take_profit = item.enable_exit_on_take_profit
         else:
             config = BuySellSignalsConfig(
                 {
@@ -81,14 +81,14 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
                     BuySellSignalsConfig.ema_long_value: item.ema_long_value,
                     BuySellSignalsConfig.stop_loss_atr_multiplier: item.stop_loss_atr_multiplier,
                     BuySellSignalsConfig.take_profit_atr_multiplier: item.take_profit_atr_multiplier,
-                    BuySellSignalsConfig.filter_noise_using_adx: item.filter_noise_using_adx,
+                    BuySellSignalsConfig.enable_adx_filter: item.enable_adx_filter,
                     BuySellSignalsConfig.adx_threshold: item.adx_threshold,
-                    BuySellSignalsConfig.apply_volume_filter: item.apply_volume_filter,
+                    BuySellSignalsConfig.enable_buy_volume_filter: item.enable_buy_volume_filter,
                     BuySellSignalsConfig.min_volume_threshold: item.min_volume_threshold,
                     BuySellSignalsConfig.max_volume_threshold: item.max_volume_threshold,
-                    BuySellSignalsConfig.enable_volume_conviction_on_sell: item.enable_volume_conviction_on_sell,
-                    BuySellSignalsConfig.auto_exit_sell_1h: item.auto_exit_sell_1h,
-                    BuySellSignalsConfig.auto_exit_atr_take_profit: item.auto_exit_atr_take_profit,
+                    BuySellSignalsConfig.enable_sell_volume_filter: item.enable_sell_volume_filter,
+                    BuySellSignalsConfig.enable_exit_on_sell_signal: item.enable_exit_on_sell_signal,
+                    BuySellSignalsConfig.enable_exit_on_take_profit: item.enable_exit_on_take_profit,
                 }
             )
         await config.save()
@@ -101,12 +101,12 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             ema_long_value=buy_sell_signals_config.ema_long_value,
             stop_loss_atr_multiplier=buy_sell_signals_config.stop_loss_atr_multiplier,
             take_profit_atr_multiplier=buy_sell_signals_config.take_profit_atr_multiplier,
-            filter_noise_using_adx=buy_sell_signals_config.filter_noise_using_adx,
+            enable_adx_filter=buy_sell_signals_config.enable_adx_filter,
             adx_threshold=buy_sell_signals_config.adx_threshold,
-            apply_volume_filter=buy_sell_signals_config.apply_volume_filter,
+            enable_buy_volume_filter=buy_sell_signals_config.enable_buy_volume_filter,
             min_volume_threshold=buy_sell_signals_config.min_volume_threshold,
             max_volume_threshold=buy_sell_signals_config.max_volume_threshold,
-            enable_volume_conviction_on_sell=buy_sell_signals_config.enable_volume_conviction_on_sell,
-            auto_exit_sell_1h=buy_sell_signals_config.auto_exit_sell_1h,
-            auto_exit_atr_take_profit=buy_sell_signals_config.auto_exit_atr_take_profit,
+            enable_sell_volume_filter=buy_sell_signals_config.enable_sell_volume_filter,
+            enable_exit_on_sell_signal=buy_sell_signals_config.enable_exit_on_sell_signal,
+            enable_exit_on_take_profit=buy_sell_signals_config.enable_exit_on_take_profit,
         )

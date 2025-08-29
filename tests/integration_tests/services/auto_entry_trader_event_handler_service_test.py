@@ -91,7 +91,7 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
     )
     if not enable_atr_auto_take_profit:
         await buy_sell_signals_config_service.save_or_update(
-            BuySellSignalsConfigItem(symbol=crypto_currency, auto_exit_atr_take_profit=False)
+            BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
         )
 
     # Provoke send a notification via Telegram
@@ -133,7 +133,7 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
                 assert is_enabled_for_limit_sell_order_guard is True
 
                 buy_sell_signals_config = await buy_sell_signals_config_service.find_by_symbol(crypto_currency)
-                assert buy_sell_signals_config.auto_exit_sell_1h is True
+                assert buy_sell_signals_config.enable_exit_on_sell_signal is True
             else:
                 toggle_task_mock.assert_not_called()
 

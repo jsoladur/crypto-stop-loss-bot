@@ -37,14 +37,14 @@ buy_sell_signals_mock_filenames = [
 
 
 @pytest.mark.parametrize(
-    "fetch_ohlcv_return_value_filename,filter_noise_using_adx",
+    "fetch_ohlcv_return_value_filename,enable_adx_filter",
     [(filename, bool_value) for filename in buy_sell_signals_mock_filenames for bool_value in [True, False]],
 )
 @pytest.mark.asyncio
 async def should_send_via_telegram_notifications_after_detecting_buy_sell_signals(
     faker: Faker,
     fetch_ohlcv_return_value_filename: str,
-    filter_noise_using_adx: bool,
+    enable_adx_filter: bool,
     integration_test_env: tuple[HTTPServer, str],
 ) -> None:
     """
@@ -66,9 +66,9 @@ async def should_send_via_telegram_notifications_after_detecting_buy_sell_signal
     # Pause job since won't be paused via start(..), stop(..)
     buy_sell_signals_task_service._job.pause()
 
-    if filter_noise_using_adx:
+    if enable_adx_filter:
         await BuySellSignalsConfigService().save_or_update(
-            BuySellSignalsConfigItem(symbol=crypto_currency, filter_noise_using_adx=True)
+            BuySellSignalsConfigItem(symbol=crypto_currency, enable_adx_filter=True)
         )
 
     # Provoke send a notification via Telegram

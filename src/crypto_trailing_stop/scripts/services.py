@@ -205,7 +205,7 @@ class BacktestingCliService:
             if not use_tqdm:
                 backtesting._tqdm = lambda iterable=None, *args, **kwargs: iterable
             stats = bt.run(
-                enable_tp=simulated_bs_config.auto_exit_atr_take_profit,
+                enable_tp=simulated_bs_config.enable_exit_on_take_profit,
                 simulated_bs_config=simulated_bs_config,
                 analytics_service=self._analytics_service,
             )
@@ -272,13 +272,13 @@ class BacktestingCliService:
         ret = []
         # --- HEURISTIC PRUNING ---
         for params in full_cartesian_product:
-            (_, (auto_exit_atr_take_profit, _, tp_multiplier), adx_threshold, _) = params
+            (_, (enable_exit_on_take_profit, _, tp_multiplier), adx_threshold, _) = params
             # Filter out combinations that don't make sense based on heuristic rules
             # 1. If ADX filter is disabled, TP should not be too high (to avoid over-leveraging in non-trending markets)
-            is_valid_tp_for_no_trend = adx_threshold > 0 or not auto_exit_atr_take_profit or tp_multiplier <= 4.0
+            is_valid_tp_for_no_trend = adx_threshold > 0 or not enable_exit_on_take_profit or tp_multiplier <= 4.0
             # 2. If ADX filter is enabled with a high threshold,
             # TP should not be too low (to ensure we capture strong trends)
-            is_valid_tp_for_strong_trend = adx_threshold < 25 or not auto_exit_atr_take_profit or tp_multiplier >= 4.0
+            is_valid_tp_for_strong_trend = adx_threshold < 25 or not enable_exit_on_take_profit or tp_multiplier >= 4.0
             if is_valid_tp_for_no_trend and is_valid_tp_for_strong_trend:
                 ret.append(params)
         if echo_fn:
