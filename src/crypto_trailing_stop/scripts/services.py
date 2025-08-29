@@ -222,18 +222,18 @@ class BacktestingCliService:
         df: pd.DataFrame,
         echo_fn: Callable[[str], None] | None = None,
     ) -> list[BacktestingExecutionResult]:
-        cartesian_product = self._calculate_cartesian_product(echo_fn=echo_fn)
+        cartesian_product = self._calculate_cartesian_product(symbol=symbol, echo_fn=echo_fn)
         # Use joblib to run the backtests in parallel across all available CPU cores
         # tqdm is now wrapped around the parallel execution
         results = Parallel(n_jobs=-1)(
-            delayed(run_single_backtest_combination)(params, symbol, initial_cash, df)
+            delayed(run_single_backtest_combination)(params, initial_cash, df)
             for params in (tqdm(cartesian_product) if not disable_progress_bar else cartesian_product)
         )
         # Filter out any runs that failed (they will return None)
         executions_results = [res for res in results if res is not None]
         return executions_results
 
-    def _calculate_cartesian_product(self, *, echo_fn: Callable[[str], None] | None = None):
+    def _calculate_cartesian_product(self, *, symbol: str, echo_fn: Callable[[str], None] | None = None):
         # Group SL/TP pairs by SL value to ensure we have unique SL values when TP is disabled
         sp_tp_tuples_group_by_sp = pydash.group_by(SP_TP_PAIRS_AS_TUPLES, lambda pair: pair[0])
         sp_tp_tuples_when_tp_disabled = [
@@ -269,11 +269,11 @@ class BacktestingCliService:
         # --- HEURISTIC PRUNING ---
         for params in full_cartesian_product:
             (
-                _,
+                (ema_short, ema_mid),
                 (enable_exit_on_take_profit, sl_multiplier, tp_multiplier),
                 adx_threshold,
                 (enable_buy_volume_filter, buy_min_volume_threshold, buy_max_volume_threshold),
-                *_,
+                (enable_sell_volume_filter, sell_min_volume_threshold),
             ) = params
             # Filter out combinations that don't make sense based on heuristic rules
             # Rule 1: If ADX filter is disabled,
@@ -311,7 +311,23 @@ class BacktestingCliService:
                     is_volume_filter_enforced_in_chop,
                 ]
             ):
-                ret.append(params)
+                simulated_bs_config = BuySellSignalsConfigItem(
+                    symbol=symbol,
+                    ema_short_value=ema_short,
+                    ema_mid_value=ema_mid,
+                    ema_long_value=200,
+                    stop_loss_atr_multiplier=sl_multiplier,
+                    take_profit_atr_multiplier=tp_multiplier,
+                    enable_adx_filter=adx_threshold > 0,
+                    adx_threshold=adx_threshold,
+                    enable_buy_volume_filter=enable_buy_volume_filter,
+                    buy_min_volume_threshold=buy_min_volume_threshold,
+                    buy_max_volume_threshold=buy_max_volume_threshold,
+                    enable_sell_volume_filter=enable_sell_volume_filter,
+                    sell_min_volume_threshold=sell_min_volume_threshold,
+                    enable_exit_on_take_profit=enable_exit_on_take_profit,
+                )
+                ret.append(simulated_bs_config)
         if echo_fn:
             echo_fn(f"  -- Discarded combinations by heuristic: {len(full_cartesian_product) - len(ret)}")
             echo_fn(f"TOTAL COMBINATIONS TO TEST: {len(ret)}")
