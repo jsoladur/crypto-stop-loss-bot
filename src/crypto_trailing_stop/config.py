@@ -66,7 +66,7 @@ class ConfigurationProperties(BaseSettings):
     # XXX: ADX threshold
     buy_sell_signals_adx_threshold: int = 15
     # XXX: Min/Max Relative Volume threshold
-    buy_sell_signals_min_volume_threshold: float = 0.5
+    buy_sell_signals_min_volume_threshold: float = 0.45
     buy_sell_signals_max_volume_threshold: float = 3.5
     # Auto-Entry Trader configuration properties
     max_atr_percent_for_auto_entry: int = STOP_LOSS_STEPS_VALUE_LIST[-1]
