@@ -302,7 +302,17 @@ class BacktestingCliService:
             is_volume_filter_enforced_in_chop = adx_threshold > 0 or enable_buy_volume_filter
 
             # Rule 7: For fast EMAs (which can be noisy), enforce a confirmation filter (either ADX or Volume).
-            is_fast_ema_filtered = (ema_short, ema_mid) != (7, 18) or adx_threshold > 0 or enable_buy_volume_filter
+            is_fast_ema_filtered = (
+                (ema_short, ema_mid) not in [(7, 18), (8, 20)] or adx_threshold > 0 or enable_buy_volume_filter
+            )
+
+            # Rule 8: For the slowest EMA pair, also enforce a filter (ADX, BUY or SELL Volume).
+            is_slow_ema_filtered = (
+                (ema_short, ema_mid) != (9, 21)
+                or adx_threshold > 0
+                or enable_buy_volume_filter
+                or enable_sell_volume_filter
+            )
 
             if all(
                 [
@@ -313,6 +323,7 @@ class BacktestingCliService:
                     is_not_too_restrictive,
                     is_volume_filter_enforced_in_chop,
                     is_fast_ema_filtered,
+                    is_slow_ema_filtered,
                 ]
             ):
                 simulated_bs_config = BuySellSignalsConfigItem(
