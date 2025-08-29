@@ -38,7 +38,7 @@ SP_TP_PAIRS = [f"{sp_percent}/{tp_percent}" for sp_percent, tp_percent in SP_TP_
 EMA_LONG_VALUES = [150, 200, 233]
 ADX_THRESHOLD_VALUES = [15, 20, 25]
 MIN_VOLUME_THRESHOLD_VALUES = [
-    round(min_volume_threshold, ndigits=2) for min_volume_threshold in np.arange(0.05, 2.05, 0.05).tolist()
+    round(min_volume_threshold, ndigits=2) for min_volume_threshold in np.arange(0.05, 2.10, 0.10).tolist()
 ]
 MAX_VOLUME_THRESHOLD_VALUES = [
     round(max_volume_threshold, ndigits=2) for max_volume_threshold in np.arange(2.5, 4.5, 0.5).tolist()

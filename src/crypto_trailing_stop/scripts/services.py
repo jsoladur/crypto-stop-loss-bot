@@ -301,6 +301,9 @@ class BacktestingCliService:
             # Rule 6: In non-trending markets (ADX filter off), enforce volume filter to confirm moves.
             is_volume_filter_enforced_in_chop = adx_threshold > 0 or enable_buy_volume_filter
 
+            # Rule 7: For fast EMAs (which can be noisy), enforce a confirmation filter (either ADX or Volume).
+            is_fast_ema_filtered = (ema_short, ema_mid) != (7, 18) or adx_threshold > 0 or enable_buy_volume_filter
+
             if all(
                 [
                     is_valid_tp_for_no_trend,
@@ -309,6 +312,7 @@ class BacktestingCliService:
                     is_logical_buy_volume_range,
                     is_not_too_restrictive,
                     is_volume_filter_enforced_in_chop,
+                    is_fast_ema_filtered,
                 ]
             ):
                 simulated_bs_config = BuySellSignalsConfigItem(
