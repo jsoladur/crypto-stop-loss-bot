@@ -268,14 +268,49 @@ class BacktestingCliService:
         ret = []
         # --- HEURISTIC PRUNING ---
         for params in full_cartesian_product:
-            (_, (enable_exit_on_take_profit, _, tp_multiplier), adx_threshold, *_) = params
+            (
+                _,
+                (enable_exit_on_take_profit, sl_multiplier, tp_multiplier),
+                adx_threshold,
+                (enable_buy_volume_filter, buy_min_volume_threshold, buy_max_volume_threshold),
+                *_,
+            ) = params
             # Filter out combinations that don't make sense based on heuristic rules
-            # 1. If ADX filter is disabled, TP should not be too high (to avoid over-leveraging in non-trending markets)
+            # Rule 1: If ADX filter is disabled,
+            # TP should not be too high (to avoid over-leveraging in non-trending markets)
             is_valid_tp_for_no_trend = adx_threshold > 0 or not enable_exit_on_take_profit or tp_multiplier <= 4.0
-            # 2. If ADX filter is enabled with a high threshold,
+            # Rule 2: If ADX filter is enabled with a high threshold,
             # TP should not be too low (to ensure we capture strong trends)
             is_valid_tp_for_strong_trend = adx_threshold < 25 or not enable_exit_on_take_profit or tp_multiplier >= 4.0
-            if is_valid_tp_for_no_trend and is_valid_tp_for_strong_trend:
+
+            # Rule 3: Ensure a logical Risk/Reward ratio when TP is enabled.
+            # A TP multiplier should be significantly larger than the SL multiplier (e.g., R:R > 1.5).
+            is_logical_risk_reward = not enable_exit_on_take_profit or tp_multiplier > sl_multiplier * 1.5
+
+            # Rule 4: Prune illogical volume filter settings. The min threshold must be less than the max.
+            is_logical_buy_volume_range = (
+                not enable_buy_volume_filter or buy_min_volume_threshold < buy_max_volume_threshold
+            )
+
+            # Rule 5: Avoid overly restrictive combinations.
+            # If ADX is very strict, don't also have a very strict volume filter.
+            is_not_too_restrictive = not (
+                adx_threshold >= 25 and enable_buy_volume_filter and buy_min_volume_threshold > 1.5
+            )
+
+            # Rule 6: In non-trending markets (ADX filter off), enforce volume filter to confirm moves.
+            is_volume_filter_enforced_in_chop = adx_threshold > 0 or enable_buy_volume_filter
+
+            if all(
+                [
+                    is_valid_tp_for_no_trend,
+                    is_valid_tp_for_strong_trend,
+                    is_logical_risk_reward,
+                    is_logical_buy_volume_range,
+                    is_not_too_restrictive,
+                    is_volume_filter_enforced_in_chop,
+                ]
+            ):
                 ret.append(params)
         if echo_fn:
             echo_fn(f"  -- Discarded combinations by heuristic: {len(full_cartesian_product) - len(ret)}")
