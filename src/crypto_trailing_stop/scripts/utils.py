@@ -9,20 +9,21 @@ def echo_backtesting_execution_result(result: BacktestingExecutionResult) -> Non
     item: BuySellSignalsConfigItem = result.parameters
     typer.secho("⚙️  Parameters:", fg=typer.colors.BLUE)
     typer.echo(
-        f"📈 EMA Short Value = {item.ema_short_value}\n"
-        + f"📉 EMA Mid Value = {item.ema_mid_value}\n"
-        + f"📐 EMA Long Value = {item.ema_long_value}\n"
-        + f"🛡️ Stop Loss ATR Factor = {item.stop_loss_atr_multiplier}\n"
-        + f"🏁 Take Profit ATR Factor = {item.take_profit_atr_multiplier}\n"
-        + f"📶 Filter Noise using ADX? = {'🟢' if item.filter_noise_using_adx else '🟥'}\n"
-        + f"🔦 ADX Threshold = {item.adx_threshold if item.filter_noise_using_adx else '(not applicable)'}\n"  # noqa: E501
-        + f"🚩 Apply Relative Volume Filter? = {'🟢' if item.apply_volume_filter else '🟥'}\n"
-        + f"💣 Volume Conviction on SELL 1H enabled? = {'🟢' if item.enable_volume_conviction_on_sell else '🟥'}\n"
-        + f"🔊 Min. Rel. Volume Threshold = {item.min_volume_threshold if item.apply_volume_filter else '(not applicable)'}\n"  # noqa: E501
-        + f"🔇 Max. Rel. Volume Threshold = {item.max_volume_threshold if item.apply_volume_filter else '(not applicable)'}\n"  # noqa: E501
-        + f"🚨 Auto-Exit SELL 1h enabled? = {'🟢' if item.auto_exit_sell_1h else '🟥'}\n"
-        + f"🎯 Auto-Exit Take Profit enabled? = {'🟢' if item.auto_exit_atr_take_profit else '🟥'}"
+        f"📈 EMA Short = {item.ema_short_value}\n"
+        f"📉 EMA Mid = {item.ema_mid_value}\n"
+        f"📐 EMA Long = {item.ema_long_value}\n"
+        f"🛡️ SL ATR x = {item.stop_loss_atr_multiplier}\n"
+        f"🏁 TP ATR x = {item.take_profit_atr_multiplier}\n"
+        f"📶 ADX Filter enabled? = {'🟢' if item.enable_adx_filter else '🟥'}\n"
+        f"🔦 ADX Threshold = {item.adx_threshold if item.enable_adx_filter else '(n/a)'}\n"
+        f"🚩 BUY Volume Filter enabled? = {'🟢' if item.enable_buy_volume_filter else '🟥'}\n"
+        f"🔊 Min Volume Threshold = {item.min_volume_threshold if item.enable_buy_volume_filter else '(n/a)'}\n"
+        f"🔇 Max Volume Threshold = {item.max_volume_threshold if item.enable_buy_volume_filter else '(n/a)'}\n"
+        f"💣 SELL Volume Filter enabled? = {'🟢' if item.enable_sell_volume_filter else '🟥'}\n"
+        f"🚨 Exit on SELL Signal enabled? = {'🟢' if item.enable_exit_on_sell_signal else '🟥'}\n"
+        f"🎯 Exit on Take Profit enabled? = {'🟢' if item.enable_exit_on_take_profit else '🟥'}"
     )
+
     typer.secho("\n--- 📝 Summary ---", fg=typer.colors.MAGENTA, bold=True)
     number_of_trades = typer.style(
         str(result.number_of_trades), fg=typer.colors.GREEN if result.number_of_trades > 0 else typer.colors.RED
