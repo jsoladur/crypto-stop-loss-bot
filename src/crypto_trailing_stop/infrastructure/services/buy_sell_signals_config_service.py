@@ -67,8 +67,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             config.enable_adx_filter = item.enable_adx_filter
             config.adx_threshold = item.adx_threshold
             config.enable_buy_volume_filter = item.enable_buy_volume_filter
-            config.min_volume_threshold = item.min_volume_threshold
-            config.max_volume_threshold = item.max_volume_threshold
+            config.buy_min_volume_threshold = item.buy_min_volume_threshold
+            config.buy_max_volume_threshold = item.buy_max_volume_threshold
             config.enable_sell_volume_filter = item.enable_sell_volume_filter
             config.enable_exit_on_sell_signal = item.enable_exit_on_sell_signal
             config.enable_exit_on_take_profit = item.enable_exit_on_take_profit
@@ -84,8 +84,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
                     BuySellSignalsConfig.enable_adx_filter: item.enable_adx_filter,
                     BuySellSignalsConfig.adx_threshold: item.adx_threshold,
                     BuySellSignalsConfig.enable_buy_volume_filter: item.enable_buy_volume_filter,
-                    BuySellSignalsConfig.min_volume_threshold: item.min_volume_threshold,
-                    BuySellSignalsConfig.max_volume_threshold: item.max_volume_threshold,
+                    BuySellSignalsConfig.buy_min_volume_threshold: item.buy_min_volume_threshold,
+                    BuySellSignalsConfig.buy_max_volume_threshold: item.buy_max_volume_threshold,
                     BuySellSignalsConfig.enable_sell_volume_filter: item.enable_sell_volume_filter,
                     BuySellSignalsConfig.enable_exit_on_sell_signal: item.enable_exit_on_sell_signal,
                     BuySellSignalsConfig.enable_exit_on_take_profit: item.enable_exit_on_take_profit,
@@ -104,8 +104,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             enable_adx_filter=buy_sell_signals_config.enable_adx_filter,
             adx_threshold=buy_sell_signals_config.adx_threshold,
             enable_buy_volume_filter=buy_sell_signals_config.enable_buy_volume_filter,
-            min_volume_threshold=buy_sell_signals_config.min_volume_threshold,
-            max_volume_threshold=buy_sell_signals_config.max_volume_threshold,
+            buy_min_volume_threshold=buy_sell_signals_config.buy_min_volume_threshold,
+            buy_max_volume_threshold=buy_sell_signals_config.buy_max_volume_threshold,
             enable_sell_volume_filter=buy_sell_signals_config.enable_sell_volume_filter,
             enable_exit_on_sell_signal=buy_sell_signals_config.enable_exit_on_sell_signal,
             enable_exit_on_take_profit=buy_sell_signals_config.enable_exit_on_take_profit,

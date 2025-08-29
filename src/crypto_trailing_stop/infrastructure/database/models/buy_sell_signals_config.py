@@ -21,8 +21,8 @@ class BuySellSignalsConfig(Table):
     adx_threshold: int = Integer(required=True)
     # Buy Volume Filter parameters
     enable_buy_volume_filter: bool = Boolean(required=True)
-    min_volume_threshold: float = Float(required=True)
-    max_volume_threshold: float = Float(required=True)
+    buy_min_volume_threshold: float = Float(required=True)
+    buy_max_volume_threshold: float = Float(required=True)
 
     # Sell Volume Filter parameters
     enable_sell_volume_filter: bool = Boolean(required=True)

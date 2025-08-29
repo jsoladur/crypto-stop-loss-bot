@@ -25,10 +25,10 @@ class BuySellSignalsConfigItem:
 
     # Buy Volume Filter parameters
     enable_buy_volume_filter: bool = True
-    min_volume_threshold: float = field(
+    buy_min_volume_threshold: float = field(
         default_factory=lambda: get_configuration_properties().buy_sell_signals_min_volume_threshold
     )
-    max_volume_threshold: float = field(
+    buy_max_volume_threshold: float = field(
         default_factory=lambda: get_configuration_properties().buy_sell_signals_max_volume_threshold
     )
 

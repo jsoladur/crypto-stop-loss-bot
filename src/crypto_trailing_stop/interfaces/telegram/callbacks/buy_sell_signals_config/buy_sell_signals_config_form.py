@@ -67,14 +67,14 @@ class BuySellSignalsConfigForm(Form):
         filter=F.text.in_(YES_NO_VALUES) & F.text,
         reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
     )
-    min_volume_threshold: float = FormField(
+    buy_min_volume_threshold: float = FormField(
         enter_message_text="🔊 Select Min Volume Threshold",
         error_message_text="❌ Invalid Min Volume Threshold value. Valid values: "
         + f"{', '.join([str(value) for value in MIN_VOLUME_THRESHOLD_VALUES])}",
         filter=F.text.in_([str(value) for value in MIN_VOLUME_THRESHOLD_VALUES]) & F.text,
         reply_markup=KeyboardsBuilder.get_min_volume_threshold_keyboard(),
     )
-    max_volume_threshold: float = FormField(
+    buy_max_volume_threshold: float = FormField(
         enter_message_text="🔇 Select Max Volume Threshold",
         error_message_text="❌ Invalid Max Volume Threshold value. Valid values: "
         + f"{', '.join([str(value) for value in MAX_VOLUME_THRESHOLD_VALUES])}",
@@ -111,8 +111,8 @@ class BuySellSignalsConfigForm(Form):
             enable_adx_filter=bool(self.enable_adx_filter.lower() == "yes"),
             adx_threshold=int(self.adx_threshold),
             enable_buy_volume_filter=bool(self.enable_buy_volume_filter.lower() == "yes"),
-            min_volume_threshold=float(self.min_volume_threshold),
-            max_volume_threshold=float(self.max_volume_threshold),
+            buy_min_volume_threshold=float(self.buy_min_volume_threshold),
+            buy_max_volume_threshold=float(self.buy_max_volume_threshold),
             enable_sell_volume_filter=bool(self.enable_sell_volume_filter.lower() == "yes"),
             # NOTE: [JMSOLA] Always is enabled in the strategy, so no need to configure it for now
             # enable_exit_on_sell_signal=bool(self.enable_exit_on_sell_signal.lower() == "yes"),

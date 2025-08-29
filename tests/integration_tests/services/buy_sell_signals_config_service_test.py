@@ -57,13 +57,13 @@ async def should_set_buy_sell_signals_config_properly(
     )
     assert returned_buy_sell_signals_config_item.enable_buy_volume_filter is True
     assert (
-        returned_buy_sell_signals_config_item.min_volume_threshold
-        == configuration_properties.buy_sell_signals_min_volume_threshold
+        returned_buy_sell_signals_config_item.buy_min_volume_threshold
+        == configuration_properties.buy_sell_signals_buy_min_volume_threshold
     )
     assert returned_buy_sell_signals_config_item.enable_sell_volume_filter is False
     assert (
-        returned_buy_sell_signals_config_item.max_volume_threshold
-        == configuration_properties.buy_sell_signals_max_volume_threshold
+        returned_buy_sell_signals_config_item.buy_max_volume_threshold
+        == configuration_properties.buy_sell_signals_buy_max_volume_threshold
     )
     assert returned_buy_sell_signals_config_item.enable_exit_on_sell_signal is True
     assert returned_buy_sell_signals_config_item.enable_exit_on_take_profit is False
@@ -79,8 +79,8 @@ async def should_set_buy_sell_signals_config_properly(
         adx_threshold=faker.random_element([15, 20, 25]),
         enable_buy_volume_filter=faker.pybool(truth_probability=1),
         enable_sell_volume_filter=faker.pybool(truth_probability=99),
-        min_volume_threshold=faker.pyfloat(min_value=0.25, max_value=0.75),
-        max_volume_threshold=faker.pyfloat(min_value=2.5, max_value=5.0),
+        buy_min_volume_threshold=faker.pyfloat(min_value=0.25, max_value=0.75),
+        buy_max_volume_threshold=faker.pyfloat(min_value=2.5, max_value=5.0),
         enable_exit_on_sell_signal=faker.pybool(truth_probability=1),
         enable_exit_on_take_profit=faker.pybool(truth_probability=99),
     )
@@ -118,12 +118,12 @@ async def should_set_buy_sell_signals_config_properly(
         == expected_buy_sell_signals_config_item.enable_sell_volume_filter
     )
     assert (
-        returned_buy_sell_signals_config_item.min_volume_threshold
-        == expected_buy_sell_signals_config_item.min_volume_threshold
+        returned_buy_sell_signals_config_item.buy_min_volume_threshold
+        == expected_buy_sell_signals_config_item.buy_min_volume_threshold
     )
     assert (
-        returned_buy_sell_signals_config_item.max_volume_threshold
-        == expected_buy_sell_signals_config_item.max_volume_threshold
+        returned_buy_sell_signals_config_item.buy_max_volume_threshold
+        == expected_buy_sell_signals_config_item.buy_max_volume_threshold
     )
     assert (
         returned_buy_sell_signals_config_item.enable_exit_on_sell_signal
