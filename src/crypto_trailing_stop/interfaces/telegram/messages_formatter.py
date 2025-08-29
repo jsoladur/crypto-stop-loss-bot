@@ -151,9 +151,10 @@ class MessagesFormatter(metaclass=SingletonMeta):
             f"📶 ADX Filter enabled? = {'🟢' if item.enable_adx_filter else '🟥'}\n"
             f"🔦 ADX Threshold = {html.code(item.adx_threshold) if item.enable_adx_filter else html.italic('(n/a)')}\n"
             f"🚩 BUY Volume Filter enabled? = {'🟢' if item.enable_buy_volume_filter else '🟥'}\n"
-            f"🔊 Min Volume Threshold = {html.code(item.buy_min_volume_threshold) if item.enable_buy_volume_filter else html.italic('(n/a)')}\n"  # noqa: E501
-            f"🔇 Max Volume Threshold = {html.code(item.buy_max_volume_threshold) if item.enable_buy_volume_filter else html.italic('(n/a)')}\n"  # noqa: E501
+            f"🔊 BUY Min Volume Threshold = {html.code(item.buy_min_volume_threshold) if item.enable_buy_volume_filter else html.italic('(n/a)')}\n"  # noqa: E501
+            f"🔇 BUY Max Volume Threshold = {html.code(item.buy_max_volume_threshold) if item.enable_buy_volume_filter else html.italic('(n/a)')}\n"  # noqa: E501
             f"💣 SELL Volume Filter enabled? = {'🟢' if item.enable_sell_volume_filter else '🟥'}\n"
+            f"🔊 SELL Min Volume Threshold = {html.code(item.sell_min_volume_threshold) if item.enable_sell_volume_filter else html.italic('(n/a)')}\n"  # noqa: E501
             f"🚨 Exit on SELL Signal enabled? = {'🟢' if item.enable_exit_on_sell_signal else '🟥'}\n"
             f"🎯 Exit on Take Profit enabled? = {'🟢' if item.enable_exit_on_take_profit else '🟥'}\n\n"
         )

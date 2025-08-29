@@ -34,6 +34,9 @@ class BuySellSignalsConfigItem:
 
     # Sell Volume Filter parameters
     enable_sell_volume_filter: bool = False
+    sell_min_volume_threshold: float = field(
+        default_factory=lambda: get_configuration_properties().buy_sell_signals_min_volume_threshold
+    )
 
     # Exit Parameters
     enable_exit_on_sell_signal: bool = True

@@ -332,7 +332,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         )
         is_volume_confirmed = (
             not buy_sell_signals_config.enable_sell_volume_filter
-            or last_candle_market_metrics.relative_vol >= buy_sell_signals_config.min_volume_threshold
+            or last_candle_market_metrics.relative_vol >= buy_sell_signals_config.sell_min_volume_threshold
         )
         sell_signal = ema_bearish_cross and last_candle_market_metrics.macd_hist < 0 and is_volume_confirmed
         return bool(sell_signal)
@@ -577,10 +577,10 @@ class BuySellSignalsTaskService(AbstractTaskService):
         """Checks if all non-crossover buy confirmations (MACD, ADX) are met for a given candle."""
         is_strong_uptrend = self._is_strong_uptrend(candle, buy_sell_signals_config)
         is_volume_healthy = not buy_sell_signals_config.enable_buy_volume_filter or (
-            candle.relative_vol >= buy_sell_signals_config.min_volume_threshold
+            candle.relative_vol >= buy_sell_signals_config.buy_min_volume_threshold
             # NOTE: Impose a maximum volume threshold
             # to avoid Volume Climaxes that often precede reversals
-            and candle.relative_vol <= buy_sell_signals_config.max_volume_threshold
+            and candle.relative_vol <= buy_sell_signals_config.buy_max_volume_threshold
         )
         ret = bool(not candle.bearish_divergence and candle.macd_hist > 0 and is_strong_uptrend and is_volume_healthy)
         return ret

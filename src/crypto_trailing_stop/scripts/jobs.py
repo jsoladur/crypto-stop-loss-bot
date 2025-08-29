@@ -24,7 +24,8 @@ def run_single_backtest_combination(
         (ema_short, ema_mid),
         (enable_exit_on_take_profit, sl_multiplier, tp_multiplier),
         adx_threshold,
-        (enable_buy_volume_filter, enable_sell_volume_filter, buy_min_volume_threshold, buy_max_volume_threshold),
+        (enable_buy_volume_filter, buy_min_volume_threshold, buy_max_volume_threshold),
+        (enable_sell_volume_filter, sell_min_volume_threshold),
     ) = params
     ret: BacktestingExecutionResult | None = None
     try:
@@ -38,9 +39,10 @@ def run_single_backtest_combination(
             enable_adx_filter=adx_threshold > 0,  # ADX is enabled if threshold > 0
             adx_threshold=adx_threshold,
             enable_buy_volume_filter=enable_buy_volume_filter,
-            enable_sell_volume_filter=enable_sell_volume_filter,
             buy_min_volume_threshold=buy_min_volume_threshold,
             buy_max_volume_threshold=buy_max_volume_threshold,
+            enable_sell_volume_filter=enable_sell_volume_filter,
+            sell_min_volume_threshold=sell_min_volume_threshold,
             enable_exit_on_take_profit=enable_exit_on_take_profit,
         )
         # We use df.copy() to ensure each process gets its own data

@@ -17,9 +17,10 @@ def echo_backtesting_execution_result(result: BacktestingExecutionResult) -> Non
         f"📶 ADX Filter enabled? = {'🟢' if item.enable_adx_filter else '🟥'}\n"
         f"🔦 ADX Threshold = {item.adx_threshold if item.enable_adx_filter else '(n/a)'}\n"
         f"🚩 BUY Volume Filter enabled? = {'🟢' if item.enable_buy_volume_filter else '🟥'}\n"
-        f"🔊 Min Volume Threshold = {item.buy_min_volume_threshold if item.enable_buy_volume_filter else '(n/a)'}\n"
-        f"🔇 Max Volume Threshold = {item.buy_max_volume_threshold if item.enable_buy_volume_filter else '(n/a)'}\n"
+        f"🔊 BUY Min Volume Threshold = {item.buy_min_volume_threshold if item.enable_buy_volume_filter else '(n/a)'}\n"
+        f"🔇 BUY Max Volume Threshold = {item.buy_max_volume_threshold if item.enable_buy_volume_filter else '(n/a)'}\n"
         f"💣 SELL Volume Filter enabled? = {'🟢' if item.enable_sell_volume_filter else '🟥'}\n"
+        f"🔊 SELL Min Volume Threshold = {item.sell_min_volume_threshold if item.enable_sell_volume_filter else '(n/a)'}\n"  # noqa: E501
         f"🚨 Exit on SELL Signal enabled? = {'🟢' if item.enable_exit_on_sell_signal else '🟥'}\n"
         f"🎯 Exit on Take Profit enabled? = {'🟢' if item.enable_exit_on_take_profit else '🟥'}"
     )

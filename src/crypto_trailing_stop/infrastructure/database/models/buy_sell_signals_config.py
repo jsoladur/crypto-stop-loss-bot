@@ -26,6 +26,7 @@ class BuySellSignalsConfig(Table):
 
     # Sell Volume Filter parameters
     enable_sell_volume_filter: bool = Boolean(required=True)
+    sell_min_volume_threshold: float = Float(required=True)
 
     # Exit Parameters
     enable_exit_on_sell_signal: bool = Boolean(required=True)
