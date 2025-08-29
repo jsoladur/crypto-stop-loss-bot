@@ -71,7 +71,7 @@ async def should_create_market_sell_order_when_market_for_immediate_sell_order(
     first_order, buy_price = first_order_and_price
     crypto_currency, *_ = first_order.symbol.split("/")
     await BuySellSignalsConfigService().save_or_update(
-        BuySellSignalsConfigItem(symbol=crypto_currency, auto_exit_atr_take_profit=False)
+        BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
     )
     task_manager = get_task_manager_instance()
 
@@ -107,7 +107,7 @@ async def should_create_market_sell_order_when_market_for_immediate_sell_order(
 
 
 @pytest.mark.asyncio
-async def should_create_market_sell_order_when_atr_take_profit_limit_price_reached(
+async def should_create_market_sell_order_when_take_profit_reached(
     faker: Faker, integration_test_env: tuple[HTTPServer, str]
 ) -> None:
     """
@@ -178,7 +178,7 @@ async def should_create_market_sell_order_when_auto_exit_sell_or_bearish_diverge
     first_order, *_ = opened_sell_bit2me_orders
     crypto_currency, *_ = first_order.symbol.split("/")
     await BuySellSignalsConfigService().save_or_update(
-        BuySellSignalsConfigItem(symbol=crypto_currency, auto_exit_atr_take_profit=False)
+        BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
     )
     task_manager = get_task_manager_instance()
 
@@ -233,7 +233,7 @@ async def should_ignore_sell_1h_signal_and_not_sell_when_price_is_lower_than_bre
     first_order, buy_price = first_order_and_price
     crypto_currency, *_ = first_order.symbol.split("/")
     await BuySellSignalsConfigService().save_or_update(
-        BuySellSignalsConfigItem(symbol=crypto_currency, auto_exit_atr_take_profit=False)
+        BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
     )
     task_manager = get_task_manager_instance()
 
@@ -287,7 +287,9 @@ async def should_create_market_sell_order_when_safeguard_stop_price_reached(
     for current_order in opened_sell_bit2me_orders:
         crypto_currency, *_ = current_order.symbol.split("/")
         await BuySellSignalsConfigService().save_or_update(
-            BuySellSignalsConfigItem(symbol=crypto_currency, auto_exit_sell_1h=False, auto_exit_atr_take_profit=False)
+            BuySellSignalsConfigItem(
+                symbol=crypto_currency, enable_exit_on_sell_signal=False, enable_exit_on_take_profit=False
+            )
         )
 
     task_manager = get_task_manager_instance()

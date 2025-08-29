@@ -29,10 +29,10 @@ async def toggle_take_profit_for_symbol_callback_handler(callback_query: Callbac
         try:
             match = re.match(REGEX, callback_query.data)
             symbol = match.group(1)
-            item = await buy_sell_signals_config_service.toggle_auto_exit_atr_take_profit_by_symbol(symbol)
+            item = await buy_sell_signals_config_service.toggle_enable_exit_on_take_profit_by_symbol(symbol)
             await callback_query.message.answer(
                 f"ℹ️ Take-Profit for '{html.bold(symbol)}'"
-                + f" has been {('🟢' + html.bold(' ENABLED')) if item.auto_exit_atr_take_profit else ('🟥' + html.bold(' DISABLED'))}!",  # noqa: E501
+                + f" has been {('🟢' + html.bold(' ENABLED')) if item.enable_exit_on_take_profit else ('🟥' + html.bold(' DISABLED'))}!",  # noqa: E501
                 reply_markup=keyboards_builder.get_home_keyboard(),
             )
         except Exception as e:

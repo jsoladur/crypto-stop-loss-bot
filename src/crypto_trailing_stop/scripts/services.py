@@ -205,7 +205,7 @@ class BacktestingCliService:
             if not use_tqdm:
                 backtesting._tqdm = lambda iterable=None, *args, **kwargs: iterable
             stats = bt.run(
-                enable_tp=simulated_bs_config.auto_exit_atr_take_profit,
+                enable_tp=simulated_bs_config.enable_exit_on_take_profit,
                 simulated_bs_config=simulated_bs_config,
                 analytics_service=self._analytics_service,
             )
@@ -222,22 +222,18 @@ class BacktestingCliService:
         df: pd.DataFrame,
         echo_fn: Callable[[str], None] | None = None,
     ) -> list[BacktestingExecutionResult]:
-        cartesian_product = self._calculate_cartesian_product(echo_fn=echo_fn)
+        cartesian_product = self._calculate_cartesian_product(symbol=symbol, echo_fn=echo_fn)
         # Use joblib to run the backtests in parallel across all available CPU cores
         # tqdm is now wrapped around the parallel execution
         results = Parallel(n_jobs=-1)(
-            delayed(run_single_backtest_combination)(params, symbol, initial_cash, df)
+            delayed(run_single_backtest_combination)(params, initial_cash, df)
             for params in (tqdm(cartesian_product) if not disable_progress_bar else cartesian_product)
         )
         # Filter out any runs that failed (they will return None)
         executions_results = [res for res in results if res is not None]
         return executions_results
 
-    def _calculate_cartesian_product(self, *, echo_fn: Callable[[str], None] | None = None):
-        # Adding the "No filter" option (0) to ADX thresholds
-        adx_threshold_values = ADX_THRESHOLD_VALUES.copy()
-        adx_threshold_values.insert(0, 0)  # Adding the "No filter" option
-
+    def _calculate_cartesian_product(self, *, symbol: str, echo_fn: Callable[[str], None] | None = None):
         # Group SL/TP pairs by SL value to ensure we have unique SL values when TP is disabled
         sp_tp_tuples_group_by_sp = pydash.group_by(SP_TP_PAIRS_AS_TUPLES, lambda pair: pair[0])
         sp_tp_tuples_when_tp_disabled = [
@@ -246,22 +242,25 @@ class BacktestingCliService:
         sp_tp_tuples_when_tp_enabled = [(True, *sp_tp_tuple) for sp_tp_tuple in SP_TP_PAIRS_AS_TUPLES]
         valid_sp_tp_tuples = sp_tp_tuples_when_tp_disabled + sp_tp_tuples_when_tp_enabled
 
+        # Adding the "No filter" option (0) to ADX thresholds
+        adx_threshold_values = ADX_THRESHOLD_VALUES.copy()
+        adx_threshold_values.insert(0, 0)  # Adding the "No filter" option
+
         # Volume thresholds combinations
-        volume_threshold_tuples_when_filter_volume_disabled = [
-            (False, MIN_VOLUME_THRESHOLD_VALUES[0], MAX_VOLUME_THRESHOLD_VALUES[0])
-        ]
-        volume_threshold_tuples = list(product(MIN_VOLUME_THRESHOLD_VALUES.copy(), MAX_VOLUME_THRESHOLD_VALUES.copy()))
-        volume_threshold_tuples_when_filter_volume_enabled = [
-            (True, *vol_threshold_tuple) for vol_threshold_tuple in volume_threshold_tuples
-        ]
-        # Final list of all valid Volume Filter combinations
-        valid_volume_threshold_tuples = (
-            volume_threshold_tuples_when_filter_volume_disabled + volume_threshold_tuples_when_filter_volume_enabled
-        )
+        buy_volume_threshold_tuples = list(product(MIN_VOLUME_THRESHOLD_VALUES, MAX_VOLUME_THRESHOLD_VALUES))
+        vol_case_buy_disabled = [(False, MIN_VOLUME_THRESHOLD_VALUES[0], MAX_VOLUME_THRESHOLD_VALUES[0])]
+        vol_case_buy_enabled = [(True, min_t, max_t) for min_t, max_t in buy_volume_threshold_tuples]
+        vol_buy_cases = vol_case_buy_disabled + vol_case_buy_enabled
+
+        # Case: Sell filter OFF
+        vol_case_sell_disabled = [(False, MIN_VOLUME_THRESHOLD_VALUES[0])]
+        vol_case_sell_enabled = [(True, min_t) for min_t in MIN_VOLUME_THRESHOLD_VALUES]
+        vol_sell_cases = vol_case_sell_disabled + vol_case_sell_enabled
+
         # Now, create the full cartesian product considering all combinations
         full_cartesian_product = list(
             product(
-                EMA_SHORT_MID_PAIRS_AS_TUPLES, valid_sp_tp_tuples, adx_threshold_values, valid_volume_threshold_tuples
+                EMA_SHORT_MID_PAIRS_AS_TUPLES, valid_sp_tp_tuples, adx_threshold_values, vol_buy_cases, vol_sell_cases
             )
         )
         if echo_fn:
@@ -269,18 +268,73 @@ class BacktestingCliService:
         ret = []
         # --- HEURISTIC PRUNING ---
         for params in full_cartesian_product:
-            (_, (auto_exit_atr_take_profit, _, tp_multiplier), adx_threshold, _) = params
+            (
+                (ema_short, ema_mid),
+                (enable_exit_on_take_profit, sl_multiplier, tp_multiplier),
+                adx_threshold,
+                (enable_buy_volume_filter, buy_min_volume_threshold, buy_max_volume_threshold),
+                (enable_sell_volume_filter, sell_min_volume_threshold),
+            ) = params
             # Filter out combinations that don't make sense based on heuristic rules
-            # 1. If ADX filter is disabled, TP should not be too high (to avoid over-leveraging in non-trending markets)
-            is_valid_tp_for_no_trend = adx_threshold > 0 or not auto_exit_atr_take_profit or tp_multiplier <= 4.0
-            # 2. If ADX filter is enabled with a high threshold,
+            # Rule 1: If ADX filter is disabled,
+            # TP should not be too high (to avoid over-leveraging in non-trending markets)
+            is_valid_tp_for_no_trend = adx_threshold > 0 or not enable_exit_on_take_profit or tp_multiplier <= 4.0
+            # Rule 2: If ADX filter is enabled with a high threshold,
             # TP should not be too low (to ensure we capture strong trends)
-            is_valid_tp_for_strong_trend = adx_threshold < 25 or not auto_exit_atr_take_profit or tp_multiplier >= 4.0
-            if is_valid_tp_for_no_trend and is_valid_tp_for_strong_trend:
-                ret.append(params)
+            is_valid_tp_for_strong_trend = adx_threshold < 25 or not enable_exit_on_take_profit or tp_multiplier >= 4.0
+
+            # Rule 3: Ensure a logical Risk/Reward ratio when TP is enabled.
+            # A TP multiplier should be significantly larger than the SL multiplier (e.g., R:R > 1.5).
+            is_logical_risk_reward = not enable_exit_on_take_profit or tp_multiplier > sl_multiplier * 1.5
+
+            # Rule 4: Prune illogical volume filter settings. The min threshold must be less than the max.
+            is_logical_buy_volume_range = (
+                not enable_buy_volume_filter or buy_min_volume_threshold < buy_max_volume_threshold
+            )
+
+            # Rule 5: Avoid overly restrictive combinations.
+            # If ADX is very strict, don't also have a very strict volume filter.
+            is_not_too_restrictive = not (
+                adx_threshold >= 25 and enable_buy_volume_filter and buy_min_volume_threshold > 1.5
+            )
+
+            # Rule 6: In non-trending markets (ADX filter off), enforce volume filter to confirm moves.
+            is_volume_filter_enforced_in_chop = adx_threshold > 0 or enable_buy_volume_filter
+
+            # Rule 7: For fast EMAs (which can be noisy), enforce a confirmation filter (either ADX or Volume).
+            is_fast_ema_filtered = (ema_short, ema_mid) != (7, 18) or adx_threshold > 0 or enable_buy_volume_filter
+
+            if all(
+                [
+                    is_valid_tp_for_no_trend,
+                    is_valid_tp_for_strong_trend,
+                    is_logical_risk_reward,
+                    is_logical_buy_volume_range,
+                    is_not_too_restrictive,
+                    is_volume_filter_enforced_in_chop,
+                    is_fast_ema_filtered,
+                ]
+            ):
+                simulated_bs_config = BuySellSignalsConfigItem(
+                    symbol=symbol,
+                    ema_short_value=ema_short,
+                    ema_mid_value=ema_mid,
+                    ema_long_value=200,
+                    stop_loss_atr_multiplier=sl_multiplier,
+                    take_profit_atr_multiplier=tp_multiplier,
+                    enable_adx_filter=adx_threshold > 0,
+                    adx_threshold=adx_threshold,
+                    enable_buy_volume_filter=enable_buy_volume_filter,
+                    buy_min_volume_threshold=buy_min_volume_threshold,
+                    buy_max_volume_threshold=buy_max_volume_threshold,
+                    enable_sell_volume_filter=enable_sell_volume_filter,
+                    sell_min_volume_threshold=sell_min_volume_threshold,
+                    enable_exit_on_take_profit=enable_exit_on_take_profit,
+                )
+                ret.append(simulated_bs_config)
         if echo_fn:
-            echo_fn(f"Total combinations to test: {len(ret)}")
             echo_fn(f"  -- Discarded combinations by heuristic: {len(full_cartesian_product) - len(ret)}")
+            echo_fn(f"TOTAL COMBINATIONS TO TEST: {len(ret)}")
         return ret
 
     def _to_execution_result(

@@ -5,7 +5,6 @@ from aiogram3_form import Form, FormField
 
 from crypto_trailing_stop.commons.constants import (
     ADX_THRESHOLD_VALUES,
-    EMA_LONG_VALUES,
     EMA_SHORT_MID_PAIRS,
     MAX_VOLUME_THRESHOLD_VALUES,
     MIN_VOLUME_THRESHOLD_VALUES,
@@ -18,30 +17,31 @@ from crypto_trailing_stop.interfaces.telegram.keyboards_builder import Keyboards
 
 class BuySellSignalsConfigForm(Form):
     ema_short_and_mid: str = FormField(
-        enter_message_text="📈📉 Select EMA short and mid",
-        error_message_text=f"❌ Invalid EMA short and mid value. Valid values: {', '.join(EMA_SHORT_MID_PAIRS)}",
+        enter_message_text="📈📉 Select EMA Short and Mid",
+        error_message_text=f"❌ Invalid EMA Short/Mid value. Valid values: {', '.join(EMA_SHORT_MID_PAIRS)}",
         filter=F.text.in_(EMA_SHORT_MID_PAIRS) & F.text,
         reply_markup=ReplyKeyboardBuilder()
         .add(*(KeyboardButton(text=text) for text in EMA_SHORT_MID_PAIRS))
         .as_markup(),
     )
-    ema_long: int = FormField(
-        enter_message_text="📐 Select EMA Long",
-        error_message_text="❌ Invalid EMA Long value. Valid values: "
-        + f"{', '.join([str(value) for value in EMA_LONG_VALUES])}",
-        filter=F.text.in_([str(value) for value in EMA_LONG_VALUES]) & F.text,
-        reply_markup=ReplyKeyboardBuilder()
-        .add(*(KeyboardButton(text=str(value)) for value in EMA_LONG_VALUES))
-        .as_markup(),
-    )
+    # NOTE: [JMSOLA] Currently not used in the strategy, but kept for future use
+    # ema_long: int = FormField(
+    #     enter_message_text="📐 Select EMA Long",
+    #     error_message_text="❌ Invalid EMA Long value. Valid values: "
+    #     + f"{', '.join([str(value) for value in EMA_LONG_VALUES])}",
+    #     filter=F.text.in_([str(value) for value in EMA_LONG_VALUES]) & F.text,
+    #     reply_markup=ReplyKeyboardBuilder()
+    #     .add(*(KeyboardButton(text=str(value)) for value in EMA_LONG_VALUES))
+    #     .as_markup(),
+    # )
     sp_tp_atr_factor_pair: str = FormField(
-        enter_message_text="🛡️🏁  Select Stop Loss and Take Profit Factors",
-        error_message_text=f"❌ Invalid Stop Loss and Take Profit Factors values. Valid values: {', '.join(SP_TP_PAIRS)}",  # noqa: E501
+        enter_message_text="🛡️🏁 Select SL ATR x / TP ATR x",
+        error_message_text=f"❌ Invalid SL/TP ATR values. Valid values: {', '.join(SP_TP_PAIRS)}",
         filter=F.text.in_(SP_TP_PAIRS) & F.text,
         reply_markup=KeyboardsBuilder.get_sp_tp_pairs_keyboard(),
     )
-    filter_noise_using_adx: str = FormField(
-        enter_message_text="📶 Filter Noise using ADX?",
+    enable_adx_filter: str = FormField(
+        enter_message_text="📶 Enable ADX Filter?",
         error_message_text=f"❌ Invalid value. Valid values: {', '.join(YES_NO_VALUES)}",
         filter=F.text.in_(YES_NO_VALUES) & F.text,
         reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
@@ -55,36 +55,50 @@ class BuySellSignalsConfigForm(Form):
         .add(*(KeyboardButton(text=str(value)) for value in ADX_THRESHOLD_VALUES))
         .as_markup(),
     )
-    apply_volume_filter: str = FormField(
-        enter_message_text="🚩 Apply Relative Volume Filter?",
+    enable_buy_volume_filter: str = FormField(
+        enter_message_text="🚩 Enable BUY Volume Filter?",
         error_message_text=f"❌ Invalid value. Valid values: {', '.join(YES_NO_VALUES)}",
         filter=F.text.in_(YES_NO_VALUES) & F.text,
         reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
     )
-    min_volume_threshold: float = FormField(
-        enter_message_text="🔊 Select Min. Rel. Volume Threshold",
-        error_message_text="❌ Invalid Min. Rel. Vol. Threshold value. Valid values: "
+    buy_min_volume_threshold: float = FormField(
+        enter_message_text="🔊 Select BUY Min. Volume Threshold",
+        error_message_text="❌ Invalid BUY Min. Volume Threshold value. Valid values: "
         + f"{', '.join([str(value) for value in MIN_VOLUME_THRESHOLD_VALUES])}",
         filter=F.text.in_([str(value) for value in MIN_VOLUME_THRESHOLD_VALUES]) & F.text,
         reply_markup=KeyboardsBuilder.get_min_volume_threshold_keyboard(),
     )
-    max_volume_threshold: float = FormField(
-        enter_message_text="🔇 Select Max. Rel. Volume Threshold",
-        error_message_text="❌ Invalid Max. Rel. Volume Threshold value. Valid values: "
+    buy_max_volume_threshold: float = FormField(
+        enter_message_text="🔇 Select BUY Max. Volume Threshold",
+        error_message_text="❌ Invalid BUY Max. Volume Threshold value. Valid values: "
         + f"{', '.join([str(value) for value in MAX_VOLUME_THRESHOLD_VALUES])}",
         filter=F.text.in_([str(value) for value in MAX_VOLUME_THRESHOLD_VALUES]) & F.text,
         reply_markup=ReplyKeyboardBuilder()
         .add(*(KeyboardButton(text=str(value)) for value in MAX_VOLUME_THRESHOLD_VALUES))
         .as_markup(),
     )
-    auto_exit_sell_1h: str = FormField(
-        enter_message_text="🚨 Auto-Exit SELL 1H enabled?",
+    enable_sell_volume_filter: str = FormField(
+        enter_message_text="💣 Enable SELL Volume Filter?",
         error_message_text=f"❌ Invalid value. Valid values: {', '.join(YES_NO_VALUES)}",
         filter=F.text.in_(YES_NO_VALUES) & F.text,
         reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
     )
-    auto_exit_atr_take_profit: str = FormField(
-        enter_message_text="🎯 Auto-Exit Take Profit enabled?",
+    sell_min_volume_threshold: float = FormField(
+        enter_message_text="🔊 Select SELL Min. Volume Threshold",
+        error_message_text="❌ Invalid SELL Min. Volume Threshold value. Valid values: "
+        + f"{', '.join([str(value) for value in MIN_VOLUME_THRESHOLD_VALUES])}",
+        filter=F.text.in_([str(value) for value in MIN_VOLUME_THRESHOLD_VALUES]) & F.text,
+        reply_markup=KeyboardsBuilder.get_min_volume_threshold_keyboard(),
+    )
+    # NOTE: [JMSOLA] Always is enabled in the strategy, so no need to configure it for now
+    # enable_exit_on_sell_signal: str = FormField(
+    #     enter_message_text="🚨 Enable Exit on SELL Signal?",
+    #     error_message_text=f"❌ Invalid value. Valid values: {', '.join(YES_NO_VALUES)}",
+    #     filter=F.text.in_(YES_NO_VALUES) & F.text,
+    #     reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
+    # )
+    enable_exit_on_take_profit: str = FormField(
+        enter_message_text="🎯 Enable Exit on Take Profit?",
         error_message_text=f"❌ Invalid value. Valid values: {', '.join(YES_NO_VALUES)}",
         filter=F.text.in_(YES_NO_VALUES) & F.text,
         reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
@@ -97,15 +111,20 @@ class BuySellSignalsConfigForm(Form):
             symbol=symbol,
             ema_short_value=ema_short_value,
             ema_mid_value=ema_mid_value,
-            ema_long_value=int(self.ema_long),
+            # NOTE: [JMSOLA] Currently not used in the strategy, but kept for future use
+            # ema_long_value=int(self.ema_long),
             stop_loss_atr_multiplier=stop_loss_atr_multiplier,
             take_profit_atr_multiplier=take_profit_atr_multiplier,
-            filter_noise_using_adx=bool(self.filter_noise_using_adx.lower() == "yes"),
+            enable_adx_filter=bool(self.enable_adx_filter.lower() == "yes"),
             adx_threshold=int(self.adx_threshold),
-            apply_volume_filter=bool(self.apply_volume_filter.lower() == "yes"),
-            min_volume_threshold=float(self.min_volume_threshold),
-            max_volume_threshold=float(self.max_volume_threshold),
-            auto_exit_sell_1h=bool(self.auto_exit_sell_1h.lower() == "yes"),
-            auto_exit_atr_take_profit=bool(self.auto_exit_atr_take_profit.lower() == "yes"),
+            enable_buy_volume_filter=bool(self.enable_buy_volume_filter.lower() == "yes"),
+            buy_min_volume_threshold=float(self.buy_min_volume_threshold),
+            buy_max_volume_threshold=float(self.buy_max_volume_threshold),
+            enable_sell_volume_filter=bool(self.enable_sell_volume_filter.lower() == "yes"),
+            sell_min_volume_threshold=float(self.sell_min_volume_threshold),
+            # NOTE: [JMSOLA] Always is enabled in the strategy, so no need to configure it for now
+            # enable_exit_on_sell_signal=bool(self.enable_exit_on_sell_signal.lower() == "yes"),
+            enable_exit_on_sell_signal=True,
+            enable_exit_on_take_profit=bool(self.enable_exit_on_take_profit.lower() == "yes"),
         )
         return ret
