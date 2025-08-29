@@ -232,15 +232,15 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         # Initialize variables
         is_marked_for_immediate_sell = immediate_sell_order_item is not None
         percent_to_sell = immediate_sell_order_item.percent_to_sell if is_marked_for_immediate_sell else 100.0
-        safeguard_stop_price_reached, atr_take_profit_limit_price_reached, auto_exit_sell_1h = False, False, False
+        safeguard_stop_price_reached, take_profit_reached, exit_on_sell_signal = (False, False, False)
         if not is_marked_for_immediate_sell:
             # Check if the safeguard stop price is reached
             safeguard_stop_price_reached = self._is_safeguard_stop_price_reached(
                 tickers=tickers, guard_metrics=guard_metrics, last_candle_market_metrics=last_candle_market_metrics
             )
             if not safeguard_stop_price_reached:
-                # Calculate auto_exit_sell_1h
-                auto_exit_sell_1h = await self._should_auto_exit_on_sell_or_bearish_divergence_1h_signal(
+                # Calculate exit_on_sell_signal
+                exit_on_sell_signal = await self._should_auto_exit_on_sell_or_bearish_divergence_1h_signal(
                     sell_order=sell_order,
                     tickers=tickers,
                     guard_metrics=guard_metrics,
@@ -248,19 +248,15 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                     prev_candle_market_metrics=prev_candle_market_metrics,
                     last_candle_market_metrics=last_candle_market_metrics,
                 )
-                if not auto_exit_sell_1h:
-                    atr_take_profit_limit_price_reached = (
-                        await self._should_auto_exit_on_atr_take_profit_limit_price_reached(
-                            tickers=tickers,
-                            guard_metrics=guard_metrics,
-                            buy_sell_signals_config=buy_sell_signals_config,
-                        )
+                if not exit_on_sell_signal:
+                    take_profit_reached = await self._should_auto_exit_on_take_profit_reached(
+                        tickers=tickers, guard_metrics=guard_metrics, buy_sell_signals_config=buy_sell_signals_config
                     )
         return AutoExitReason(
             is_marked_for_immediate_sell=is_marked_for_immediate_sell,
             safeguard_stop_price_reached=safeguard_stop_price_reached,
-            auto_exit_sell_1h=auto_exit_sell_1h,
-            atr_take_profit_limit_price_reached=atr_take_profit_limit_price_reached,
+            exit_on_sell_signal=exit_on_sell_signal,
+            take_profit_reached=take_profit_reached,
             percent_to_sell=percent_to_sell,
         )
 
@@ -291,10 +287,10 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         prev_candle_market_metrics: CryptoMarketMetrics,
         last_candle_market_metrics: CryptoMarketMetrics,
     ) -> bool:
-        auto_exit_sell_1h = False
-        if buy_sell_signals_config.auto_exit_sell_1h:
+        exit_on_sell_signal = False
+        if buy_sell_signals_config.enable_exit_on_sell_signal:
             last_market_1h_signal = await self._market_signal_service.find_last_market_signal(sell_order.symbol)
-            auto_exit_sell_1h = bool(
+            exit_on_sell_signal = bool(
                 last_market_1h_signal is not None
                 and last_market_1h_signal.timestamp > sell_order.created_at
                 and tickers.bid_or_close >= guard_metrics.break_even_price  # Use bid for break-even check
@@ -307,24 +303,24 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                     )
                 )
             )
-        return auto_exit_sell_1h
+        return exit_on_sell_signal
 
-    async def _should_auto_exit_on_atr_take_profit_limit_price_reached(
+    async def _should_auto_exit_on_take_profit_reached(
         self,
         *,
         tickers: Bit2MeTickersDto,
         guard_metrics: LimitSellOrderGuardMetrics,
         buy_sell_signals_config: BuySellSignalsConfigItem,
     ) -> bool:
-        atr_take_profit_limit_price_reached = False
-        if buy_sell_signals_config.auto_exit_atr_take_profit:
+        take_profit_reached = False
+        if buy_sell_signals_config.enable_exit_on_take_profit:
             # Ensuring we are not selling below the break even price,
             # regardless what the ATR Take profit limit price is!
-            atr_take_profit_limit_price_reached = bool(
+            take_profit_reached = bool(
                 tickers.bid_or_close >= guard_metrics.break_even_price  # Use bid
                 and tickers.bid_or_close >= guard_metrics.suggested_take_profit_limit_price  # Use bid
             )
-        return atr_take_profit_limit_price_reached
+        return take_profit_reached
 
     async def _notify_new_market_sell_order_created_via_telegram(
         self,
@@ -363,12 +359,12 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                 f"Current {crypto_currency} price ({current_symbol_price} {fiat_currency}) "
                 + f"is lower than the safeguard calculated ({guard_metrics.safeguard_stop_price} {fiat_currency})."
             )
-        elif auto_exit_reason.auto_exit_sell_1h:
+        elif auto_exit_reason.exit_on_sell_signal:
             details = (
                 f"At current {crypto_currency} price ({current_symbol_price} {fiat_currency}), "
                 + "either a SELL 1H or BEARISH DIVERGENCE signal has suddenly appeared."
             )
-        elif auto_exit_reason.atr_take_profit_limit_price_reached:
+        elif auto_exit_reason.take_profit_reached:
             details = (
                 f"Current {crypto_currency} price ({current_symbol_price} {fiat_currency}) "
                 + f"is higher than the ATR-based take profit calculated ({guard_metrics.suggested_take_profit_limit_price} {fiat_currency})."  # noqa: E501

@@ -106,7 +106,7 @@
         "-x",
         "--log-cli-level=INFO",
         "-k",
-        "should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signal_is_triggered"
+        "should_calculate_all_limit_sell_order_guard_metrics_properly[True]"
       ],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false

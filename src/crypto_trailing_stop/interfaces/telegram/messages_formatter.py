@@ -142,22 +142,22 @@ class MessagesFormatter(metaclass=SingletonMeta):
         return ret
 
     def format_buy_sell_signals_config_message(self, item: BuySellSignalsConfigItem) -> str:
-        buy_sell_signals_config_formatted = (
-            f"📈 EMA Short Value = {html.code(item.ema_short_value)}\n"
-            + f"📉 EMA Mid Value = {html.code(item.ema_mid_value)}\n"
-            + f"📐 EMA Long Value = {html.code(item.ema_long_value)}\n"
-            + f"🛡️ Stop Loss ATR Factor = {html.code(item.stop_loss_atr_multiplier)}\n"
-            + f"🏁 Take Profit ATR Factor = {html.code(item.take_profit_atr_multiplier)}\n"
-            + f"📶 Filter Noise using ADX? = {'🟢' if item.filter_noise_using_adx else '🟥'}\n"
-            + f"🔦 ADX Threshold = {html.code(item.adx_threshold) if item.filter_noise_using_adx else html.italic('(not applicable)')}\n"  # noqa: E501
-            + f"🚩 Apply Relative Volume Filter? = {'🟢' if item.apply_volume_filter else '🟥'}\n"
-            + f"🔊 Min. Rel. Volume Threshold = {html.code(item.min_volume_threshold) if item.apply_volume_filter else html.italic('(not applicable)')}\n"  # noqa: E501
-            + f"🔇 Max. Rel. Volume Threshold = {html.code(item.max_volume_threshold) if item.apply_volume_filter else html.italic('(not applicable)')}\n"  # noqa: E501
-            + f"🚨 Auto-Exit SELL 1h enabled? = {'🟢' if item.auto_exit_sell_1h else '🟥'}\n"
-            + f"🎯 Auto-Exit Take Profit enabled? = {'🟢' if item.auto_exit_atr_take_profit else '🟥'}\n\n"
+        return (
+            f"📈 EMA Short = {html.code(item.ema_short_value)}\n"
+            f"📉 EMA Mid = {html.code(item.ema_mid_value)}\n"
+            f"📐 EMA Long = {html.code(item.ema_long_value)}\n"
+            f"🛡️ SL ATR x = {html.code(item.stop_loss_atr_multiplier)}\n"
+            f"🏁 TP ATR x = {html.code(item.take_profit_atr_multiplier)}\n"
+            f"📶 ADX Filter enabled? = {'🟢' if item.enable_adx_filter else '🟥'}\n"
+            f"🔦 ADX Threshold = {html.code(item.adx_threshold) if item.enable_adx_filter else html.italic('(n/a)')}\n"
+            f"🚩 BUY Volume Filter enabled? = {'🟢' if item.enable_buy_volume_filter else '🟥'}\n"
+            f"🔊 BUY Min Volume Threshold = {html.code(item.buy_min_volume_threshold) if item.enable_buy_volume_filter else html.italic('(n/a)')}\n"  # noqa: E501
+            f"🔇 BUY Max Volume Threshold = {html.code(item.buy_max_volume_threshold) if item.enable_buy_volume_filter else html.italic('(n/a)')}\n"  # noqa: E501
+            f"💣 SELL Volume Filter enabled? = {'🟢' if item.enable_sell_volume_filter else '🟥'}\n"
+            f"🔊 SELL Min Volume Threshold = {html.code(item.sell_min_volume_threshold) if item.enable_sell_volume_filter else html.italic('(n/a)')}\n"  # noqa: E501
+            f"🚨 Exit on SELL Signal enabled? = {'🟢' if item.enable_exit_on_sell_signal else '🟥'}\n"
+            f"🎯 Exit on Take Profit enabled? = {'🟢' if item.enable_exit_on_take_profit else '🟥'}\n\n"
         )
-
-        return buy_sell_signals_config_formatted
 
     def format_persist_stop_loss_message(
         self, symbol: str, percent_value: float, limit_sell_order_guard_metrics_list: list[LimitSellOrderGuardMetrics]

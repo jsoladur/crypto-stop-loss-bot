@@ -188,7 +188,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             )
             guard_metrics = await self._update_stop_loss(new_limit_sell_order, tickers, crypto_currency, client=client)
             # Ensure Auto-exit on sudden SELL 1H signal is enabled
-            buy_sell_signals_config.auto_exit_sell_1h = True
+            buy_sell_signals_config.enable_exit_on_sell_signal = True
             await self._buy_sell_signals_config_service.save_or_update(buy_sell_signals_config)
             # Notifying via Telegram
             await self._notify_success_alert(
@@ -384,11 +384,11 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         message += f"* ⚖️ {html.bold('Break-even Price')} = {guard_metrics.break_even_price} {fiat_currency}\n"
         message += f"* 🚏 {html.bold('Stop Loss')} updated to {guard_metrics.suggested_stop_loss_percent_value}%\n"
         message += f"* 🛡️ {html.bold('Safeguard Stop Price = ' + str(guard_metrics.suggested_safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
-        if buy_sell_signals_config.auto_exit_atr_take_profit:
+        if buy_sell_signals_config.enable_exit_on_take_profit:
             message += f"* 🎯 {html.bold('ATR Take Profit Price')} = {guard_metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
         message += f"* 🔰 {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ENABLED!\n"
         message += f"* 🛑 {html.bold('Auto SELL 1H Exit')} has been ENABLED!\n"
-        if buy_sell_signals_config.auto_exit_atr_take_profit:
+        if buy_sell_signals_config.enable_exit_on_take_profit:
             message += f"* ⚡ {html.bold('Auto ATR Take-Profit Exit')} is ENABLED!"
         else:
             message += (
