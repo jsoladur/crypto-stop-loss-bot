@@ -26,6 +26,7 @@ def run_single_backtest_combination(
         adx_threshold,
         (enable_buy_volume_filter, buy_min_volume_threshold, buy_max_volume_threshold),
         (enable_sell_volume_filter, sell_min_volume_threshold),
+        *_,
     ) = params
     ret: BacktestingExecutionResult | None = None
     try:

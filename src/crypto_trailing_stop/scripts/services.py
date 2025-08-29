@@ -268,7 +268,7 @@ class BacktestingCliService:
         ret = []
         # --- HEURISTIC PRUNING ---
         for params in full_cartesian_product:
-            (_, (enable_exit_on_take_profit, _, tp_multiplier), adx_threshold, _) = params
+            (_, (enable_exit_on_take_profit, _, tp_multiplier), adx_threshold, *_) = params
             # Filter out combinations that don't make sense based on heuristic rules
             # 1. If ADX filter is disabled, TP should not be too high (to avoid over-leveraging in non-trending markets)
             is_valid_tp_for_no_trend = adx_threshold > 0 or not enable_exit_on_take_profit or tp_multiplier <= 4.0
