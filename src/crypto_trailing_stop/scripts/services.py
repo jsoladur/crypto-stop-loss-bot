@@ -234,10 +234,6 @@ class BacktestingCliService:
         return executions_results
 
     def _calculate_cartesian_product(self, *, echo_fn: Callable[[str], None] | None = None):
-        # Adding the "No filter" option (0) to ADX thresholds
-        adx_threshold_values = ADX_THRESHOLD_VALUES.copy()
-        adx_threshold_values.insert(0, 0)  # Adding the "No filter" option
-
         # Group SL/TP pairs by SL value to ensure we have unique SL values when TP is disabled
         sp_tp_tuples_group_by_sp = pydash.group_by(SP_TP_PAIRS_AS_TUPLES, lambda pair: pair[0])
         sp_tp_tuples_when_tp_disabled = [
@@ -246,25 +242,25 @@ class BacktestingCliService:
         sp_tp_tuples_when_tp_enabled = [(True, *sp_tp_tuple) for sp_tp_tuple in SP_TP_PAIRS_AS_TUPLES]
         valid_sp_tp_tuples = sp_tp_tuples_when_tp_disabled + sp_tp_tuples_when_tp_enabled
 
+        # Adding the "No filter" option (0) to ADX thresholds
+        adx_threshold_values = ADX_THRESHOLD_VALUES.copy()
+        adx_threshold_values.insert(0, 0)  # Adding the "No filter" option
+
         # Volume thresholds combinations
-        volume_threshold_tuples = list(product(MIN_VOLUME_THRESHOLD_VALUES.copy(), MAX_VOLUME_THRESHOLD_VALUES.copy()))
-        vol_case_both_disabled = [(False, False, MIN_VOLUME_THRESHOLD_VALUES[0], MAX_VOLUME_THRESHOLD_VALUES[0])]
-        # Case: Buy filter ON, Sell filter OFF
-        vol_case_buy_only = [(True, False, min_t, max_t) for min_t, max_t in volume_threshold_tuples]
+        buy_volume_threshold_tuples = list(product(MIN_VOLUME_THRESHOLD_VALUES, MAX_VOLUME_THRESHOLD_VALUES))
+        vol_case_buy_disabled = [(False, MIN_VOLUME_THRESHOLD_VALUES[0], MAX_VOLUME_THRESHOLD_VALUES[0])]
+        vol_case_buy_enabled = [(True, min_t, max_t) for min_t, max_t in buy_volume_threshold_tuples]
+        vol_buy_cases = vol_case_buy_disabled + vol_case_buy_enabled
 
-        # Case: Buy filter OFF, Sell filter ON
-        vol_case_sell_only = [(False, True, min_t, max_t) for min_t, max_t in volume_threshold_tuples]
+        # Case: Sell filter OFF
+        vol_case_sell_disabled = [(False, MIN_VOLUME_THRESHOLD_VALUES[0])]
+        vol_case_sell_enabled = [(True, min_t) for min_t in MIN_VOLUME_THRESHOLD_VALUES]
+        vol_sell_cases = vol_case_sell_disabled + vol_case_sell_enabled
 
-        # Case: Both filters ON
-        vol_case_both_enabled = [(True, True, min_t, max_t) for min_t, max_t in volume_threshold_tuples]
-        # Final list of all valid Volume Filter combinations
-        valid_volume_threshold_tuples = (
-            vol_case_both_disabled + vol_case_buy_only + vol_case_sell_only + vol_case_both_enabled
-        )
         # Now, create the full cartesian product considering all combinations
         full_cartesian_product = list(
             product(
-                EMA_SHORT_MID_PAIRS_AS_TUPLES, valid_sp_tp_tuples, adx_threshold_values, valid_volume_threshold_tuples
+                EMA_SHORT_MID_PAIRS_AS_TUPLES, valid_sp_tp_tuples, adx_threshold_values, vol_buy_cases, vol_sell_cases
             )
         )
         if echo_fn:
@@ -282,8 +278,8 @@ class BacktestingCliService:
             if is_valid_tp_for_no_trend and is_valid_tp_for_strong_trend:
                 ret.append(params)
         if echo_fn:
-            echo_fn(f"Total combinations to test: {len(ret)}")
             echo_fn(f"  -- Discarded combinations by heuristic: {len(full_cartesian_product) - len(ret)}")
+            echo_fn(f"TOTAL COMBINATIONS TO TEST: {len(ret)}")
         return ret
 
     def _to_execution_result(

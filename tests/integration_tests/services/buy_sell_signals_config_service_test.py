@@ -58,16 +58,16 @@ async def should_set_buy_sell_signals_config_properly(
     assert returned_buy_sell_signals_config_item.enable_buy_volume_filter is True
     assert (
         returned_buy_sell_signals_config_item.buy_min_volume_threshold
-        == configuration_properties.buy_sell_signals_buy_min_volume_threshold
+        == configuration_properties.buy_sell_signals_min_volume_threshold
     )
     assert (
         returned_buy_sell_signals_config_item.buy_max_volume_threshold
-        == configuration_properties.buy_sell_signals_buy_max_volume_threshold
+        == configuration_properties.buy_sell_signals_max_volume_threshold
     )
     assert returned_buy_sell_signals_config_item.enable_sell_volume_filter is False
     assert (
         returned_buy_sell_signals_config_item.sell_min_volume_threshold
-        == configuration_properties.buy_sell_signals_sell_min_volume_threshold
+        == configuration_properties.buy_sell_signals_min_volume_threshold
     )
     assert returned_buy_sell_signals_config_item.enable_exit_on_sell_signal is True
     assert returned_buy_sell_signals_config_item.enable_exit_on_take_profit is False
