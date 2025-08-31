@@ -35,15 +35,16 @@ for pair in "${PAIRS[@]}"; do
 
     echo "Processing pair: ${symbol} on ${exchange}"
 
-    # 2. Prepare the log file name.
+    # 2. Prepare the log file names.
     filename_symbol=$(echo "$symbol" | sed 's/\//_/g')
     log_file="${OUTPUT_DIR}/${filename_symbol}_${exchange}_research.log"
+    progress_file="${OUTPUT_DIR}/${filename_symbol}_${exchange}_progress.log"
 
-    echo "   -> Running research... Log file: ${log_file}"
+    echo "   -> Running research... Log file: ${log_file}, Error file: ${progress_file}"
 
     # 3. Execute the 'research' command, passing the exchange.
-    # The 'research' command will handle the data download itself.
-    cli research "$symbol" --exchange "$exchange" "$@" &> "$log_file"
+    #    Redirect stdout to log_file and stderr to progress_file.
+    cli research "$symbol" --exchange "$exchange" "$@" > "$log_file" 2> "$progress_file"
 
     echo "✅ Finished research for ${symbol} on ${exchange}."
     echo "--------------------------------------------------"
