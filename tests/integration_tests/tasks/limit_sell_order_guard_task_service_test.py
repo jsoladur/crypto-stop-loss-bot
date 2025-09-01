@@ -266,7 +266,7 @@ async def should_ignore_sell_1h_signal_and_not_sell_when_price_is_lower_than_bre
 
 @pytest.mark.parametrize("bit2me_error_status_code", [403, 412, 429, 500, 502])
 @pytest.mark.asyncio
-async def should_create_market_sell_order_when_safeguard_stop_price_reached(
+async def should_create_market_sell_order_when_stop_loss_triggered(
     faker: Faker, bit2me_error_status_code: int, integration_test_env: tuple[HTTPServer, str]
 ) -> None:
     """
