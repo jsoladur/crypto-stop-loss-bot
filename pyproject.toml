@@ -1,6 +1,6 @@
 [project]
 name = "crypto-trailing-stop"
-version = "0.40.1"
+version = "0.40.2"
 description = "A Python-based bot for automated cryptocurrency trading"
 readme = "README.md"
 authors = [
