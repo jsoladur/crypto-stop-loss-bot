@@ -2,6 +2,7 @@ import asyncio
 import logging
 import math
 from datetime import UTC, datetime
+from itertools import product
 from unittest.mock import patch
 from urllib.parse import urlencode
 
@@ -40,7 +41,7 @@ from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_ite
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.constants import MOCK_SYMBOLS
-from tests.helpers.enums import AutoEntryTraderWarningTypeEnum
+from tests.helpers.enums import AutoEntryTraderUnexpectedErrorBuyMarketOrder, AutoEntryTraderWarningTypeEnum
 from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
 from tests.helpers.market_config_utils import get_market_config_by_symbol
 from tests.helpers.object_mothers import (
@@ -54,16 +55,37 @@ from tests.helpers.sell_orders_test_utils import generate_trades
 
 logger = logging.getLogger(__name__)
 
-use_cases = [(boolean, warning_type) for boolean in [False, True] for warning_type in AutoEntryTraderWarningTypeEnum]
-use_cases = [(boolean, warning_type, bool(idx % 2)) for idx, (boolean, warning_type) in enumerate(use_cases)]
+
+use_cases_no_event_emitter = list(
+    product(
+        [False],  # use_event_emitter
+        list(AutoEntryTraderWarningTypeEnum),
+        list(AutoEntryTraderUnexpectedErrorBuyMarketOrder),
+    )
+)
+use_cases_event_emitter = list(
+    product(
+        [True],  # use_event_emitter
+        list(AutoEntryTraderWarningTypeEnum),
+        [AutoEntryTraderUnexpectedErrorBuyMarketOrder.NONE],
+    )
+)
+use_cases = use_cases_no_event_emitter + use_cases_event_emitter
+use_cases = [
+    (use_event_emitter, bool(idx % 2), warning_type, unexpected_error_buy_market_order)
+    for idx, (use_event_emitter, warning_type, unexpected_error_buy_market_order) in enumerate(use_cases)
+]
 
 
-@pytest.mark.parametrize("use_event_emitter,warning_type,enable_atr_auto_take_profit", use_cases)
+@pytest.mark.parametrize(
+    "use_event_emitter,enable_atr_auto_take_profit,warning_type,unexpected_error_buy_market_order", use_cases
+)
 @pytest.mark.asyncio
 async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signal_is_triggered(
     faker: Faker,
     use_event_emitter: bool,
     warning_type: AutoEntryTraderWarningTypeEnum,
+    unexpected_error_buy_market_order: AutoEntryTraderUnexpectedErrorBuyMarketOrder,
     enable_atr_auto_take_profit: bool,
     integration_test_env: tuple[HTTPServer, str],
 ) -> None:
@@ -88,6 +110,7 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
         bit2me_api_secret,
         use_event_emitter=use_event_emitter,
         warning_type=warning_type,
+        unexpected_error_buy_market_order=unexpected_error_buy_market_order,
     )
     if not enable_atr_auto_take_profit:
         await buy_sell_signals_config_service.save_or_update(
@@ -123,19 +146,28 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
                     await auto_entry_trader_event_handler_service.on_buy_market_signal(market_signal_item)
 
             httpserver.check_assertions()
-            notify_fatal_error_via_telegram_mock.assert_not_called()
-            if warning_type == AutoEntryTraderWarningTypeEnum.NONE:
-                toggle_task_mock.assert_called()
-
-                is_enabled_for_limit_sell_order_guard = await global_flag_service.is_enabled_for(
-                    GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
-                )
-                assert is_enabled_for_limit_sell_order_guard is True
-
-                buy_sell_signals_config = await buy_sell_signals_config_service.find_by_symbol(crypto_currency)
-                assert buy_sell_signals_config.enable_exit_on_sell_signal is True
-            else:
+            if (
+                not use_event_emitter
+                and warning_type == AutoEntryTraderWarningTypeEnum.NONE
+                and unexpected_error_buy_market_order
+                == AutoEntryTraderUnexpectedErrorBuyMarketOrder.SUDDEN_CANCELLED_BUY_MARKET_ORDER
+            ):
+                notify_fatal_error_via_telegram_mock.assert_called()
                 toggle_task_mock.assert_not_called()
+            else:
+                notify_fatal_error_via_telegram_mock.assert_not_called()
+                if warning_type == AutoEntryTraderWarningTypeEnum.NONE:
+                    toggle_task_mock.assert_called()
+
+                    is_enabled_for_limit_sell_order_guard = await global_flag_service.is_enabled_for(
+                        GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
+                    )
+                    assert is_enabled_for_limit_sell_order_guard is True
+
+                    buy_sell_signals_config = await buy_sell_signals_config_service.find_by_symbol(crypto_currency)
+                    assert buy_sell_signals_config.enable_exit_on_sell_signal is True
+                else:
+                    toggle_task_mock.assert_not_called()
 
 
 def _prepare_httpserver_mock(
@@ -146,6 +178,7 @@ def _prepare_httpserver_mock(
     *,
     use_event_emitter: bool = False,
     warning_type: AutoEntryTraderWarningTypeEnum,
+    unexpected_error_buy_market_order: AutoEntryTraderUnexpectedErrorBuyMarketOrder,
 ) -> tuple[str, str, str]:
     symbol = faker.random_element(MOCK_SYMBOLS)
     trading_market_config = get_market_config_by_symbol(symbol=symbol)
@@ -303,48 +336,54 @@ def _prepare_httpserver_mock(
             buy_order_created = Bit2MeOrderDtoObjectMother.create(
                 symbol=symbol, side="buy", order_amount=buy_order_amount, order_type="market", status="open"
             )
-            # Simulation of NOT_ENOUGH_BALANCE error the first time we try to create the order
             if not use_event_emitter:
-                for _ in range(7):
-                    httpserver.expect(
-                        Bit2MeAPIRequestMacher(
-                            "/bit2me-api/v1/trading/order", method="POST"
-                        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-                        handler_type=HandlerType.ONESHOT,
-                    ).respond_with_json(
-                        {
-                            "statusCode": 412,
-                            "error": "Precondition Failed",
-                            "message": "Not enough balance in the wallet",
-                            "errorPayload": {"code": "NOT_ENOUGH_BALANCE"},
-                        },
-                        status=412,
+                if unexpected_error_buy_market_order == AutoEntryTraderUnexpectedErrorBuyMarketOrder.NOT_ENOUGH_BALANCE:
+                    _prepare_httpserver_mock_for_simulate_not_enough_balance(
+                        httpserver, bit2me_api_key, bik2me_api_secret
                     )
-            httpserver.expect(
-                Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
-                    bit2me_api_key, bik2me_api_secret
-                ),
-                handler_type=HandlerType.ONESHOT,
-            ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
-            # Simulating waiting for FILLED
-            for _ in range(faker.pyint(min_value=1, max_value=3)):
-                httpserver.expect(
-                    Bit2MeAPIRequestMacher(
-                        f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
-                    ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-                    handler_type=HandlerType.ONESHOT,
-                ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
-            # Already filled!
-            httpserver.expect(
-                Bit2MeAPIRequestMacher(
-                    f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
-                ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-                handler_type=HandlerType.ONESHOT,
-            ).respond_with_json(
-                buy_order_created.model_copy(deep=True, update={"status": "filled"}).model_dump(
-                    by_alias=True, mode="json"
+                    # Buy market order created
+                    _prepare_httpserver_mock_order_created_successfully(
+                        httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
+                    )
+                    _prepare_httpserver_mock_for_simulate_waiting_for_buy_order_filled(
+                        faker, httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
+                    )
+                elif (
+                    unexpected_error_buy_market_order
+                    == AutoEntryTraderUnexpectedErrorBuyMarketOrder.SUDDEN_CANCELLED_BUY_MARKET_ORDER
+                ):
+                    # Simulating order has been suddenly cancelled by Bit2Me exchange
+                    for _ in range(5):
+                        # Buy market order created
+                        _prepare_httpserver_mock_order_created_successfully(
+                            httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
+                        )
+                        httpserver.expect(
+                            Bit2MeAPIRequestMacher(
+                                f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
+                            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+                            handler_type=HandlerType.ONESHOT,
+                        ).respond_with_json(
+                            buy_order_created.model_copy(deep=True, update={"status": "cancelled"}).model_dump(
+                                by_alias=True, mode="json"
+                            )
+                        )
+                else:
+                    # Buy market order created
+                    _prepare_httpserver_mock_order_created_successfully(
+                        httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
+                    )
+                    _prepare_httpserver_mock_for_simulate_waiting_for_buy_order_filled(
+                        faker, httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
+                    )
+            else:
+                # Buy market order created
+                _prepare_httpserver_mock_order_created_successfully(
+                    httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
                 )
-            )
+                _prepare_httpserver_mock_for_simulate_waiting_for_buy_order_filled(
+                    faker, httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
+                )
             # Trading Wallet Balance for CRYPTO currency
             buy_order_amount_after_feeds = buy_order_amount * (1 - BIT2ME_TAKER_FEES)
             httpserver.expect(
@@ -402,6 +441,60 @@ def _prepare_httpserver_mock(
             )
 
     return market_signal_item, symbol, crypto_currency, fiat_currency
+
+
+def _prepare_httpserver_mock_order_created_successfully(
+    httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str, buy_order_created: Bit2MeOrderDto
+) -> None:
+    httpserver.expect(
+        Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
+            bit2me_api_key, bik2me_api_secret
+        ),
+        handler_type=HandlerType.ONESHOT,
+    ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
+
+
+def _prepare_httpserver_mock_for_simulate_not_enough_balance(
+    httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str
+) -> None:
+    # Simulation of NOT_ENOUGH_BALANCE error the first time we try to create the order
+    for _ in range(7):
+        httpserver.expect(
+            Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
+                bit2me_api_key, bik2me_api_secret
+            ),
+            handler_type=HandlerType.ONESHOT,
+        ).respond_with_json(
+            {
+                "statusCode": 412,
+                "error": "Precondition Failed",
+                "message": "Not enough balance in the wallet",
+                "errorPayload": {"code": "NOT_ENOUGH_BALANCE"},
+            },
+            status=412,
+        )
+
+
+def _prepare_httpserver_mock_for_simulate_waiting_for_buy_order_filled(
+    faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str, buy_order_created: Bit2MeOrderDto
+) -> None:
+    # Simulating waiting for FILLED
+    for _ in range(faker.pyint(min_value=1, max_value=3)):
+        httpserver.expect(
+            Bit2MeAPIRequestMacher(
+                f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
+            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+            handler_type=HandlerType.ONESHOT,
+        ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
+    # Already filled!
+    httpserver.expect(
+        Bit2MeAPIRequestMacher(
+            f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
+        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        handler_type=HandlerType.ONESHOT,
+    ).respond_with_json(
+        buy_order_created.model_copy(deep=True, update={"status": "filled"}).model_dump(by_alias=True, mode="json")
+    )
 
 
 def _floor_round(value: float, *, ndigits: int) -> float:
