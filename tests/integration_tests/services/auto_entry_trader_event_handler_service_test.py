@@ -146,28 +146,20 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
                     await auto_entry_trader_event_handler_service.on_buy_market_signal(market_signal_item)
 
             httpserver.check_assertions()
-            if (
-                not use_event_emitter
-                and warning_type == AutoEntryTraderWarningTypeEnum.NONE
-                and unexpected_error_buy_market_order
-                == AutoEntryTraderUnexpectedErrorBuyMarketOrder.SUDDEN_CANCELLED_BUY_MARKET_ORDER
-            ):
-                notify_fatal_error_via_telegram_mock.assert_called()
-                toggle_task_mock.assert_not_called()
+
+            notify_fatal_error_via_telegram_mock.assert_not_called()
+            if warning_type == AutoEntryTraderWarningTypeEnum.NONE:
+                toggle_task_mock.assert_called()
+
+                is_enabled_for_limit_sell_order_guard = await global_flag_service.is_enabled_for(
+                    GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
+                )
+                assert is_enabled_for_limit_sell_order_guard is True
+
+                buy_sell_signals_config = await buy_sell_signals_config_service.find_by_symbol(crypto_currency)
+                assert buy_sell_signals_config.enable_exit_on_sell_signal is True
             else:
-                notify_fatal_error_via_telegram_mock.assert_not_called()
-                if warning_type == AutoEntryTraderWarningTypeEnum.NONE:
-                    toggle_task_mock.assert_called()
-
-                    is_enabled_for_limit_sell_order_guard = await global_flag_service.is_enabled_for(
-                        GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
-                    )
-                    assert is_enabled_for_limit_sell_order_guard is True
-
-                    buy_sell_signals_config = await buy_sell_signals_config_service.find_by_symbol(crypto_currency)
-                    assert buy_sell_signals_config.enable_exit_on_sell_signal is True
-                else:
-                    toggle_task_mock.assert_not_called()
+                toggle_task_mock.assert_not_called()
 
 
 def _prepare_httpserver_mock(
@@ -341,19 +333,12 @@ def _prepare_httpserver_mock(
                     _prepare_httpserver_mock_for_simulate_not_enough_balance(
                         httpserver, bit2me_api_key, bik2me_api_secret
                     )
-                    # Buy market order created
-                    _prepare_httpserver_mock_order_created_successfully(
-                        httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
-                    )
-                    _prepare_httpserver_mock_for_simulate_waiting_for_buy_order_filled(
-                        faker, httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
-                    )
                 elif (
                     unexpected_error_buy_market_order
                     == AutoEntryTraderUnexpectedErrorBuyMarketOrder.SUDDEN_CANCELLED_BUY_MARKET_ORDER
                 ):
                     # Simulating order has been suddenly cancelled by Bit2Me exchange
-                    for _ in range(5):
+                    for _ in range(4):
                         # Buy market order created
                         _prepare_httpserver_mock_order_created_successfully(
                             httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
@@ -368,22 +353,13 @@ def _prepare_httpserver_mock(
                                 by_alias=True, mode="json"
                             )
                         )
-                else:
-                    # Buy market order created
-                    _prepare_httpserver_mock_order_created_successfully(
-                        httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
-                    )
-                    _prepare_httpserver_mock_for_simulate_waiting_for_buy_order_filled(
-                        faker, httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
-                    )
-            else:
-                # Buy market order created
-                _prepare_httpserver_mock_order_created_successfully(
-                    httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
-                )
-                _prepare_httpserver_mock_for_simulate_waiting_for_buy_order_filled(
-                    faker, httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
-                )
+            # Buy market order created
+            _prepare_httpserver_mock_order_created_successfully(
+                httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
+            )
+            _prepare_httpserver_mock_for_simulate_waiting_for_buy_order_filled(
+                faker, httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
+            )
             # Trading Wallet Balance for CRYPTO currency
             buy_order_amount_after_feeds = buy_order_amount * (1 - BIT2ME_TAKER_FEES)
             httpserver.expect(
