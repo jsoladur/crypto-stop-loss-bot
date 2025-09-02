@@ -27,7 +27,8 @@ AUTO_ENTRY_TRADER_MAX_ATTEMPS_TO_BUY = 5
 AUTO_ENTRY_MARKET_ORDER_SAFETY_FACTOR = 0.995  # 0.5% less to avoid insufficient balance errors
 # Limit Sell Order Guard
 LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR = 0.98  # 2% security gap to avoid slippage
-
+# Order Analytics magic numbers
+STOP_LOSS_PERCENT_BUFFER = 0.75
 # Buy Sell Signals Config
 EMA_SHORT_MID_PAIRS_AS_TUPLES = [(7, 18), (8, 20), (9, 21)]
 SP_TP_PAIRS_AS_TUPLES = [
