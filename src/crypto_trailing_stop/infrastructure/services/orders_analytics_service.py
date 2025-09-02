@@ -6,7 +6,11 @@ import numpy as np
 import pandas as pd
 from httpx import AsyncClient
 
-from crypto_trailing_stop.commons.constants import BIT2ME_TAKER_FEES, STOP_LOSS_STEPS_VALUE_LIST
+from crypto_trailing_stop.commons.constants import (
+    BIT2ME_TAKER_FEES,
+    STOP_LOSS_PERCENT_BUFFER,
+    STOP_LOSS_STEPS_VALUE_LIST,
+)
 from crypto_trailing_stop.commons.patterns import SingletonABCMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
@@ -308,7 +312,8 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
             ndigits=trading_market_config.price_precision,
         )
         stop_loss_percent_value = (
-            self._ceil_round((1 - (first_suggested_safeguard_stop_price / avg_buy_price)) * 100, ndigits=4) + 0.50
+            self._ceil_round((1 - (first_suggested_safeguard_stop_price / avg_buy_price)) * 100, ndigits=4)
+            + STOP_LOSS_PERCENT_BUFFER
         )
         if stop_loss_percent_value < STOP_LOSS_STEPS_VALUE_LIST[-1]:
             steps = np.array(STOP_LOSS_STEPS_VALUE_LIST)

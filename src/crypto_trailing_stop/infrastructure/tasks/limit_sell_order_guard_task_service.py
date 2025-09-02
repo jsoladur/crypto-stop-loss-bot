@@ -6,6 +6,7 @@ from aiogram import html
 from apscheduler.triggers.interval import IntervalTrigger
 from httpx import AsyncClient
 
+from crypto_trailing_stop.commons.constants import LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -164,9 +165,17 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             # Create new market order
             new_market_order = await self._bit2me_remote_service.create_order(
                 order=CreateNewBit2MeOrderDto(
-                    order_type="market",
+                    order_type="limit",
                     side=sell_order.side,
                     symbol=sell_order.symbol,
+                    price=str(
+                        self._floor_round(
+                            # XXX: [JMSOLA] Limit Sell order will be immediately filled
+                            # since the price is less than the current bid/close one.
+                            tickers.bid_or_close * LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR,
+                            ndigits=trading_market_config.price_precision,
+                        )
+                    ),
                     amount=str(final_amount_to_sell),
                 ),
                 client=client,
