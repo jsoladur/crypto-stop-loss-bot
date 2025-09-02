@@ -243,8 +243,8 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
     ) -> tuple[Bit2MeOrderDto, Bit2MeTickersDto]:
         new_buy_market_order: Bit2MeOrderDto | None = None
         last_exception: Exception | None = None
-        attemps = 0
-        while new_buy_market_order is None and attemps < AUTO_ENTRY_TRADER_MAX_ATTEMPS_TO_BUY:
+        attemps = 1
+        while new_buy_market_order is None and attemps <= AUTO_ENTRY_TRADER_MAX_ATTEMPS_TO_BUY:
             try:
                 tickers = await self._bit2me_remote_service.get_single_tickers_by_symbol(
                     market_signal_item.symbol, client=client
@@ -255,7 +255,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
                 )
                 final_amount_to_invest = buy_order_amount * tickers.ask_or_close
                 logger.info(
-                    f"[Auto-Entry Trader] Trying to create BUY MARKET ORDER for {market_signal_item.symbol}, "  # noqa: E501
+                    f"[Auto-Entry Trader][Attempt {attemps}] Trying to create BUY MARKET ORDER for {market_signal_item.symbol}, "  # noqa: E501
                     + f"which has current buy price {tickers.ask_or_close} {fiat_currency}. "
                     + f"Investing {final_amount_to_invest:.2f} {fiat_currency}, "
                     + f"buying {buy_order_amount} {crypto_currency}"
@@ -266,11 +266,13 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             except Exception as e:  # pragma: no cover
                 last_exception = e
                 logger.warning(
-                    f"[Auto-Entry Trader] An error ocurred when creating the BUY MARKET ORDER for {market_signal_item.symbol}, "  # noqa: E501
+                    f"[Auto-Entry Trader][Attempt {attemps}] An error ocurred when creating the BUY MARKET ORDER for {market_signal_item.symbol}, "  # noqa: E501
                     + f"which had current buy price {tickers.ask_or_close} {fiat_currency} and "
                     + f"{buy_order_amount} {crypto_currency} as amount to invest. "
                     + f"Re-calculating buy order amount and trying again... :: {str(e)}"
                 )
+            finally:
+                attemps += 1
         if new_buy_market_order is None and last_exception is not None:  # pragma: no cover
             raise last_exception
         return new_buy_market_order, tickers
@@ -284,7 +286,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             ),
             client=client,
         )
-        while new_buy_market_order.status != "filled":
+        while new_buy_market_order.status not in ["filled", "cancelled"]:
             logger.info(
                 f"[Auto-Entry Trader] NEW MARKET ORDER Id: '{new_buy_market_order.id}'. "
                 + "Waiting 2 seconds to watch the new buy market order is already filled..."
@@ -293,7 +295,8 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             new_buy_market_order = await self._bit2me_remote_service.get_order_by_id(
                 new_buy_market_order.id, client=client
             )
-
+        if new_buy_market_order.status == "cancelled":
+            raise ValueError("Bit2Me recent BUY MARKET order was cancelled by the exchange!")
         return new_buy_market_order
 
     async def _create_new_sell_limit_order(
