@@ -284,7 +284,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             ),
             client=client,
         )
-        while new_buy_market_order.status != "filled":
+        while new_buy_market_order.status not in ["filled", "cancelled"]:
             logger.info(
                 f"[Auto-Entry Trader] NEW MARKET ORDER Id: '{new_buy_market_order.id}'. "
                 + "Waiting 2 seconds to watch the new buy market order is already filled..."
@@ -293,7 +293,8 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             new_buy_market_order = await self._bit2me_remote_service.get_order_by_id(
                 new_buy_market_order.id, client=client
             )
-
+        if new_buy_market_order.status == "cancelled":
+            raise ValueError("Bit2Me recent BUY MARKET order was cancelled by the exchange!")
         return new_buy_market_order
 
     async def _create_new_sell_limit_order(
