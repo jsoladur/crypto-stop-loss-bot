@@ -1,7 +1,9 @@
 import dataclasses
 import os
 import warnings
+from typing import get_args
 
+import click
 import pandas as pd
 import pydash
 import typer
@@ -11,6 +13,7 @@ from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_ite
 from crypto_trailing_stop.scripts.constants import DECENT_WIN_RATE_THRESHOLD, DEFAULT_MONTHS_BACK
 from crypto_trailing_stop.scripts.services import BacktestingCliService
 from crypto_trailing_stop.scripts.utils import echo_backtesting_execution_result
+from crypto_trailing_stop.scripts.vo import TakeProfitFilter
 
 warnings.filterwarnings("ignore")
 
@@ -155,6 +158,13 @@ def research(
     decent_win_rate: float = typer.Option(
         DECENT_WIN_RATE_THRESHOLD, help="The minimum win rate to consider a configuration decent."
     ),
+    tp_filter: str = typer.Option(
+        "all",
+        "--tp-filter",
+        help="Filter backtesting by Take Profit: 'all' (default), 'enabled', or 'disabled'.",
+        case_sensitive=False,
+        click_type=click.Choice(list(get_args(TakeProfitFilter)), case_sensitive=False),
+    ),
     disable_progress_bar: bool = typer.Option(False, help="Disable the progress bar."),
 ):
     """
@@ -178,6 +188,7 @@ def research(
             disable_decent_win_rate=disable_decent_win_rate,
             decent_win_rate=decent_win_rate,
             disable_progress_bar=disable_progress_bar,
+            tp_filter=tp_filter,
             df=df,
             echo_fn=typer.secho,
         )

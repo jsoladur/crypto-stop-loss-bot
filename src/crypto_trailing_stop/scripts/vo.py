@@ -1,6 +1,9 @@
 from dataclasses import dataclass
+from typing import Literal
 
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
+
+TakeProfitFilter = Literal["all", "enabled", "disabled"]
 
 
 @dataclass
@@ -18,3 +21,6 @@ class BacktestingExecutionSummary:
     highest_quality: BacktestingExecutionResult | None = None
     best_profitable: BacktestingExecutionResult | None = None
     best_win_rate: BacktestingExecutionResult | None = None
+
+
+__all__ = ["BacktestingExecutionResult", "BacktestingExecutionSummary", "TakeProfitFilter"]

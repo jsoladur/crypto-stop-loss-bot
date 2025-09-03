@@ -35,7 +35,7 @@ from crypto_trailing_stop.scripts.constants import (
 )
 from crypto_trailing_stop.scripts.jobs import run_single_backtest_combination
 from crypto_trailing_stop.scripts.strategy import SignalStrategy
-from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult, BacktestingExecutionSummary
+from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult, BacktestingExecutionSummary, TakeProfitFilter
 
 
 class BacktestingCliService:
@@ -108,6 +108,7 @@ class BacktestingCliService:
         disable_decent_win_rate: bool = False,
         decent_win_rate: float = DECENT_WIN_RATE_THRESHOLD,
         disable_progress_bar: bool = False,
+        tp_filter: TakeProfitFilter = "all",
         df: pd.DataFrame,
         echo_fn: Callable[[str], None],
     ) -> BacktestingExecutionSummary:
@@ -116,7 +117,7 @@ class BacktestingCliService:
         min_trades_for_stats = max(MIN_TRADES_FOR_STATS, math.ceil(num_of_weeks_downloaded * MIN_ENTRIES_PER_WEEK))
         # 2. Run backtesting for all combinations
         executions_results = self._apply_cartesian_production_execution(
-            symbol, initial_cash, disable_progress_bar, df, echo_fn
+            symbol, initial_cash, tp_filter, disable_progress_bar, df, echo_fn
         )
         # 3. Filter for viable strategies to analyze
         # We only care about strategies that were profitable and had a meaningful number of trades
@@ -218,11 +219,12 @@ class BacktestingCliService:
         self,
         symbol: str,
         initial_cash: float,
+        tp_filter: TakeProfitFilter,
         disable_progress_bar: bool,
         df: pd.DataFrame,
         echo_fn: Callable[[str], None] | None = None,
     ) -> list[BacktestingExecutionResult]:
-        cartesian_product = self._calculate_cartesian_product(symbol=symbol, echo_fn=echo_fn)
+        cartesian_product = self._calculate_cartesian_product(symbol=symbol, tp_filter=tp_filter, echo_fn=echo_fn)
         # Use joblib to run the backtests in parallel across all available CPU cores
         # tqdm is now wrapped around the parallel execution
         results = Parallel(n_jobs=-1)(
@@ -233,14 +235,11 @@ class BacktestingCliService:
         executions_results = [res for res in results if res is not None]
         return executions_results
 
-    def _calculate_cartesian_product(self, *, symbol: str, echo_fn: Callable[[str], None] | None = None):
+    def _calculate_cartesian_product(
+        self, *, symbol: str, tp_filter: TakeProfitFilter = "all", echo_fn: Callable[[str], None] | None = None
+    ):
         # Group SL/TP pairs by SL value to ensure we have unique SL values when TP is disabled
-        sp_tp_tuples_group_by_sp = pydash.group_by(SP_TP_PAIRS_AS_TUPLES, lambda pair: pair[0])
-        sp_tp_tuples_when_tp_disabled = [
-            (False, *sp_tp_tuples[0]) for sp_tp_tuples in sp_tp_tuples_group_by_sp.values()
-        ]
-        sp_tp_tuples_when_tp_enabled = [(True, *sp_tp_tuple) for sp_tp_tuple in SP_TP_PAIRS_AS_TUPLES]
-        valid_sp_tp_tuples = sp_tp_tuples_when_tp_disabled + sp_tp_tuples_when_tp_enabled
+        sp_tp_tuples = self._get_sp_tp_tuples(tp_filter=tp_filter)
 
         # Adding the "No filter" option (0) to ADX thresholds
         adx_threshold_values = ADX_THRESHOLD_VALUES.copy()
@@ -259,14 +258,38 @@ class BacktestingCliService:
 
         # Now, create the full cartesian product considering all combinations
         full_cartesian_product = list(
-            product(
-                EMA_SHORT_MID_PAIRS_AS_TUPLES, valid_sp_tp_tuples, adx_threshold_values, vol_buy_cases, vol_sell_cases
-            )
+            product(EMA_SHORT_MID_PAIRS_AS_TUPLES, sp_tp_tuples, adx_threshold_values, vol_buy_cases, vol_sell_cases)
         )
         if echo_fn:
             echo_fn(f"Full raw combinations to test: {len(full_cartesian_product)}")
-        ret = []
         # --- HEURISTIC PRUNING ---
+        ret = self._apply_heuristic_pruning(symbol, full_cartesian_product)
+        if echo_fn:
+            echo_fn(f"  -- Discarded combinations by heuristic: {len(full_cartesian_product) - len(ret)}")
+            echo_fn(f"TOTAL COMBINATIONS TO TEST: {len(ret)}")
+        return ret
+
+    def _get_sp_tp_tuples(self, *, tp_filter: TakeProfitFilter = "all") -> list[tuple[bool, float, float]]:
+        sp_tp_tuples_group_by_sp = pydash.group_by(SP_TP_PAIRS_AS_TUPLES, lambda pair: pair[0])
+        sp_tp_tuples_when_tp_disabled = [
+            (False, *sp_tp_tuples[0]) for sp_tp_tuples in sp_tp_tuples_group_by_sp.values()
+        ]
+        sp_tp_tuples_when_tp_enabled = [(True, *sp_tp_tuple) for sp_tp_tuple in SP_TP_PAIRS_AS_TUPLES]
+        match tp_filter:
+            case "all":
+                sp_tp_tuples = sp_tp_tuples_when_tp_disabled + sp_tp_tuples_when_tp_enabled
+            case "enabled":
+                sp_tp_tuples = sp_tp_tuples_when_tp_enabled
+            case "disabled":
+                sp_tp_tuples = sp_tp_tuples_when_tp_disabled
+            case _:
+                raise ValueError(f"Take Profit filter '{tp_filter}' value is not supported.")
+        return sp_tp_tuples
+
+    def _apply_heuristic_pruning(
+        self, symbol: str, full_cartesian_product: list[tuple]
+    ) -> list[BuySellSignalsConfigItem]:
+        ret = []
         for params in full_cartesian_product:
             (
                 (ema_short, ema_mid),
@@ -343,9 +366,6 @@ class BacktestingCliService:
                     enable_exit_on_take_profit=enable_exit_on_take_profit,
                 )
                 ret.append(simulated_bs_config)
-        if echo_fn:
-            echo_fn(f"  -- Discarded combinations by heuristic: {len(full_cartesian_product) - len(ret)}")
-            echo_fn(f"TOTAL COMBINATIONS TO TEST: {len(ret)}")
         return ret
 
     def _to_execution_result(
