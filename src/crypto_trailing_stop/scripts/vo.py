@@ -9,10 +9,23 @@ TakeProfitFilter = Literal["all", "enabled", "disabled"]
 @dataclass
 class BacktestingExecutionResult:
     parameters: BuySellSignalsConfigItem
+    # Important metrics
     number_of_trades: int
     win_rate: float
     net_profit_amount: float
     net_profit_percentage: float
+    # Metadata
+    avg_trade_duration_in_days: float
+    max_trade_duration_in_days: float
+    buy_and_hold_return_percentage: float
+    profit_factor: float
+    best_trade_percentage: float
+    worst_trade_percentage: float
+    avg_drawdown_percentage: float
+    max_drawdown_percentage: float
+    avg_drawdown_duration_in_days: float
+    max_drawdown_duration_in_days: float
+    sqn: float
 
 
 @dataclass

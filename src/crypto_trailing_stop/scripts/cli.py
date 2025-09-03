@@ -71,6 +71,7 @@ def download_data(
 @app.command()
 def backtesting(
     symbol: str = typer.Argument(..., help="The symbol to backtest, e.g., ETH/EUR"),
+    timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
     # EMA/ADX parameters
     ema_short: int = typer.Option(9, help="Length of the short EMA."),
     ema_mid: int = typer.Option(21, help="Length of the medium EMA."),
@@ -122,7 +123,11 @@ def backtesting(
             enable_exit_on_take_profit=enable_tp,
         )
         current_execution_result, bt, stats = backtesting_cli_service.execute_backtesting(
-            simulated_bs_config=simulated_bs_config, initial_cash=initial_cash, df=df, echo_fn=typer.secho
+            simulated_bs_config=simulated_bs_config,
+            initial_cash=initial_cash,
+            df=df,
+            timeframe=timeframe,
+            echo_fn=typer.secho,
         )
 
         if debug:
@@ -182,6 +187,7 @@ def research(
         typer.echo(f"📊 {len(df)} candles loaded. Starting research...")
         execution_summary = backtesting_cli_service.find_out_best_parameters(
             symbol=symbol,
+            timeframe=timeframe,
             initial_cash=initial_cash,
             downloaded_months_back=months_back,
             disable_minimal_trades=disable_minimal_trades,

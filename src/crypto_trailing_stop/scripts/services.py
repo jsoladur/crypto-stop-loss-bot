@@ -102,6 +102,7 @@ class BacktestingCliService:
         self,
         *,
         symbol: str,
+        timeframe: str,
         initial_cash: float,
         downloaded_months_back: int = DEFAULT_MONTHS_BACK,
         disable_minimal_trades: bool = False,
@@ -117,7 +118,13 @@ class BacktestingCliService:
         min_trades_for_stats = max(MIN_TRADES_FOR_STATS, math.ceil(num_of_weeks_downloaded * MIN_ENTRIES_PER_WEEK))
         # 2. Run backtesting for all combinations
         executions_results = self._apply_cartesian_production_execution(
-            symbol, initial_cash, tp_filter, disable_progress_bar, df, echo_fn
+            symbol=symbol,
+            initial_cash=initial_cash,
+            tp_filter=tp_filter,
+            disable_progress_bar=disable_progress_bar,
+            df=df,
+            timeframe=timeframe,
+            echo_fn=echo_fn,
         )
         # 3. Filter for viable strategies to analyze
         # We only care about strategies that were profitable and had a meaningful number of trades
@@ -164,6 +171,7 @@ class BacktestingCliService:
         simulated_bs_config: BuySellSignalsConfigItem,
         initial_cash: float,
         df: pd.DataFrame,
+        timeframe: str = "1h",
         echo_fn: Callable[[str], None] | None = None,
         use_tqdm: bool = True,
     ) -> tuple[BacktestingExecutionResult, backtesting.Backtest, pd.Series]:
@@ -182,7 +190,7 @@ class BacktestingCliService:
                 window_df = df.iloc[: i + 1]
                 signals = self._signal_service._check_signals(
                     symbol=simulated_bs_config.symbol,
-                    timeframe="1h",
+                    timeframe=timeframe,
                     df=window_df,
                     buy_sell_signals_config=simulated_bs_config,
                     trading_market_config=DEFAULT_TRADING_MARKET_CONFIG,
@@ -210,25 +218,29 @@ class BacktestingCliService:
                 simulated_bs_config=simulated_bs_config,
                 analytics_service=self._analytics_service,
             )
-            current_execution_result = self._to_execution_result(simulated_bs_config, initial_cash, stats)
+            current_execution_result = self._to_execution_result(
+                simulated_bs_config, initial_cash, stats, timeframe=timeframe
+            )
             return current_execution_result, bt, stats
         finally:
             backtesting._tqdm = original_backtesting_tqdm
 
     def _apply_cartesian_production_execution(
         self,
+        *,
         symbol: str,
         initial_cash: float,
         tp_filter: TakeProfitFilter,
         disable_progress_bar: bool,
         df: pd.DataFrame,
+        timeframe: str = "1h",
         echo_fn: Callable[[str], None] | None = None,
     ) -> list[BacktestingExecutionResult]:
         cartesian_product = self._calculate_cartesian_product(symbol=symbol, tp_filter=tp_filter, echo_fn=echo_fn)
         # Use joblib to run the backtests in parallel across all available CPU cores
         # tqdm is now wrapped around the parallel execution
         results = Parallel(n_jobs=-1)(
-            delayed(run_single_backtest_combination)(params, initial_cash, df)
+            delayed(run_single_backtest_combination)(params, initial_cash, df, timeframe)
             for params in (tqdm(cartesian_product) if not disable_progress_bar else cartesian_product)
         )
         # Filter out any runs that failed (they will return None)
@@ -369,8 +381,14 @@ class BacktestingCliService:
         return ret
 
     def _to_execution_result(
-        self, simulated_bs_config: BuySellSignalsConfigItem, initial_cash: float, stats: pd.Series
+        self,
+        simulated_bs_config: BuySellSignalsConfigItem,
+        initial_cash: float,
+        stats: pd.Series,
+        *,
+        timeframe: str = "1h",
     ) -> BacktestingExecutionResult:
+        days_float = self._convert_timeframe_to_days(timeframe)
         net_profit_amount = stats["Equity Final [$]"] - initial_cash
         current_execution_result = BacktestingExecutionResult(
             parameters=simulated_bs_config,
@@ -378,5 +396,21 @@ class BacktestingCliService:
             win_rate=stats["Win Rate [%]"],
             net_profit_amount=net_profit_amount,
             net_profit_percentage=stats["Return [%]"],
+            avg_trade_duration_in_days=round(stats["Avg. Trade Duration"] * days_float, ndigits=2),
+            max_trade_duration_in_days=round(stats["Max. Trade Duration"] * days_float, ndigits=2),
+            buy_and_hold_return_percentage=stats["Buy & Hold Return [%]"],
+            profit_factor=stats["Profit Factor"],
+            best_trade_percentage=stats["Best Trade [%]"],
+            worst_trade_percentage=stats["Worst Trade [%]"],
+            avg_drawdown_percentage=round(stats["Avg. Drawdown [%]"], ndigits=2),
+            max_drawdown_percentage=round(stats["Max. Drawdown [%]"], ndigits=2),
+            avg_drawdown_duration_in_days=round(stats["Avg. Drawdown Duration"] * days_float, ndigits=2),
+            max_drawdown_duration_in_days=round(stats["Max. Drawdown Duration"] * days_float, ndigits=2),
+            sqn=stats["SQN"],
         )
         return current_execution_result
+
+    def _convert_timeframe_to_days(self, timeframe: str) -> float:
+        td = pd.Timedelta(timeframe)
+        ret = td.total_seconds() / 86400  # 86400 seconds in a day
+        return ret
