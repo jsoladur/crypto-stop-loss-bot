@@ -53,7 +53,8 @@
       "args": [
         "research",
         "SUI/EUR",
-        "--tp-filter=disabled"
+        "--tp-filter=disabled",
+        "--from-parquet=data/backtesting/raw/SUI_EUR_enabled_040925225612769.parquet"
       ],
       "console": "integratedTerminal",
       "justMyCode": false

@@ -119,7 +119,7 @@ class BacktestingCliService:
         if from_parquet is None and df is None:
             raise ValueError("Either 'from_parquet' or 'df' must be provided.")
         if from_parquet is None:
-            # 2. Run backtesting for all combinations
+            # 2.1 Run backtesting for all combinations
             executions_results = self._apply_cartesian_production_execution(
                 symbol=symbol,
                 initial_cash=initial_cash,
@@ -129,15 +129,14 @@ class BacktestingCliService:
                 timeframe=timeframe,
                 echo_fn=echo_fn,
             )
+            # 2.2 Store the all execution results in a parquet file
+            now = datetime.now()
+            os.makedirs("data/backtesting/raw", exist_ok=True)
+            parquet_file = f"data/backtesting/raw/{symbol.replace('/', '_')}_{tp_filter}_{now.strftime('%d%m%y%H%M%S')}{now.microsecond // 1000:03d}.parquet"  # noqa: E501
+            self._serde.save(results=executions_results, filepath=parquet_file)
         else:
-            # 2. Load execution results from parquet file stored previously
+            # 3.1 Load execution results from parquet file stored previously
             executions_results = self._serde.load(from_parquet)
-        # 3. Store the all execution results in a parquet file
-        now = datetime.now()
-        os.makedirs("data/backtesting/raw", exist_ok=True)
-        parquet_file = f"data/backtesting/raw/{symbol.replace('/', '_')}_{tp_filter}_{now.strftime('%d%m%y%H%M%S')}{now.microsecond // 1000:03d}.parquet"  # noqa: E501
-        self._serde.save(results=executions_results, filepath=parquet_file)
-
         # 4. Filter for viable strategies to analyze
         # We only care about strategies that were profitable and had a meaningful number of trades
         ret = self._get_backtesting_result_summary(
