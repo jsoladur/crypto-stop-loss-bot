@@ -3,6 +3,7 @@ import os
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from itertools import product
+from pathlib import Path
 from typing import Any
 
 import ccxt
@@ -111,32 +112,36 @@ class BacktestingCliService:
         decent_win_rate: float = DECENT_WIN_RATE_THRESHOLD,
         disable_progress_bar: bool = False,
         tp_filter: TakeProfitFilter = "all",
-        df: pd.DataFrame,
+        from_parquet: Path | None = None,
+        df: pd.DataFrame | None = None,
         echo_fn: Callable[[str], None],
     ) -> BacktestingExecutionSummary:
-        # 1. Calculate the minimum number of trades required to consider a strategy for stats
-        num_of_weeks_downloaded = downloaded_months_back * 4
-        min_trades_for_stats = max(MIN_TRADES_FOR_STATS, math.ceil(num_of_weeks_downloaded * MIN_ENTRIES_PER_WEEK))
-        # 2. Run backtesting for all combinations
-        executions_results = self._apply_cartesian_production_execution(
-            symbol=symbol,
-            initial_cash=initial_cash,
-            tp_filter=tp_filter,
-            disable_progress_bar=disable_progress_bar,
-            df=df,
-            timeframe=timeframe,
-            echo_fn=echo_fn,
-        )
+        if from_parquet is None and df is None:
+            raise ValueError("Either 'from_parquet' or 'df' must be provided.")
+        if from_parquet is None:
+            # 2. Run backtesting for all combinations
+            executions_results = self._apply_cartesian_production_execution(
+                symbol=symbol,
+                initial_cash=initial_cash,
+                tp_filter=tp_filter,
+                disable_progress_bar=disable_progress_bar,
+                df=df,
+                timeframe=timeframe,
+                echo_fn=echo_fn,
+            )
+        else:
+            # 2. Load execution results from parquet file stored previously
+            executions_results = self._serde.load(from_parquet)
         # 3. Store the all execution results in a parquet file
         now = datetime.now()
-        # Take only the first 3 digits of microseconds (milliseconds)
         os.makedirs("data/backtesting/raw", exist_ok=True)
         parquet_file = f"data/backtesting/raw/{symbol.replace('/', '_')}_{tp_filter}_{now.strftime('%d%m%y%H%M%S')}{now.microsecond // 1000:03d}.parquet"  # noqa: E501
         self._serde.save(results=executions_results, filepath=parquet_file)
+
         # 4. Filter for viable strategies to analyze
         # We only care about strategies that were profitable and had a meaningful number of trades
         ret = self._get_backtesting_result_summary(
-            disable_minimal_trades, disable_decent_win_rate, decent_win_rate, min_trades_for_stats, executions_results
+            disable_minimal_trades, disable_decent_win_rate, decent_win_rate, downloaded_months_back, executions_results
         )
         return ret
 
@@ -227,9 +232,12 @@ class BacktestingCliService:
         disable_minimal_trades: bool,
         disable_decent_win_rate: bool,
         decent_win_rate: float,
-        min_trades_for_stats: int,
+        downloaded_months_back: int,
         executions_results: list[BacktestingExecutionResult],
     ) -> BacktestingExecutionSummary:
+        # 1. Calculate the minimum number of trades required to consider a strategy for stats
+        num_of_weeks_downloaded = downloaded_months_back * 4
+        min_trades_for_stats = max(MIN_TRADES_FOR_STATS, math.ceil(num_of_weeks_downloaded * MIN_ENTRIES_PER_WEEK))
         profitable_results = [
             res
             for res in executions_results
