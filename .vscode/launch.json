@@ -52,7 +52,8 @@
       "program": "src/crypto_trailing_stop/scripts/cli.py",
       "args": [
         "research",
-        "SUI/EUR"
+        "SUI/EUR",
+        "--tp-filter=disabled"
       ],
       "console": "integratedTerminal",
       "justMyCode": false

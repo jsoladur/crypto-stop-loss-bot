@@ -1,7 +1,9 @@
 import dataclasses
 import os
 import warnings
+from typing import get_args
 
+import click
 import pandas as pd
 import pydash
 import typer
@@ -11,6 +13,7 @@ from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_ite
 from crypto_trailing_stop.scripts.constants import DECENT_WIN_RATE_THRESHOLD, DEFAULT_MONTHS_BACK
 from crypto_trailing_stop.scripts.services import BacktestingCliService
 from crypto_trailing_stop.scripts.utils import echo_backtesting_execution_result
+from crypto_trailing_stop.scripts.vo import TakeProfitFilter
 
 warnings.filterwarnings("ignore")
 
@@ -68,6 +71,7 @@ def download_data(
 @app.command()
 def backtesting(
     symbol: str = typer.Argument(..., help="The symbol to backtest, e.g., ETH/EUR"),
+    timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
     # EMA/ADX parameters
     ema_short: int = typer.Option(9, help="Length of the short EMA."),
     ema_mid: int = typer.Option(21, help="Length of the medium EMA."),
@@ -119,7 +123,11 @@ def backtesting(
             enable_exit_on_take_profit=enable_tp,
         )
         current_execution_result, bt, stats = backtesting_cli_service.execute_backtesting(
-            simulated_bs_config=simulated_bs_config, initial_cash=initial_cash, df=df, echo_fn=typer.secho
+            simulated_bs_config=simulated_bs_config,
+            initial_cash=initial_cash,
+            df=df,
+            timeframe=timeframe,
+            echo_fn=typer.secho,
         )
 
         if debug:
@@ -155,6 +163,13 @@ def research(
     decent_win_rate: float = typer.Option(
         DECENT_WIN_RATE_THRESHOLD, help="The minimum win rate to consider a configuration decent."
     ),
+    tp_filter: str = typer.Option(
+        "all",
+        "--tp-filter",
+        help="Filter backtesting by Take Profit: 'all' (default), 'enabled', or 'disabled'.",
+        case_sensitive=False,
+        click_type=click.Choice(list(get_args(TakeProfitFilter)), case_sensitive=False),
+    ),
     disable_progress_bar: bool = typer.Option(False, help="Disable the progress bar."),
 ):
     """
@@ -172,12 +187,14 @@ def research(
         typer.echo(f"📊 {len(df)} candles loaded. Starting research...")
         execution_summary = backtesting_cli_service.find_out_best_parameters(
             symbol=symbol,
+            timeframe=timeframe,
             initial_cash=initial_cash,
             downloaded_months_back=months_back,
             disable_minimal_trades=disable_minimal_trades,
             disable_decent_win_rate=disable_decent_win_rate,
             decent_win_rate=decent_win_rate,
             disable_progress_bar=disable_progress_bar,
+            tp_filter=tp_filter,
             df=df,
             echo_fn=typer.secho,
         )
