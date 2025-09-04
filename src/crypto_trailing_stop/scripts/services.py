@@ -1,8 +1,8 @@
 import math
+import os
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from itertools import product
-from os import getenv
 from typing import Any
 
 import ccxt
@@ -34,6 +34,7 @@ from crypto_trailing_stop.scripts.constants import (
     MIN_TRADES_FOR_STATS,
 )
 from crypto_trailing_stop.scripts.jobs import run_single_backtest_combination
+from crypto_trailing_stop.scripts.serde import BacktestResultSerde
 from crypto_trailing_stop.scripts.strategy import SignalStrategy
 from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult, BacktestingExecutionSummary, TakeProfitFilter
 
@@ -47,7 +48,7 @@ class BacktestingCliService:
             buy_sell_signals_config_service=None,
         )
         self._signal_service = BuySellSignalsTaskService()
-        self._bit2me_base_url = getenv("BIT2ME_API_BASE_URL")
+        self._serde = BacktestResultSerde()
 
     def download_backtesting_data(
         self,
@@ -126,42 +127,16 @@ class BacktestingCliService:
             timeframe=timeframe,
             echo_fn=echo_fn,
         )
-        # 3. Filter for viable strategies to analyze
+        # 3. Store the all execution results in a parquet file
+        now = datetime.now()
+        # Take only the first 3 digits of microseconds (milliseconds)
+        os.makedirs("data/backtesting/raw", exist_ok=True)
+        parquet_file = f"data/backtesting/raw/{symbol.replace('/', '_')}_{tp_filter}_{now.strftime('%d%m%y%H%M%S')}{now.microsecond // 1000:03d}.parquet"  # noqa: E501
+        self._serde.save(results=executions_results, filepath=parquet_file)
+        # 4. Filter for viable strategies to analyze
         # We only care about strategies that were profitable and had a meaningful number of trades
-        profitable_results = [
-            res
-            for res in executions_results
-            if res.net_profit_amount > 0
-            and (disable_minimal_trades or res.number_of_trades >= min_trades_for_stats)
-            and (disable_decent_win_rate or res.win_rate >= decent_win_rate)
-        ]
-        best_overall, highest_quality, best_profitable, best_win_rate = None, None, None, None
-        if profitable_results:
-            # --- Category 1: Best Overall (Profit x Win Rate x Trades) ---
-            best_overall = max(
-                profitable_results, key=lambda r: r.net_profit_percentage * r.win_rate * r.number_of_trades
-            )
-            # --- Category 2: Highest Quality (Return x Win Rate) ---
-            highest_quality = max(profitable_results, key=lambda r: r.net_profit_percentage * r.win_rate)
-            # --- Category 3: Best Profitable Configuration ---
-            best_profitable = max(profitable_results, key=lambda r: r.net_profit_amount)
-            # --- Category 4: Best Win Rate ---
-            # First, find the maximum win rate that was achieved
-            max_win_rate = max(p.win_rate for p in profitable_results)
-            # Create a group of "elite" candidates with a win rate close to the maximum
-            # (e.g., all strategies within 5 percentage points of the best result)
-            elite_win_rate_candidates = [res for res in profitable_results if res.win_rate >= (max_win_rate - 5.0)]
-            # From that elite group, pick the one with the highest NET RETURN.
-            if elite_win_rate_candidates:
-                best_win_rate = max(elite_win_rate_candidates, key=lambda r: r.net_profit_amount)
-            else:  # Fallback in case the list is empty (should not happen)
-                best_win_rate = max(profitable_results, key=lambda r: r.win_rate)
-
-        ret = BacktestingExecutionSummary(
-            best_overall=best_overall,
-            highest_quality=highest_quality,
-            best_profitable=best_profitable,
-            best_win_rate=best_win_rate,
+        ret = self._get_backtesting_result_summary(
+            disable_minimal_trades, disable_decent_win_rate, decent_win_rate, min_trades_for_stats, executions_results
         )
         return ret
 
@@ -246,6 +221,52 @@ class BacktestingCliService:
         # Filter out any runs that failed (they will return None)
         executions_results = [res for res in results if res is not None]
         return executions_results
+
+    def _get_backtesting_result_summary(
+        self,
+        disable_minimal_trades: bool,
+        disable_decent_win_rate: bool,
+        decent_win_rate: float,
+        min_trades_for_stats: int,
+        executions_results: list[BacktestingExecutionResult],
+    ) -> BacktestingExecutionSummary:
+        profitable_results = [
+            res
+            for res in executions_results
+            if res.net_profit_amount > 0
+            and (disable_minimal_trades or res.number_of_trades >= min_trades_for_stats)
+            and (disable_decent_win_rate or res.win_rate >= decent_win_rate)
+        ]
+        best_overall, highest_quality, best_profitable, best_win_rate = None, None, None, None
+        if profitable_results:
+            # --- Category 1: Best Overall (Profit x Win Rate x Trades) ---
+            best_overall = max(
+                profitable_results, key=lambda r: r.net_profit_percentage * r.win_rate * r.number_of_trades
+            )
+            # --- Category 2: Highest Quality (Return x Win Rate) ---
+            highest_quality = max(profitable_results, key=lambda r: r.net_profit_percentage * r.win_rate)
+            # --- Category 3: Best Profitable Configuration ---
+            best_profitable = max(profitable_results, key=lambda r: r.net_profit_amount)
+            # --- Category 4: Best Win Rate ---
+            # First, find the maximum win rate that was achieved
+            max_win_rate = max(p.win_rate for p in profitable_results)
+            # Create a group of "elite" candidates with a win rate close to the maximum
+            # (e.g., all strategies within 5 percentage points of the best result)
+            elite_win_rate_candidates = [res for res in profitable_results if res.win_rate >= (max_win_rate - 5.0)]
+            # From that elite group, pick the one with the highest NET RETURN.
+            if elite_win_rate_candidates:
+                best_win_rate = max(elite_win_rate_candidates, key=lambda r: r.net_profit_amount)
+            else:  # Fallback in case the list is empty (should not happen)
+                best_win_rate = max(profitable_results, key=lambda r: r.win_rate)
+
+        ret = BacktestingExecutionSummary(
+            best_overall=best_overall,
+            highest_quality=highest_quality,
+            best_profitable=best_profitable,
+            best_win_rate=best_win_rate,
+        )
+
+        return ret
 
     def _calculate_cartesian_product(
         self, *, symbol: str, tp_filter: TakeProfitFilter = "all", echo_fn: Callable[[str], None] | None = None

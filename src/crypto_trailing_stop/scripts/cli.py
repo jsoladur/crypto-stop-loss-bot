@@ -48,7 +48,7 @@ def download_data(
     months_back: int = typer.Option(DEFAULT_MONTHS_BACK, help="The number of months of data to download."),
 ):
     """
-    Downloads the last 1 year of 1H historical data for a symbol and saves it to data/.
+    Downloads the last 1 year of 1H historical data for a symbol and saves it to data/candles.
     """
     symbol = symbol.strip().upper()
     try:
@@ -59,9 +59,8 @@ def download_data(
         typer.secho(f"✅ Download complete. {len(all_ohlcv)} candles fetched.", fg=typer.colors.GREEN)
         if all_ohlcv:
             df = pd.DataFrame(all_ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
-            if not os.path.exists("data"):
-                os.makedirs("data")
-            filename = f"data/{symbol.replace('/', '_')}.csv"
+            os.makedirs("data/candles", exist_ok=True)
+            filename = f"data/candles/{symbol.replace('/', '_')}.csv"
             df.to_csv(filename, index=False)
             typer.echo(f"💾 Data saved to '{filename}'")
     except Exception as e:
@@ -97,7 +96,7 @@ def backtesting(
     symbol = symbol.strip().upper()
     # Create the config object from the CLI options
     try:
-        data_file = f"data/{symbol.replace('/', '_')}.csv"
+        data_file = f"data/candles/{symbol.replace('/', '_')}.csv"
         df = pd.read_csv(data_file)
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         df.dropna(inplace=True)
@@ -131,9 +130,8 @@ def backtesting(
         )
 
         if debug:
-            if not os.path.exists("data"):
-                os.makedirs("data")
-            filename = f"data/{symbol.replace('/', '_')}_indicators.csv"
+            os.makedirs("data/indicators", exist_ok=True)
+            filename = f"data/indicators/{symbol.replace('/', '_')}_indicators.csv"
             df.to_csv(filename, index=False)
             typer.echo(f"💾 Indicators outcomes saved to '{filename}'")
             typer.echo("-----")
@@ -179,7 +177,7 @@ def research(
     try:
         if download:
             download_data(symbol=symbol, exchange=exchange, timeframe=timeframe, months_back=months_back)
-        data_file = f"data/{symbol.replace('/', '_')}.csv"
+        data_file = f"data/candles/{symbol.replace('/', '_')}.csv"
         df = pd.read_csv(data_file)
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         df.dropna(inplace=True)
