@@ -1,6 +1,7 @@
 import dataclasses
 import os
 import warnings
+from pathlib import Path
 from typing import get_args
 
 import click
@@ -48,7 +49,7 @@ def download_data(
     months_back: int = typer.Option(DEFAULT_MONTHS_BACK, help="The number of months of data to download."),
 ):
     """
-    Downloads the last 1 year of 1H historical data for a symbol and saves it to data/.
+    Downloads the last 1 year of 1H historical data for a symbol and saves it to data/candles.
     """
     symbol = symbol.strip().upper()
     try:
@@ -59,9 +60,8 @@ def download_data(
         typer.secho(f"✅ Download complete. {len(all_ohlcv)} candles fetched.", fg=typer.colors.GREEN)
         if all_ohlcv:
             df = pd.DataFrame(all_ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
-            if not os.path.exists("data"):
-                os.makedirs("data")
-            filename = f"data/{symbol.replace('/', '_')}.csv"
+            os.makedirs("data/candles", exist_ok=True)
+            filename = f"data/candles/{symbol.replace('/', '_')}.csv"
             df.to_csv(filename, index=False)
             typer.echo(f"💾 Data saved to '{filename}'")
     except Exception as e:
@@ -97,7 +97,7 @@ def backtesting(
     symbol = symbol.strip().upper()
     # Create the config object from the CLI options
     try:
-        data_file = f"data/{symbol.replace('/', '_')}.csv"
+        data_file = f"data/candles/{symbol.replace('/', '_')}.csv"
         df = pd.read_csv(data_file)
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         df.dropna(inplace=True)
@@ -131,9 +131,8 @@ def backtesting(
         )
 
         if debug:
-            if not os.path.exists("data"):
-                os.makedirs("data")
-            filename = f"data/{symbol.replace('/', '_')}_indicators.csv"
+            os.makedirs("data/indicators", exist_ok=True)
+            filename = f"data/indicators/{symbol.replace('/', '_')}_indicators.csv"
             df.to_csv(filename, index=False)
             typer.echo(f"💾 Indicators outcomes saved to '{filename}'")
             typer.echo("-----")
@@ -154,7 +153,6 @@ def backtesting(
 def research(
     symbol: str = typer.Argument(..., help="The symbol to backtest, e.g., ETH/EUR"),
     initial_cash: float = typer.Option(3_000, help="Intial cash for the backtest."),
-    download: bool = typer.Option(True, help="Download data before running the research."),
     exchange: str = typer.Option("binance", help="The name of the exchange to use."),
     timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
     months_back: int = typer.Option(DEFAULT_MONTHS_BACK, help="The number of months of data to download."),
@@ -163,6 +161,7 @@ def research(
     decent_win_rate: float = typer.Option(
         DECENT_WIN_RATE_THRESHOLD, help="The minimum win rate to consider a configuration decent."
     ),
+    min_sqn: float = typer.Option(None, help="Minimal SQN to consider a valid the strategy"),
     tp_filter: str = typer.Option(
         "all",
         "--tp-filter",
@@ -170,6 +169,10 @@ def research(
         case_sensitive=False,
         click_type=click.Choice(list(get_args(TakeProfitFilter)), case_sensitive=False),
     ),
+    from_parquet: Path = typer.Option(
+        None, "--from-parquet", help="Path to a Parquet file with precomputed backtesting results (skips execution)."
+    ),
+    download_candles: bool = typer.Option(True, help="Download data before running the research."),
     disable_progress_bar: bool = typer.Option(False, help="Disable the progress bar."),
 ):
     """
@@ -177,14 +180,15 @@ def research(
     """
     symbol = symbol.strip().upper()
     try:
-        if download:
-            download_data(symbol=symbol, exchange=exchange, timeframe=timeframe, months_back=months_back)
-        data_file = f"data/{symbol.replace('/', '_')}.csv"
-        df = pd.read_csv(data_file)
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
-        df.dropna(inplace=True)
-        df.reset_index(drop=True, inplace=True)
-        typer.echo(f"📊 {len(df)} candles loaded. Starting research...")
+        df: pd.DataFrame | None = None
+        if from_parquet is None:
+            if download_candles:
+                download_data(symbol=symbol, exchange=exchange, timeframe=timeframe, months_back=months_back)
+            data_file = f"data/candles/{symbol.replace('/', '_')}.csv"
+            df = pd.read_csv(data_file)
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+            df.dropna(inplace=True)
+            df.reset_index(drop=True, inplace=True)
         execution_summary = backtesting_cli_service.find_out_best_parameters(
             symbol=symbol,
             timeframe=timeframe,
@@ -194,8 +198,10 @@ def research(
             disable_decent_win_rate=disable_decent_win_rate,
             decent_win_rate=decent_win_rate,
             disable_progress_bar=disable_progress_bar,
+            min_sqn=min_sqn,
             tp_filter=tp_filter,
             df=df,
+            from_parquet=from_parquet,
             echo_fn=typer.secho,
         )
         # Print the summary
