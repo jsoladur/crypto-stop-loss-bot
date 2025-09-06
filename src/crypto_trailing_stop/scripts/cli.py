@@ -161,6 +161,7 @@ def research(
     decent_win_rate: float = typer.Option(
         DECENT_WIN_RATE_THRESHOLD, help="The minimum win rate to consider a configuration decent."
     ),
+    min_profit_factor: float = typer.Option(None, help="Minimal profit factor to consider a valid the strategy"),
     min_sqn: float = typer.Option(None, help="Minimal SQN to consider a valid the strategy"),
     tp_filter: str = typer.Option(
         "all",
@@ -197,11 +198,12 @@ def research(
             disable_minimal_trades=disable_minimal_trades,
             disable_decent_win_rate=disable_decent_win_rate,
             decent_win_rate=decent_win_rate,
-            disable_progress_bar=disable_progress_bar,
+            min_profit_factor=min_profit_factor,
             min_sqn=min_sqn,
             tp_filter=tp_filter,
             df=df,
             from_parquet=from_parquet,
+            disable_progress_bar=disable_progress_bar,
             echo_fn=typer.secho,
         )
         # Print the summary

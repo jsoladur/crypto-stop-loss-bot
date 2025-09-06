@@ -110,11 +110,12 @@ class BacktestingCliService:
         disable_minimal_trades: bool = False,
         disable_decent_win_rate: bool = False,
         decent_win_rate: float = DECENT_WIN_RATE_THRESHOLD,
-        disable_progress_bar: bool = False,
+        min_profit_factor: float | None = None,
         min_sqn: float | None = None,
         tp_filter: TakeProfitFilter = "all",
         from_parquet: Path | None = None,
         df: pd.DataFrame | None = None,
+        disable_progress_bar: bool = False,
         echo_fn: Callable[[str], None],
     ) -> BacktestingExecutionSummary:
         if from_parquet is None and df is None:
@@ -153,6 +154,7 @@ class BacktestingCliService:
             disable_minimal_trades=disable_minimal_trades,
             disable_decent_win_rate=disable_decent_win_rate,
             decent_win_rate=decent_win_rate,
+            min_profit_factor=min_profit_factor,
             min_sqn=min_sqn,
             executions_results=executions_results,
         )
@@ -247,6 +249,7 @@ class BacktestingCliService:
         disable_minimal_trades: bool,
         disable_decent_win_rate: bool,
         decent_win_rate: float,
+        min_profit_factor: float | None,
         min_sqn: float | None,
         executions_results: list[BacktestingExecutionResult],
     ) -> BacktestingExecutionSummary:
@@ -260,6 +263,7 @@ class BacktestingCliService:
             and (disable_minimal_trades or res.number_of_trades >= min_trades_for_stats)
             and (disable_decent_win_rate or res.win_rate >= decent_win_rate)
             and (min_sqn is None or res.sqn >= min_sqn)
+            and (min_profit_factor is None or res.profit_factor >= min_profit_factor)
         ]
         best_overall, highest_quality, best_profitable, best_win_rate = None, None, None, None
         if profitable_results:
