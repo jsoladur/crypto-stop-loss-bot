@@ -24,7 +24,7 @@ class BacktestResultSerde:
         df.to_parquet(filepath, index=False)
         logger.info(f"✅ Successfully saved {len(results)} results to {filepath}")
 
-    def load(self, filepath: str) -> list[BacktestingExecutionResult]:
+    def load(self, filepath: str, *, drop_na: bool = True) -> list[BacktestingExecutionResult]:
         """
         Deserializes a Parquet file back into a list of BacktestingExecutionResult objects.
 
@@ -32,6 +32,8 @@ class BacktestResultSerde:
         :return: A list of BacktestingExecutionResult objects.
         """
         df = pd.read_parquet(filepath)
+        if drop_na:
+            df.dropna(inplace=True)
         results = []
         # Get field names for reconstruction
         config_fields = {f.name for f in fields(BuySellSignalsConfigItem)}
