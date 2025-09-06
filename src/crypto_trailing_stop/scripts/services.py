@@ -111,6 +111,7 @@ class BacktestingCliService:
         disable_decent_win_rate: bool = False,
         decent_win_rate: float = DECENT_WIN_RATE_THRESHOLD,
         disable_progress_bar: bool = False,
+        min_sqn: float | None = None,
         tp_filter: TakeProfitFilter = "all",
         from_parquet: Path | None = None,
         df: pd.DataFrame | None = None,
@@ -137,10 +138,23 @@ class BacktestingCliService:
         else:
             # 3.1 Load execution results from parquet file stored previously
             executions_results = self._serde.load(from_parquet)
+            # 3.2 Filter results based on cli parameters
+            if tp_filter == "enabled":
+                executions_results = [res for res in executions_results if res.parameters.enable_exit_on_take_profit]
+            elif tp_filter == "disabled":
+                executions_results = [
+                    res for res in executions_results if not res.parameters.enable_exit_on_take_profit
+                ]
+
         # 4. Filter for viable strategies to analyze
         # We only care about strategies that were profitable and had a meaningful number of trades
         ret = self._get_backtesting_result_summary(
-            disable_minimal_trades, disable_decent_win_rate, decent_win_rate, downloaded_months_back, executions_results
+            downloaded_months_back=downloaded_months_back,
+            disable_minimal_trades=disable_minimal_trades,
+            disable_decent_win_rate=disable_decent_win_rate,
+            decent_win_rate=decent_win_rate,
+            min_sqn=min_sqn,
+            executions_results=executions_results,
         )
         return ret
 
@@ -228,10 +242,12 @@ class BacktestingCliService:
 
     def _get_backtesting_result_summary(
         self,
+        *,
+        downloaded_months_back: int,
         disable_minimal_trades: bool,
         disable_decent_win_rate: bool,
         decent_win_rate: float,
-        downloaded_months_back: int,
+        min_sqn: float | None,
         executions_results: list[BacktestingExecutionResult],
     ) -> BacktestingExecutionSummary:
         # 1. Calculate the minimum number of trades required to consider a strategy for stats
@@ -243,6 +259,7 @@ class BacktestingCliService:
             if res.net_profit_amount > 0
             and (disable_minimal_trades or res.number_of_trades >= min_trades_for_stats)
             and (disable_decent_win_rate or res.win_rate >= decent_win_rate)
+            and (min_sqn is None or res.sqn >= min_sqn)
         ]
         best_overall, highest_quality, best_profitable, best_win_rate = None, None, None, None
         if profitable_results:

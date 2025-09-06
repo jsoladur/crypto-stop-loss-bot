@@ -118,6 +118,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+**/notebooks/**
 
 # IPython
 profile_default/
@@ -235,5 +236,6 @@ pyrightconfig.json
 *.html
 data/**/*.csv
 data/**/*.parquet
+
 
 # End of https://www.toptal.com/developers/gitignore/api/dotenv,python,macos,visualstudiocode
