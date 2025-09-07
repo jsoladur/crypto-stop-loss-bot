@@ -1,8 +1,9 @@
 import math
+import os
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from itertools import product
-from os import getenv
+from pathlib import Path
 from typing import Any
 
 import ccxt
@@ -34,8 +35,9 @@ from crypto_trailing_stop.scripts.constants import (
     MIN_TRADES_FOR_STATS,
 )
 from crypto_trailing_stop.scripts.jobs import run_single_backtest_combination
+from crypto_trailing_stop.scripts.serde import BacktestResultSerde
 from crypto_trailing_stop.scripts.strategy import SignalStrategy
-from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult, BacktestingExecutionSummary
+from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult, BacktestingExecutionSummary, TakeProfitFilter
 
 
 class BacktestingCliService:
@@ -47,7 +49,7 @@ class BacktestingCliService:
             buy_sell_signals_config_service=None,
         )
         self._signal_service = BuySellSignalsTaskService()
-        self._bit2me_base_url = getenv("BIT2ME_API_BASE_URL")
+        self._serde = BacktestResultSerde()
 
     def download_backtesting_data(
         self,
@@ -102,30 +104,166 @@ class BacktestingCliService:
         self,
         *,
         symbol: str,
+        timeframe: str,
         initial_cash: float,
         downloaded_months_back: int = DEFAULT_MONTHS_BACK,
         disable_minimal_trades: bool = False,
         disable_decent_win_rate: bool = False,
         decent_win_rate: float = DECENT_WIN_RATE_THRESHOLD,
+        min_profit_factor: float | None = None,
+        min_sqn: float | None = None,
+        tp_filter: TakeProfitFilter = "all",
+        from_parquet: Path | None = None,
+        df: pd.DataFrame | None = None,
         disable_progress_bar: bool = False,
-        df: pd.DataFrame,
         echo_fn: Callable[[str], None],
+    ) -> BacktestingExecutionSummary:
+        if from_parquet is None and df is None:
+            raise ValueError("Either 'from_parquet' or 'df' must be provided.")
+        if from_parquet is None:
+            # 2.1 Run backtesting for all combinations
+            executions_results = self._apply_cartesian_production_execution(
+                symbol=symbol,
+                initial_cash=initial_cash,
+                tp_filter=tp_filter,
+                disable_progress_bar=disable_progress_bar,
+                df=df,
+                timeframe=timeframe,
+                echo_fn=echo_fn,
+            )
+            # 2.2 Store the all execution results in a parquet file
+            now = datetime.now()
+            os.makedirs("data/backtesting/raw", exist_ok=True)
+            parquet_file = f"data/backtesting/raw/{symbol.replace('/', '_')}_{tp_filter}_{now.strftime('%d%m%y%H%M%S')}{now.microsecond // 1000:03d}.parquet"  # noqa: E501
+            self._serde.save(results=executions_results, filepath=parquet_file)
+        else:
+            # 3.1 Load execution results from parquet file stored previously
+            executions_results = self._serde.load(from_parquet)
+            # 3.2 Filter results based on cli parameters
+            if tp_filter == "enabled":
+                executions_results = [res for res in executions_results if res.parameters.enable_exit_on_take_profit]
+            elif tp_filter == "disabled":
+                executions_results = [
+                    res for res in executions_results if not res.parameters.enable_exit_on_take_profit
+                ]
+
+        # 4. Filter for viable strategies to analyze
+        # We only care about strategies that were profitable and had a meaningful number of trades
+        ret = self._get_backtesting_result_summary(
+            downloaded_months_back=downloaded_months_back,
+            disable_minimal_trades=disable_minimal_trades,
+            disable_decent_win_rate=disable_decent_win_rate,
+            decent_win_rate=decent_win_rate,
+            min_profit_factor=min_profit_factor,
+            min_sqn=min_sqn,
+            executions_results=executions_results,
+        )
+        return ret
+
+    def execute_backtesting(
+        self,
+        *,
+        simulated_bs_config: BuySellSignalsConfigItem,
+        initial_cash: float,
+        df: pd.DataFrame,
+        timeframe: str = "1h",
+        echo_fn: Callable[[str], None] | None = None,
+        use_tqdm: bool = True,
+    ) -> tuple[BacktestingExecutionResult, backtesting.Backtest, pd.Series]:
+        original_backtesting_tqdm = backtesting._tqdm
+        try:
+            self._analytics_service._calculate_simple_indicators(df, simulated_bs_config)
+            self._analytics_service._calculate_complex_indicators(df)
+
+            buy_signals = []
+            sell_signals = []
+
+            if echo_fn:
+                echo_fn("🧠 Generating signals for each historical candle...")
+            range_of_values = range(4, len(df))
+            for i in tqdm(range_of_values) if use_tqdm else range_of_values:
+                window_df = df.iloc[: i + 1]
+                signals = self._signal_service._check_signals(
+                    symbol=simulated_bs_config.symbol,
+                    timeframe=timeframe,
+                    df=window_df,
+                    buy_sell_signals_config=simulated_bs_config,
+                    trading_market_config=DEFAULT_TRADING_MARKET_CONFIG,
+                )
+                buy_signals.append(signals.buy)
+                sell_signals.append(signals.sell)
+
+            df["buy_signal"] = pd.Series(buy_signals, index=df.index[4:])
+            df["sell_signal"] = pd.Series(sell_signals, index=df.index[4:])
+            # NEW: Add previous MACD hist for the accelerating momentum check
+            df["prev_macd_hist"] = df["macd_hist"].shift(1)
+            df.fillna(False, inplace=True)
+
+            if echo_fn:
+                echo_fn("🚀 Running trading simulation...")
+            df.rename(
+                columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"},
+                inplace=True,
+            )
+            bt = backtesting.Backtest(df, SignalStrategy, cash=initial_cash, commission=BIT2ME_TAKER_FEES)
+            if not use_tqdm:
+                backtesting._tqdm = lambda iterable=None, *args, **kwargs: iterable
+            stats = bt.run(
+                enable_tp=simulated_bs_config.enable_exit_on_take_profit,
+                simulated_bs_config=simulated_bs_config,
+                analytics_service=self._analytics_service,
+            )
+            current_execution_result = self._to_execution_result(
+                simulated_bs_config, initial_cash, stats, timeframe=timeframe
+            )
+            return current_execution_result, bt, stats
+        finally:
+            backtesting._tqdm = original_backtesting_tqdm
+
+    def _apply_cartesian_production_execution(
+        self,
+        *,
+        symbol: str,
+        initial_cash: float,
+        tp_filter: TakeProfitFilter,
+        disable_progress_bar: bool,
+        df: pd.DataFrame,
+        timeframe: str = "1h",
+        echo_fn: Callable[[str], None] | None = None,
+    ) -> list[BacktestingExecutionResult]:
+        cartesian_product = self._calculate_cartesian_product(symbol=symbol, tp_filter=tp_filter, echo_fn=echo_fn)
+        # Use joblib to run the backtests in parallel across all available CPU cores
+        # tqdm is now wrapped around the parallel execution
+        results = Parallel(n_jobs=-1)(
+            delayed(run_single_backtest_combination)(params, initial_cash, df, timeframe)
+            for params in (tqdm(cartesian_product) if not disable_progress_bar else cartesian_product)
+        )
+        # Filter out any runs that failed (they will return None)
+        executions_results = [res for res in results if res is not None]
+        return executions_results
+
+    def _get_backtesting_result_summary(
+        self,
+        *,
+        downloaded_months_back: int,
+        disable_minimal_trades: bool,
+        disable_decent_win_rate: bool,
+        decent_win_rate: float,
+        min_profit_factor: float | None,
+        min_sqn: float | None,
+        executions_results: list[BacktestingExecutionResult],
     ) -> BacktestingExecutionSummary:
         # 1. Calculate the minimum number of trades required to consider a strategy for stats
         num_of_weeks_downloaded = downloaded_months_back * 4
         min_trades_for_stats = max(MIN_TRADES_FOR_STATS, math.ceil(num_of_weeks_downloaded * MIN_ENTRIES_PER_WEEK))
-        # 2. Run backtesting for all combinations
-        executions_results = self._apply_cartesian_production_execution(
-            symbol, initial_cash, disable_progress_bar, df, echo_fn
-        )
-        # 3. Filter for viable strategies to analyze
-        # We only care about strategies that were profitable and had a meaningful number of trades
         profitable_results = [
             res
             for res in executions_results
             if res.net_profit_amount > 0
             and (disable_minimal_trades or res.number_of_trades >= min_trades_for_stats)
             and (disable_decent_win_rate or res.win_rate >= decent_win_rate)
+            and (min_sqn is None or res.sqn >= min_sqn)
+            and (min_profit_factor is None or res.profit_factor >= min_profit_factor)
         ]
         best_overall, highest_quality, best_profitable, best_win_rate = None, None, None, None
         if profitable_results:
@@ -155,92 +293,14 @@ class BacktestingCliService:
             best_profitable=best_profitable,
             best_win_rate=best_win_rate,
         )
+
         return ret
 
-    def execute_backtesting(
-        self,
-        *,
-        simulated_bs_config: BuySellSignalsConfigItem,
-        initial_cash: float,
-        df: pd.DataFrame,
-        echo_fn: Callable[[str], None] | None = None,
-        use_tqdm: bool = True,
-    ) -> tuple[BacktestingExecutionResult, backtesting.Backtest, pd.Series]:
-        original_backtesting_tqdm = backtesting._tqdm
-        try:
-            self._analytics_service._calculate_simple_indicators(df, simulated_bs_config)
-            self._analytics_service._calculate_complex_indicators(df)
-
-            buy_signals = []
-            sell_signals = []
-
-            if echo_fn:
-                echo_fn("🧠 Generating signals for each historical candle...")
-            range_of_values = range(4, len(df))
-            for i in tqdm(range_of_values) if use_tqdm else range_of_values:
-                window_df = df.iloc[: i + 1]
-                signals = self._signal_service._check_signals(
-                    symbol=simulated_bs_config.symbol,
-                    timeframe="1h",
-                    df=window_df,
-                    buy_sell_signals_config=simulated_bs_config,
-                    trading_market_config=DEFAULT_TRADING_MARKET_CONFIG,
-                )
-                buy_signals.append(signals.buy)
-                sell_signals.append(signals.sell)
-
-            df["buy_signal"] = pd.Series(buy_signals, index=df.index[4:])
-            df["sell_signal"] = pd.Series(sell_signals, index=df.index[4:])
-            # NEW: Add previous MACD hist for the accelerating momentum check
-            df["prev_macd_hist"] = df["macd_hist"].shift(1)
-            df.fillna(False, inplace=True)
-
-            if echo_fn:
-                echo_fn("🚀 Running trading simulation...")
-            df.rename(
-                columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"},
-                inplace=True,
-            )
-            bt = backtesting.Backtest(df, SignalStrategy, cash=initial_cash, commission=BIT2ME_TAKER_FEES)
-            if not use_tqdm:
-                backtesting._tqdm = lambda iterable=None, *args, **kwargs: iterable
-            stats = bt.run(
-                enable_tp=simulated_bs_config.enable_exit_on_take_profit,
-                simulated_bs_config=simulated_bs_config,
-                analytics_service=self._analytics_service,
-            )
-            current_execution_result = self._to_execution_result(simulated_bs_config, initial_cash, stats)
-            return current_execution_result, bt, stats
-        finally:
-            backtesting._tqdm = original_backtesting_tqdm
-
-    def _apply_cartesian_production_execution(
-        self,
-        symbol: str,
-        initial_cash: float,
-        disable_progress_bar: bool,
-        df: pd.DataFrame,
-        echo_fn: Callable[[str], None] | None = None,
-    ) -> list[BacktestingExecutionResult]:
-        cartesian_product = self._calculate_cartesian_product(symbol=symbol, echo_fn=echo_fn)
-        # Use joblib to run the backtests in parallel across all available CPU cores
-        # tqdm is now wrapped around the parallel execution
-        results = Parallel(n_jobs=-1)(
-            delayed(run_single_backtest_combination)(params, initial_cash, df)
-            for params in (tqdm(cartesian_product) if not disable_progress_bar else cartesian_product)
-        )
-        # Filter out any runs that failed (they will return None)
-        executions_results = [res for res in results if res is not None]
-        return executions_results
-
-    def _calculate_cartesian_product(self, *, symbol: str, echo_fn: Callable[[str], None] | None = None):
+    def _calculate_cartesian_product(
+        self, *, symbol: str, tp_filter: TakeProfitFilter = "all", echo_fn: Callable[[str], None] | None = None
+    ):
         # Group SL/TP pairs by SL value to ensure we have unique SL values when TP is disabled
-        sp_tp_tuples_group_by_sp = pydash.group_by(SP_TP_PAIRS_AS_TUPLES, lambda pair: pair[0])
-        sp_tp_tuples_when_tp_disabled = [
-            (False, *sp_tp_tuples[0]) for sp_tp_tuples in sp_tp_tuples_group_by_sp.values()
-        ]
-        sp_tp_tuples_when_tp_enabled = [(True, *sp_tp_tuple) for sp_tp_tuple in SP_TP_PAIRS_AS_TUPLES]
-        valid_sp_tp_tuples = sp_tp_tuples_when_tp_disabled + sp_tp_tuples_when_tp_enabled
+        sp_tp_tuples = self._get_sp_tp_tuples(tp_filter=tp_filter)
 
         # Adding the "No filter" option (0) to ADX thresholds
         adx_threshold_values = ADX_THRESHOLD_VALUES.copy()
@@ -259,14 +319,38 @@ class BacktestingCliService:
 
         # Now, create the full cartesian product considering all combinations
         full_cartesian_product = list(
-            product(
-                EMA_SHORT_MID_PAIRS_AS_TUPLES, valid_sp_tp_tuples, adx_threshold_values, vol_buy_cases, vol_sell_cases
-            )
+            product(EMA_SHORT_MID_PAIRS_AS_TUPLES, sp_tp_tuples, adx_threshold_values, vol_buy_cases, vol_sell_cases)
         )
         if echo_fn:
             echo_fn(f"Full raw combinations to test: {len(full_cartesian_product)}")
-        ret = []
         # --- HEURISTIC PRUNING ---
+        ret = self._apply_heuristic_pruning(symbol, full_cartesian_product)
+        if echo_fn:
+            echo_fn(f"  -- Discarded combinations by heuristic: {len(full_cartesian_product) - len(ret)}")
+            echo_fn(f"TOTAL COMBINATIONS TO TEST: {len(ret)}")
+        return ret
+
+    def _get_sp_tp_tuples(self, *, tp_filter: TakeProfitFilter = "all") -> list[tuple[bool, float, float]]:
+        sp_tp_tuples_group_by_sp = pydash.group_by(SP_TP_PAIRS_AS_TUPLES, lambda pair: pair[0])
+        sp_tp_tuples_when_tp_disabled = [
+            (False, *sp_tp_tuples[0]) for sp_tp_tuples in sp_tp_tuples_group_by_sp.values()
+        ]
+        sp_tp_tuples_when_tp_enabled = [(True, *sp_tp_tuple) for sp_tp_tuple in SP_TP_PAIRS_AS_TUPLES]
+        match tp_filter:
+            case "all":
+                sp_tp_tuples = sp_tp_tuples_when_tp_disabled + sp_tp_tuples_when_tp_enabled
+            case "enabled":
+                sp_tp_tuples = sp_tp_tuples_when_tp_enabled
+            case "disabled":
+                sp_tp_tuples = sp_tp_tuples_when_tp_disabled
+            case _:
+                raise ValueError(f"Take Profit filter '{tp_filter}' value is not supported.")
+        return sp_tp_tuples
+
+    def _apply_heuristic_pruning(
+        self, symbol: str, full_cartesian_product: list[tuple]
+    ) -> list[BuySellSignalsConfigItem]:
+        ret = []
         for params in full_cartesian_product:
             (
                 (ema_short, ema_mid),
@@ -343,14 +427,17 @@ class BacktestingCliService:
                     enable_exit_on_take_profit=enable_exit_on_take_profit,
                 )
                 ret.append(simulated_bs_config)
-        if echo_fn:
-            echo_fn(f"  -- Discarded combinations by heuristic: {len(full_cartesian_product) - len(ret)}")
-            echo_fn(f"TOTAL COMBINATIONS TO TEST: {len(ret)}")
         return ret
 
     def _to_execution_result(
-        self, simulated_bs_config: BuySellSignalsConfigItem, initial_cash: float, stats: pd.Series
+        self,
+        simulated_bs_config: BuySellSignalsConfigItem,
+        initial_cash: float,
+        stats: pd.Series,
+        *,
+        timeframe: str = "1h",
     ) -> BacktestingExecutionResult:
+        days_float = self._convert_timeframe_to_days(timeframe)
         net_profit_amount = stats["Equity Final [$]"] - initial_cash
         current_execution_result = BacktestingExecutionResult(
             parameters=simulated_bs_config,
@@ -358,5 +445,21 @@ class BacktestingCliService:
             win_rate=stats["Win Rate [%]"],
             net_profit_amount=net_profit_amount,
             net_profit_percentage=stats["Return [%]"],
+            avg_trade_duration_in_days=round(stats["Avg. Trade Duration"] * days_float, ndigits=2),
+            max_trade_duration_in_days=round(stats["Max. Trade Duration"] * days_float, ndigits=2),
+            buy_and_hold_return_percentage=stats["Buy & Hold Return [%]"],
+            profit_factor=stats["Profit Factor"],
+            best_trade_percentage=stats["Best Trade [%]"],
+            worst_trade_percentage=stats["Worst Trade [%]"],
+            avg_drawdown_percentage=round(stats["Avg. Drawdown [%]"], ndigits=2),
+            max_drawdown_percentage=round(stats["Max. Drawdown [%]"], ndigits=2),
+            avg_drawdown_duration_in_days=round(stats["Avg. Drawdown Duration"] * days_float, ndigits=2),
+            max_drawdown_duration_in_days=round(stats["Max. Drawdown Duration"] * days_float, ndigits=2),
+            sqn=stats["SQN"],
         )
         return current_execution_result
+
+    def _convert_timeframe_to_days(self, timeframe: str) -> float:
+        td = pd.Timedelta(timeframe)
+        ret = td.total_seconds() / 86400  # 86400 seconds in a day
+        return ret

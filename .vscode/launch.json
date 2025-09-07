@@ -52,7 +52,9 @@
       "program": "src/crypto_trailing_stop/scripts/cli.py",
       "args": [
         "research",
-        "SUI/EUR"
+        "SUI/EUR",
+        "--tp-filter=disabled",
+        "--from-parquet=data/backtesting/raw/SUI_EUR_enabled_040925225612769.parquet"
       ],
       "console": "integratedTerminal",
       "justMyCode": false

@@ -5,15 +5,20 @@ source .venv/bin/activate
 # --- CONFIGURATION ---
 # Define the "SYMBOL:EXCHANGE" pairs you want to test.
 PAIRS=(
+    # Current trading
     "SUI/EUR:binance"
-    "LINK/EUR:binance"
-    "RENDER/EUR:binance"
     "SOL/EUR:binance"
+    "LINK/EUR:binance"
+    "ADA/EUR:binance"
     "ETH/EUR:binance"
+    "RENDER/EUR:binance"
     "XRP/EUR:binance"
-    # "AAVE/EUR:kraken"
-    # "ENA/EUR:kraken"
-    # "FIL/EUR:kraken"
+    # New coins
+    "PEPE/EUR:binance"
+    "DOGE/EUR:binance"
+    "TRUMP/EUR:binance"
+    "PENGU/EUR:kraken"
+    "BNB/EUR:binance"
 )
 
 # Define the directory where the result logs will be saved.
@@ -44,7 +49,7 @@ for pair in "${PAIRS[@]}"; do
 
     # 3. Execute the 'research' command, passing the exchange.
     #    Redirect stdout to log_file and stderr to progress_file.
-    cli research "$symbol" --exchange "$exchange" "$@" > "$log_file" 2> "$progress_file"
+    cli research "$symbol" --exchange="$exchange" --min-sqn=1.8 --min-profit-factor=1.5 "$@" > "$log_file" 2> "$progress_file"
 
     echo "✅ Finished research for ${symbol} on ${exchange}."
     echo "--------------------------------------------------"

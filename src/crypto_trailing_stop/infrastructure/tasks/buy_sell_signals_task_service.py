@@ -533,13 +533,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
         tickers: Bit2MeTickersDto,
         base_symbol: str,
     ) -> None:
-        if signals.is_choppy:
-            message = (
-                f"🟡 - 🫥 {html.bold('CHOPPY MARKET ' + '(' + timeframe.upper() + ')')} for {html.bold(base_symbol)}.\n"  # noqa: E501
-                + "🤫 Volatility is low. DO NOT ACT! 🤫"
-            )
-            await self._notify_alert(telegram_chat_ids, message, tickers=tickers)
-        elif signals.buy:
+        if signals.buy:
             await self._notify_buy_alert(
                 telegram_chat_ids=telegram_chat_ids, timeframe=timeframe, tickers=tickers, base_symbol=base_symbol
             )
