@@ -207,7 +207,7 @@ def research(
         typer.echo(f"Download Candles:            {download_candles}")
         typer.secho("-----------------------------", fg=typer.colors.BLUE, bold=True)
 
-        execution_summary = backtesting_cli_service.find_out_best_parameters(
+        execution_summary = backtesting_cli_service.research(
             symbol=symbol,
             timeframe=timeframe,
             initial_cash=initial_cash,
@@ -236,6 +236,50 @@ def research(
                 if value:
                     typer.secho(f"\n--- {symbol.upper()} 🏆 Champion: {pydash.start_case(field.name)} ---")
                     echo_backtesting_execution_result(value)
+
+    except FileNotFoundError:
+        typer.secho(f"❌ Error: Data file '{data_file}' not found.", fg=typer.colors.RED)
+        typer.echo(f"👉 Please run 'cli download-data {symbol}' first.")
+        raise typer.Exit()
+
+
+@app.command()
+def bayesian_research(
+    symbol: str = typer.Argument(..., help="The symbol to backtest, e.g., ETH/EUR"),
+    initial_cash: float = typer.Option(3_000, help="Intial cash for the backtest."),
+    exchange: str = typer.Option("binance", help="The name of the exchange to use."),
+    timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
+    months_back: int = typer.Option(DEFAULT_MONTHS_BACK, help="The number of months of data to download."),
+    max_iterations: int = typer.Option(500, help="Number of calls for the Bayesian Optimizer."),
+    download_candles: bool = typer.Option(True, help="Download data before running the research."),
+):
+    symbol = symbol.strip().upper()
+    try:
+        if download_candles:
+            download_data(symbol=symbol, exchange=exchange, timeframe=timeframe, months_back=months_back)
+        data_file = f"data/candles/{symbol.replace('/', '_')}.csv"
+        df: pd.DataFrame = pd.read_csv(data_file)
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+        df.dropna(inplace=True)
+        df.reset_index(drop=True, inplace=True)
+
+        typer.secho("--- ⚙️ Bayesian Research Parameters ---", fg=typer.colors.BLUE, bold=True)
+        typer.echo(f"Symbol:                      {symbol}")
+        typer.echo(f"Initial Cash:                {initial_cash}")
+        typer.echo(f"Exchange:                    {exchange}")
+        typer.echo(f"Timeframe:                   {timeframe}")
+        typer.echo(f"Months Back:                 {months_back}")
+        typer.echo(f"Download Candles:            {download_candles}")
+        typer.echo(f"Max. Iterations:             {max_iterations}")
+        typer.secho("-----------------------------", fg=typer.colors.BLUE, bold=True)
+
+        best_result = backtesting_cli_service.bayesian_research(
+            symbol=symbol, initial_cash=initial_cash, df=df, echo_fn=typer.secho, max_iterations=max_iterations
+        )
+        # Print the summary
+        typer.secho(f"\n--- 🔬 {symbol.upper()} BAYESIAN RESULT ---", fg=typer.colors.MAGENTA, bold=True)
+        typer.secho(f"\n--- {symbol.upper()} 🏆 Champion ---")
+        echo_backtesting_execution_result(best_result)
 
     except FileNotFoundError:
         typer.secho(f"❌ Error: Data file '{data_file}' not found.", fg=typer.colors.RED)
