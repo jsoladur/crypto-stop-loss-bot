@@ -49,7 +49,7 @@ for pair in "${PAIRS[@]}"; do
 
     # 3. Execute the 'research' command, passing the exchange.
     #    Redirect stdout to log_file and stderr to progress_file.
-    cli research "$symbol" --exchange "$exchange" "$@" > "$log_file" 2> "$progress_file"
+    cli research "$symbol" --exchange="$exchange" --min-sqn=1.8 --min-profit-factor=1.5 "$@" > "$log_file" 2> "$progress_file"
 
     echo "✅ Finished research for ${symbol} on ${exchange}."
     echo "--------------------------------------------------"

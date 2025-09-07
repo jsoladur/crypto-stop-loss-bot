@@ -190,6 +190,23 @@ def research(
             df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
             df.dropna(inplace=True)
             df.reset_index(drop=True, inplace=True)
+
+        typer.secho("--- ⚙️ Research Parameters ---", fg=typer.colors.BLUE, bold=True)
+        typer.echo(f"Symbol:                      {symbol}")
+        typer.echo(f"Initial Cash:                {initial_cash}")
+        typer.echo(f"Exchange:                    {exchange}")
+        typer.echo(f"Timeframe:                   {timeframe}")
+        typer.echo(f"Months Back:                 {months_back}")
+        typer.echo(f"Disable Minimal Trades:      {disable_minimal_trades}")
+        typer.echo(f"Disable Decent Win Rate:     {disable_decent_win_rate}")
+        typer.echo(f"Decent Win Rate Threshold:   {decent_win_rate}%")
+        typer.echo(f"Min Profit Factor:           {min_profit_factor if min_profit_factor is not None else 'N/A'}")
+        typer.echo(f"Min SQN:                     {min_sqn if min_sqn is not None else 'N/A'}")
+        typer.echo(f"Take Profit Filter:          {tp_filter}")
+        typer.echo(f"From Parquet:                {from_parquet if from_parquet is not None else 'No'}")
+        typer.echo(f"Download Candles:            {download_candles}")
+        typer.secho("-----------------------------", fg=typer.colors.BLUE, bold=True)
+
         execution_summary = backtesting_cli_service.find_out_best_parameters(
             symbol=symbol,
             timeframe=timeframe,
