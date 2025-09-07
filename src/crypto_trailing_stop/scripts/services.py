@@ -220,7 +220,7 @@ class BacktestingCliService:
             ) = result.x
 
             best_ema_short, best_ema_mid = EMA_SHORT_MID_PAIRS_AS_TUPLES[int(round(best_ema_idx))]
-            best_sl, best_tp = EMA_SHORT_MID_PAIRS_AS_TUPLES[int(round(best_sptp_idx))]
+            best_sl, best_tp = sp_tp_pairs[int(round(best_sptp_idx))]
 
             best_config = BuySellSignalsConfigItem(
                 symbol=symbol,

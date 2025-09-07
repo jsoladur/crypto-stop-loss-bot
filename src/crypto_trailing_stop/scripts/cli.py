@@ -250,7 +250,7 @@ def bayesian_research(
     exchange: str = typer.Option("binance", help="The name of the exchange to use."),
     timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
     months_back: int = typer.Option(DEFAULT_MONTHS_BACK, help="The number of months of data to download."),
-    max_iterations: int = typer.Option(500, help="Number of calls for the Bayesian Optimizer."),
+    max_iterations: int = typer.Option(1000, help="Number of calls for the Bayesian Optimizer."),
     download_candles: bool = typer.Option(True, help="Download data before running the research."),
 ):
     symbol = symbol.strip().upper()
