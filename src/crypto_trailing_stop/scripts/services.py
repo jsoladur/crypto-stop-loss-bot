@@ -1,5 +1,6 @@
 import math
 import os
+import random
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from functools import partial
@@ -188,59 +189,61 @@ class BacktestingCliService:
         ]
         # --- 3. Run the Optimizer ---
         echo_fn(f"🚀 Starting Bayesian Optimization with sambo for {max_iterations} iterations...")
-        optimizer = Optimizer(
-            fun=partial(
-                self._bayesian_objective_function,
+        with tqdm(total=max_iterations, desc="Bayesian Optimization") as pbar:
+            optimizer = Optimizer(
+                fun=partial(
+                    self._bayesian_objective_function,
+                    symbol=symbol,
+                    initial_cash=initial_cash,
+                    sp_tp_pairs=sp_tp_pairs,
+                    df=df,
+                    pbar=pbar,
+                ),
+                bounds=bounds,
+                disp=True,
+            )
+            result = optimizer.run(max_iter=max_iterations)
+
+            echo_fn("✅ Optimization complete.")
+
+            # --- 4. Get and return the best result ---
+            (
+                best_ema_idx,
+                best_sptp_idx,
+                best_adx,
+                best_buy_min,
+                best_buy_max,
+                best_sell_min,
+                best_filter_flag,
+                best_sell_filter,
+                best_tp_flag,
+            ) = result.x
+
+            best_ema_short, best_ema_mid = EMA_SHORT_MID_PAIRS_AS_TUPLES[int(round(best_ema_idx))]
+            best_sl, best_tp = EMA_SHORT_MID_PAIRS_AS_TUPLES[int(round(best_sptp_idx))]
+
+            best_config = BuySellSignalsConfigItem(
                 symbol=symbol,
-                initial_cash=initial_cash,
-                sp_tp_pairs=sp_tp_pairs,
-                df=df,
-            ),
-            bounds=bounds,
-            disp=True,
-        )
-        result = optimizer.run(max_iter=max_iterations)
+                ema_short_value=best_ema_short,
+                ema_mid_value=best_ema_mid,
+                stop_loss_atr_multiplier=best_sl,
+                take_profit_atr_multiplier=best_tp,
+                enable_adx_filter=int(round(best_filter_flag)) == 1,
+                adx_threshold=int(round(best_adx)),
+                enable_buy_volume_filter=int(round(best_filter_flag)) == 2,
+                buy_min_volume_threshold=best_buy_min,
+                buy_max_volume_threshold=best_buy_max,
+                enable_sell_volume_filter=bool(round(best_sell_filter)),
+                sell_min_volume_threshold=best_sell_min,
+                enable_exit_on_take_profit=bool(round(best_tp_flag)),
+            )
 
-        echo_fn("✅ Optimization complete.")
-
-        # --- 4. Get and return the best result ---
-        (
-            best_ema_idx,
-            best_sptp_idx,
-            best_adx,
-            best_buy_min,
-            best_buy_max,
-            best_sell_min,
-            best_filter_flag,
-            best_sell_filter,
-            best_tp_flag,
-        ) = result.x
-
-        best_ema_short, best_ema_mid = EMA_SHORT_MID_PAIRS_AS_TUPLES[int(round(best_ema_idx))]
-        best_sl, best_tp = EMA_SHORT_MID_PAIRS_AS_TUPLES[int(round(best_sptp_idx))]
-
-        best_config = BuySellSignalsConfigItem(
-            symbol=symbol,
-            ema_short_value=best_ema_short,
-            ema_mid_value=best_ema_mid,
-            stop_loss_atr_multiplier=best_sl,
-            take_profit_atr_multiplier=best_tp,
-            enable_adx_filter=int(round(best_filter_flag)) == 1,
-            adx_threshold=int(round(best_adx)),
-            enable_buy_volume_filter=int(round(best_filter_flag)) == 2,
-            buy_min_volume_threshold=best_buy_min,
-            buy_max_volume_threshold=best_buy_max,
-            enable_sell_volume_filter=bool(round(best_sell_filter)),
-            sell_min_volume_threshold=best_sell_min,
-            enable_exit_on_take_profit=bool(round(best_tp_flag)),
-        )
-
-        echo_fn("\n--- 🏆 Best Configuration Found by Sambo ---")
-        # Run the backtest one last time with the best config to get the full stats
-        best_result, _, _ = self.execute_backtesting(
-            simulated_bs_config=best_config, initial_cash=initial_cash, df=df.copy(), use_tqdm=False
-        )
-        return best_result
+            echo_fn("\n--- 🏆 Best Configuration Found by Sambo ---")
+            # Run the backtest one last time with the best config to get the full stats
+            best_result, _, _ = self.execute_backtesting(
+                simulated_bs_config=best_config, initial_cash=initial_cash, df=df.copy(), use_tqdm=False
+            )
+            return best_result
 
     def execute_backtesting(
         self,
@@ -420,58 +423,64 @@ class BacktestingCliService:
         initial_cash: float,
         sp_tp_pairs: list[tuple[float, float]],
         df: pd.DataFrame,
+        pbar: tqdm,
     ) -> float:
-        # Unpack all parameters from the list 'x'
-        (
-            ema_idx,
-            sp_tp_idx,
-            adx_thr,
-            buy_min_vol,
-            buy_max_vol,
-            sell_min_vol,
-            filter_flag,
-            sell_filter_flag,
-            tp_flag,
-        ) = params
+        try:
+            # Unpack all parameters from the list 'x'
+            (
+                ema_idx,
+                sp_tp_idx,
+                adx_thr,
+                buy_min_vol,
+                buy_max_vol,
+                sell_min_vol,
+                filter_flag,
+                sell_filter_flag,
+                tp_flag,
+            ) = params
 
-        # Reconstruct categorical and integer parameters
-        ema_short, ema_mid = EMA_SHORT_MID_PAIRS_AS_TUPLES[int(round(ema_idx))]
-        sl_mult, tp_mult = sp_tp_pairs[int(round(sp_tp_idx))]
+            # Reconstruct categorical and integer parameters
+            ema_short, ema_mid = EMA_SHORT_MID_PAIRS_AS_TUPLES[int(round(ema_idx))]
+            sl_mult, tp_mult = sp_tp_pairs[int(round(sp_tp_idx))]
 
-        filter_adx = int(round(filter_flag)) == 1
-        filter_vol = int(round(filter_flag)) == 2
+            filter_adx = int(round(filter_flag)) == 1
+            filter_vol = int(round(filter_flag)) == 2
 
-        config = BuySellSignalsConfigItem(
-            symbol=symbol,
-            ema_short_value=ema_short,
-            ema_mid_value=ema_mid,
-            stop_loss_atr_multiplier=sl_mult,
-            take_profit_atr_multiplier=tp_mult,
-            enable_adx_filter=filter_adx,
-            adx_threshold=int(round(adx_thr)),
-            enable_buy_volume_filter=filter_vol,
-            buy_min_volume_threshold=buy_min_vol,
-            buy_max_volume_threshold=buy_max_vol,
-            enable_sell_volume_filter=bool(round(sell_filter_flag)),
-            sell_min_volume_threshold=sell_min_vol,
-            enable_exit_on_take_profit=bool(round(tp_flag)),
-        )
+            config = BuySellSignalsConfigItem(
+                symbol=symbol,
+                ema_short_value=ema_short,
+                ema_mid_value=ema_mid,
+                stop_loss_atr_multiplier=sl_mult,
+                take_profit_atr_multiplier=tp_mult,
+                enable_adx_filter=filter_adx,
+                adx_threshold=int(round(adx_thr)),
+                enable_buy_volume_filter=filter_vol,
+                buy_min_volume_threshold=buy_min_vol,
+                buy_max_volume_threshold=buy_max_vol,
+                enable_sell_volume_filter=bool(round(sell_filter_flag)),
+                sell_min_volume_threshold=sell_min_vol,
+                enable_exit_on_take_profit=bool(round(tp_flag)),
+            )
 
-        result, _, stats = self.execute_backtesting(
-            simulated_bs_config=config, initial_cash=initial_cash, df=df.copy(), use_tqdm=False
-        )
+            result, _, stats = self.execute_backtesting(
+                simulated_bs_config=config, initial_cash=initial_cash, df=df.copy(), use_tqdm=False
+            )
 
-        # Si el resultado no es válido, lo penalizamos
-        if (
-            result is None
-            or result.number_of_trades < MIN_TRADES_FOR_STATS
-            or pd.isna(stats["SQN"])
-            or stats["SQN"] < 1.8  # Añadimos un filtro de calidad mínimo
-        ):
-            score = 100.0
-        else:
-            score = stats["SQN"] * result.win_rate * result.net_profit_percentage * math.sqrt(result.number_of_trades)
-        return -score
+            # Si el resultado no es válido, lo penalizamos
+            if (
+                result is None
+                or result.number_of_trades < MIN_TRADES_FOR_STATS
+                or pd.isna(stats["SQN"])
+                or stats["SQN"] < 1.8  # Añadimos un filtro de calidad mínimo
+            ):
+                score = 100.0 + random.random()  # nosec: B311
+            else:
+                score = (
+                    stats["SQN"] * result.win_rate * result.net_profit_percentage * math.sqrt(result.number_of_trades)
+                )
+            return -score
+        finally:
+            pbar.update(1)
 
     def _get_sp_tp_tuples(self, *, tp_filter: TakeProfitFilter = "all") -> list[tuple[bool, float, float]]:
         sp_tp_tuples_group_by_sp = pydash.group_by(SP_TP_PAIRS_AS_TUPLES, lambda pair: pair[0])
