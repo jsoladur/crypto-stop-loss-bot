@@ -94,8 +94,8 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             try:
                 previous_used_buy_trades, *_ = await self._handle_single_sell_order(
                     sell_order,
-                    current_tickers_by_symbol=current_tickers_by_symbol,
-                    last_buy_trades_by_symbol=last_buy_trades_by_symbol,
+                    tickers=current_tickers_by_symbol[sell_order.symbol],
+                    last_buy_trades=last_buy_trades_by_symbol[sell_order.symbol],
                     previous_used_buy_trades=previous_used_buy_trades,
                     client=client,
                 )
@@ -106,8 +106,9 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     async def _handle_single_sell_order(
         self,
         sell_order: Bit2MeOrderDto,
-        *current_tickers_by_symbol: dict[str, Bit2MeTickersDto],
-        last_buy_trades_by_symbol: dict[str, list[Bit2MeTradeDto]],
+        *,
+        tickers: Bit2MeTickersDto,
+        last_buy_trades: list[Bit2MeTradeDto],
         previous_used_buy_trades: dict[str, float],
         client: AsyncClient,
     ) -> set[str]:
@@ -116,7 +117,6 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
             sell_order.symbol, client=client
         )
-        tickers = current_tickers_by_symbol[sell_order.symbol]
         technical_indicators = self._technical_indicators_by_symbol_cache[sell_order.symbol].technical_indicators
         prev_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
             sell_order.symbol,
@@ -136,7 +136,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             tickers=tickers,
             buy_sell_signals_config=buy_sell_signals_config,
             technical_indicators=technical_indicators,
-            last_buy_trades=last_buy_trades_by_symbol[sell_order.symbol],
+            last_buy_trades=last_buy_trades,
             previous_used_buy_trades=previous_used_buy_trades,
             client=client,
         )
