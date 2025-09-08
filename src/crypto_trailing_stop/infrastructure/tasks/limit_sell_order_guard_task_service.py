@@ -386,7 +386,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             else:
                 price_message = f"Current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency})"
                 stop_price_message = f"breathe safeguard stop price calculated ({guard_metrics.breathe_safeguard_stop_price} {fiat_currency})"  # noqa: E501
-            details = f"{price_message} is lower than the ${stop_price_message}."
+            details = f"{price_message} is lower than the {stop_price_message}."
         elif auto_exit_reason.exit_on_sell_signal:
             details = (
                 f"At current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency}), "
