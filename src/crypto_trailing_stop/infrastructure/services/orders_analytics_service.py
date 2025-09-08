@@ -361,16 +361,6 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
         )
         return suggested_safeguard_stop_price
 
-    async def _get_last_buy_trades_by_opened_sell_orders(
-        self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
-    ) -> dict[str, list[Bit2MeTradeDto]]:
-        opened_sell_order_symbols = set([sell_order.symbol for sell_order in opened_sell_orders])
-        last_buy_trades_by_symbol = {
-            symbol: await self._bit2me_remote_service.get_trades(side="buy", symbol=symbol, client=client)
-            for symbol in opened_sell_order_symbols
-        }
-        return last_buy_trades_by_symbol
-
     async def _calculate_buy_sell_signals_config_by_opened_sell_orders(
         self, opened_sell_orders: list[Bit2MeOrderDto]
     ) -> dict[str, pd.DataFrame]:

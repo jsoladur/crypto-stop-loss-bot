@@ -10,6 +10,7 @@ from crypto_trailing_stop.commons.constants import LIMIT_SELL_ORDER_GUARD_SAFETY
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
@@ -85,11 +86,18 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = await self._fetch_tickers_for_open_sell_orders(
             opened_sell_orders, client=client
         )
+        last_buy_trades_by_symbol: dict[str, Bit2MeTradeDto] = await self._get_last_buy_trades_by_opened_sell_orders(
+            opened_sell_orders, client=client
+        )
         previous_used_buy_trades: dict[str, float] = {}
         for sell_order in opened_sell_orders:
             try:
                 previous_used_buy_trades, *_ = await self._handle_single_sell_order(
-                    sell_order, current_tickers_by_symbol, previous_used_buy_trades, client=client
+                    sell_order,
+                    current_tickers_by_symbol=current_tickers_by_symbol,
+                    last_buy_trades_by_symbol=last_buy_trades_by_symbol,
+                    previous_used_buy_trades=previous_used_buy_trades,
+                    client=client,
                 )
             except Exception as e:  # pragma: no cover
                 logger.error(str(e), exc_info=True)
@@ -98,9 +106,9 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     async def _handle_single_sell_order(
         self,
         sell_order: Bit2MeOrderDto,
-        current_tickers_by_symbol: dict[str, Bit2MeTickersDto],
+        *current_tickers_by_symbol: dict[str, Bit2MeTickersDto],
+        last_buy_trades_by_symbol: dict[str, list[Bit2MeTradeDto]],
         previous_used_buy_trades: dict[str, float],
-        *,
         client: AsyncClient,
     ) -> set[str]:
         crypto_currency, fiat_currency = sell_order.symbol.split("/")
@@ -128,6 +136,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             tickers=tickers,
             buy_sell_signals_config=buy_sell_signals_config,
             technical_indicators=technical_indicators,
+            last_buy_trades=last_buy_trades_by_symbol[sell_order.symbol],
             previous_used_buy_trades=previous_used_buy_trades,
             client=client,
         )
