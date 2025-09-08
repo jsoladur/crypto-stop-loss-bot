@@ -44,7 +44,8 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             ret = self._convert_to_value_object(config)
         else:
             ret = BuySellSignalsConfigItem(symbol=symbol.upper())
-        logger.info(f"Using {repr(ret)} for {symbol}...")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Using {repr(ret)} for {symbol}...")
         return ret
 
     async def toggle_enable_exit_on_take_profit_by_symbol(self, symbol: str) -> BuySellSignalsConfigItem:

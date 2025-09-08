@@ -8,6 +8,7 @@ from httpx import AsyncClient
 
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
@@ -35,6 +36,16 @@ class AbstractService(ABC):
         )
         ret = {tickers.symbol: tickers for tickers in tickers_list}
         return ret
+
+    async def _get_last_buy_trades_by_opened_sell_orders(
+        self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
+    ) -> dict[str, list[Bit2MeTradeDto]]:
+        opened_sell_order_symbols = set([sell_order.symbol for sell_order in opened_sell_orders])
+        last_buy_trades_by_symbol = {
+            symbol: await self._bit2me_remote_service.get_trades(side="buy", symbol=symbol, client=client)
+            for symbol in opened_sell_order_symbols
+        }
+        return last_buy_trades_by_symbol
 
     async def _notify_alert_by_type(self, notification_type: PushNotificationTypeEnum, message: str) -> None:
         telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(

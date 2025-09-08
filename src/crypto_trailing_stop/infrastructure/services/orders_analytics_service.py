@@ -65,6 +65,9 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
                 buy_sell_signals_config_by_symbol = await self._calculate_buy_sell_signals_config_by_opened_sell_orders(
                     opened_sell_orders
                 )
+                last_buy_trades_by_symbol = await self._get_last_buy_trades_by_opened_sell_orders(
+                    opened_sell_orders, client=client
+                )
                 async with self._exchange as exchange:
                     technical_indicators_by_symbol = await self._calculate_technical_indicators_by_opened_sell_orders(
                         opened_sell_orders, client=client, exchange=exchange
@@ -77,6 +80,7 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
                             tickers=current_tickers_by_symbol[sell_order.symbol],
                             buy_sell_signals_config=buy_sell_signals_config_by_symbol[crypto_currency],
                             technical_indicators=technical_indicators_by_symbol[sell_order.symbol],
+                            last_buy_trades=last_buy_trades_by_symbol[sell_order.symbol],
                             previous_used_buy_trades=previous_used_buy_trades,
                             client=client,
                         )
@@ -90,6 +94,7 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
         tickers: Bit2MeTickersDto | None = None,
         buy_sell_signals_config: BuySellSignalsConfigItem | None = None,
         technical_indicators: pd.DataFrame | None = None,
+        last_buy_trades: list[Bit2MeTradeDto] | None = None,
         previous_used_buy_trades: dict[str, float] = {},
         client: AsyncClient | None = None,
         exchange: ccxt.Exchange | None = None,
@@ -112,7 +117,11 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
             trading_market_config=trading_market_config,
         )
         (avg_buy_price, previous_used_buy_trades) = await self._calculate_correlated_avg_buy_price(
-            sell_order, previous_used_buy_trades, trading_market_config=trading_market_config, client=client
+            sell_order,
+            previous_used_buy_trades,
+            trading_market_config=trading_market_config,
+            last_buy_trades=last_buy_trades,
+            client=client,
         )
         break_even_price = self._calculate_break_even_price(avg_buy_price, trading_market_config=trading_market_config)
         current_profit = self._calculate_current_profit(
@@ -177,11 +186,13 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
         previous_used_buy_trades: dict[str, float] = {},
         *,
         trading_market_config: Bit2MeMarketConfigDto,
+        last_buy_trades: list[Bit2MeTradeDto] | None = None,
         client: AsyncClient | None = None,
     ) -> tuple[float, set[str]]:
-        last_buy_trades = await self._bit2me_remote_service.get_trades(
-            side="buy", symbol=sell_order.symbol, client=client
-        )
+        if last_buy_trades is None or len(last_buy_trades) <= 0:
+            last_buy_trades = await self._bit2me_remote_service.get_trades(
+                side="buy", symbol=sell_order.symbol, client=client
+            )
         correlated_filled_buy_trades = self._get_correlated_filled_buy_trades(
             sell_order, last_buy_trades, previous_used_buy_trades=previous_used_buy_trades
         )
@@ -255,12 +266,12 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
             rest_sell_order_amount_to_allocate = sell_order.order_amount - sum_order_amount
             # Calculate how much we can get from this trade
             previous_used_trade_amount = previous_used_buy_trades.setdefault(current_buy_trade.id, 0.0)
-            rest_trade_amount_to_allocate = current_buy_trade.amount - previous_used_trade_amount
+            rest_trade_amount_to_allocate = current_buy_trade.amount_after_fee - previous_used_trade_amount
             if rest_trade_amount_to_allocate > 0:
                 correlated_filled_buy_trades.append((current_buy_trade, rest_trade_amount_to_allocate))
                 sum_order_amount += rest_trade_amount_to_allocate
                 if rest_sell_order_amount_to_allocate >= rest_trade_amount_to_allocate:
-                    previous_used_buy_trades[current_buy_trade.id] = current_buy_trade.amount
+                    previous_used_buy_trades[current_buy_trade.id] = current_buy_trade.amount_after_fee
                 else:
                     previous_used_buy_trades[current_buy_trade.id] += (
                         rest_trade_amount_to_allocate - rest_sell_order_amount_to_allocate

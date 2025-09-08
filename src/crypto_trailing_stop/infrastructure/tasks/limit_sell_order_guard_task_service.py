@@ -10,6 +10,7 @@ from crypto_trailing_stop.commons.constants import LIMIT_SELL_ORDER_GUARD_SAFETY
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
@@ -85,11 +86,18 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = await self._fetch_tickers_for_open_sell_orders(
             opened_sell_orders, client=client
         )
+        last_buy_trades_by_symbol: dict[str, Bit2MeTradeDto] = await self._get_last_buy_trades_by_opened_sell_orders(
+            opened_sell_orders, client=client
+        )
         previous_used_buy_trades: dict[str, float] = {}
         for sell_order in opened_sell_orders:
             try:
                 previous_used_buy_trades, *_ = await self._handle_single_sell_order(
-                    sell_order, current_tickers_by_symbol, previous_used_buy_trades, client=client
+                    sell_order,
+                    tickers=current_tickers_by_symbol[sell_order.symbol],
+                    last_buy_trades=last_buy_trades_by_symbol[sell_order.symbol],
+                    previous_used_buy_trades=previous_used_buy_trades,
+                    client=client,
                 )
             except Exception as e:  # pragma: no cover
                 logger.error(str(e), exc_info=True)
@@ -98,9 +106,10 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     async def _handle_single_sell_order(
         self,
         sell_order: Bit2MeOrderDto,
-        current_tickers_by_symbol: dict[str, Bit2MeTickersDto],
-        previous_used_buy_trades: dict[str, float],
         *,
+        tickers: Bit2MeTickersDto,
+        last_buy_trades: list[Bit2MeTradeDto],
+        previous_used_buy_trades: dict[str, float],
         client: AsyncClient,
     ) -> set[str]:
         crypto_currency, fiat_currency = sell_order.symbol.split("/")
@@ -108,7 +117,6 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
             sell_order.symbol, client=client
         )
-        tickers = current_tickers_by_symbol[sell_order.symbol]
         technical_indicators = self._technical_indicators_by_symbol_cache[sell_order.symbol].technical_indicators
         prev_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
             sell_order.symbol,
@@ -128,6 +136,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             tickers=tickers,
             buy_sell_signals_config=buy_sell_signals_config,
             technical_indicators=technical_indicators,
+            last_buy_trades=last_buy_trades,
             previous_used_buy_trades=previous_used_buy_trades,
             client=client,
         )
@@ -247,7 +256,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             False,
             False,
         )
-        take_profit_reached, exit_on_sell_signal = (False, False)
+        take_profit_reached, exit_on_sell_signal, exit_on_bearish_divergence = (False, False, False)
         if not is_marked_for_immediate_sell:
             # Check if the safeguard stop price is reached
             stop_loss_triggered, stop_loss_reached_at_closing_price, stop_loss_reached_at_current_price = (
@@ -257,7 +266,10 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             )
             if not stop_loss_triggered:
                 # Calculate exit_on_sell_signal
-                exit_on_sell_signal = await self._should_auto_exit_on_sell_or_bearish_divergence_1h_signal(
+                (
+                    exit_on_sell_signal,
+                    exit_on_bearish_divergence,
+                ) = await self._should_auto_exit_on_sell_or_bearish_divergence_1h_signal(
                     sell_order=sell_order,
                     tickers=tickers,
                     guard_metrics=guard_metrics,
@@ -265,7 +277,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                     prev_candle_market_metrics=prev_candle_market_metrics,
                     last_candle_market_metrics=last_candle_market_metrics,
                 )
-                if not exit_on_sell_signal:
+                if not exit_on_sell_signal and not exit_on_bearish_divergence:
                     take_profit_reached = await self._should_auto_exit_on_take_profit_reached(
                         tickers=tickers, guard_metrics=guard_metrics, buy_sell_signals_config=buy_sell_signals_config
                     )
@@ -273,6 +285,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             is_marked_for_immediate_sell=is_marked_for_immediate_sell,
             stop_loss_reached_at_closing_price=stop_loss_reached_at_closing_price,
             stop_loss_reached_at_current_price=stop_loss_reached_at_current_price,
+            exit_on_bearish_divergence=exit_on_bearish_divergence,
             exit_on_sell_signal=exit_on_sell_signal,
             take_profit_reached=take_profit_reached,
             percent_to_sell=percent_to_sell,
@@ -305,24 +318,22 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         buy_sell_signals_config: BuySellSignalsConfigItem,
         prev_candle_market_metrics: CryptoMarketMetrics,
         last_candle_market_metrics: CryptoMarketMetrics,
-    ) -> bool:
-        exit_on_sell_signal = False
+    ) -> tuple[bool, bool]:
+        exit_on_sell_signal, exit_on_bearish_divergence = False, False
         if buy_sell_signals_config.enable_exit_on_sell_signal:
             last_market_1h_signal = await self._market_signal_service.find_last_market_signal(sell_order.symbol)
-            exit_on_sell_signal = bool(
+            if (
                 last_market_1h_signal is not None
                 and last_market_1h_signal.timestamp > sell_order.created_at
-                and tickers.bid_or_close >= guard_metrics.break_even_price  # Use bid for break-even check
-                and (
-                    last_market_1h_signal.signal_type == "bearish_divergence"
-                    or (
-                        last_market_1h_signal.signal_type == "sell"
-                        and last_candle_market_metrics.macd_hist < 0
-                        and last_candle_market_metrics.macd_hist < prev_candle_market_metrics.macd_hist
-                    )
+                and tickers.bid_or_close >= guard_metrics.break_even_price
+            ):  # Use bid for break-even check
+                exit_on_bearish_divergence = bool(last_market_1h_signal.signal_type == "bearish_divergence")
+                exit_on_sell_signal = bool(
+                    last_market_1h_signal.signal_type == "sell"
+                    and last_candle_market_metrics.macd_hist < 0
+                    and last_candle_market_metrics.macd_hist < prev_candle_market_metrics.macd_hist
                 )
-            )
-        return exit_on_sell_signal
+        return exit_on_sell_signal, exit_on_bearish_divergence
 
     async def _should_auto_exit_on_take_profit_reached(
         self,
@@ -386,11 +397,16 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             else:
                 price_message = f"Current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency})"
                 stop_price_message = f"breathe safeguard stop price calculated ({guard_metrics.breathe_safeguard_stop_price} {fiat_currency})"  # noqa: E501
-            details = f"{price_message} is lower than the ${stop_price_message}."
+            details = f"{price_message} is lower than the {stop_price_message}."
+        elif auto_exit_reason.exit_on_bearish_divergence:
+            details = (
+                f"At current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency}), "
+                + "a BEARISH DIVERGENCE signal has suddenly appeared."
+            )
         elif auto_exit_reason.exit_on_sell_signal:
             details = (
                 f"At current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency}), "
-                + "either a SELL 1H or BEARISH DIVERGENCE signal has suddenly appeared."
+                + "a SELL 1H signal has suddenly appeared."
             )
         elif auto_exit_reason.take_profit_reached:
             details = (
