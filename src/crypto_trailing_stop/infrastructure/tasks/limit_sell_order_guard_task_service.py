@@ -362,8 +362,9 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         auto_exit_reason: AutoExitReason,
     ) -> None:
         crypto_currency, fiat_currency = new_market_order.symbol.split("/")
-        text_message = f"🚨 {html.bold('MARKET SELL ORDER FILLED')} 🚨\n\n"
-        text_message += f"{new_market_order.order_amount} {crypto_currency} HAS BEEN SOLD due to:\n"
+        icon = "🚨" if auto_exit_reason.stop_loss_triggered else "🟢"
+        text_message = f"{icon} {html.bold('MARKET SELL ORDER FILLED')} {icon}\n\n"
+        text_message += f"{new_market_order.order_amount} {crypto_currency} (Buy Price: {guard_metrics.avg_buy_price} {fiat_currency}) HAS BEEN SOLD due to:\n"  # noqa: E501
         details = self._get_notification_message_details(
             tickers, last_candle_market_metrics, guard_metrics, auto_exit_reason, crypto_currency, fiat_currency
         )
