@@ -14,6 +14,11 @@ class Bit2MeTradeDto(BaseModel):
     side: Bit2MeTradeSide
     price: float | int
     amount: float | int
+    fee_amount: float | int = Field(..., alias="feeAmount")
+
+    @property
+    def amount_after_fee(self) -> float:
+        return self.amount - self.fee_amount
 
 
 Bit2MeTradeDto.model_rebuild()
