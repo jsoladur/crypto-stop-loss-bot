@@ -1,5 +1,4 @@
 import logging
-from html import escape as html_escape
 
 from aiogram import html
 from aiogram.fsm.context import FSMContext
@@ -12,6 +11,7 @@ from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_servic
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
+from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ async def last_market_signals_home_callback_handler(callback_query: CallbackQuer
             logger.error(f"Error fetching last market signals: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 "⚠️ An error occurred while fetching last market signals. "
-                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
+                + f"Please try again later:\n\n{html.code(format_exception(e))}"
             )
     else:
         await callback_query.message.answer(

@@ -1,6 +1,5 @@
 import logging
 import re
-from html import escape as html_escape
 
 from aiogram import F, html
 from aiogram.fsm.context import FSMContext
@@ -13,6 +12,7 @@ from crypto_trailing_stop.infrastructure.services.limit_sell_order_guard_cache_s
 )
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.infrastructure.services.vo.immediate_sell_order_item import ImmediateSellOrderItem
+from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ async def trigger_sell_now_callback_handler(callback_query: CallbackQuery, state
             logger.error(f"Error triggering Auto-Entry Trader: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 "⚠️ An error occurred while triggering immediate sell order."
-                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
+                + f"Please try again later:\n\n{html.code(format_exception(e))}"
             )
     else:
         await callback_query.message.answer(

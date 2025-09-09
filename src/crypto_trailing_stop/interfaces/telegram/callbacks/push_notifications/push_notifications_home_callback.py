@@ -1,5 +1,4 @@
 import logging
-from html import escape as html_escape
 
 from aiogram import html
 from aiogram.fsm.context import FSMContext
@@ -8,6 +7,7 @@ from aiogram.types import CallbackQuery
 from crypto_trailing_stop.config import get_dispacher
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
+from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ async def push_notifications_home_callback(callback_query: CallbackQuery, state:
             )
             await callback_query.message.answer(
                 "⚠️ An error occurred while retrieving push notifications items. "
-                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
+                + f"Please try again later:\n\n{html.code(format_exception(e))}"
             )
     else:
         await callback_query.message.answer(

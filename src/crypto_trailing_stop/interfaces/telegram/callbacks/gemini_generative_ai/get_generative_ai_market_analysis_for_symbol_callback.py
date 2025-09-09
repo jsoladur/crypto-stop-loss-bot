@@ -1,7 +1,6 @@
 import logging
 import re
 import time
-from html import escape as html_escape
 
 from aiogram import F, html
 from aiogram.exceptions import TelegramBadRequest
@@ -17,6 +16,7 @@ from crypto_trailing_stop.infrastructure.services.crypto_analytics_service impor
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.gemini_generative_ai_service import GeminiGenerativeAiService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
+from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from crypto_trailing_stop.interfaces.telegram.messages_formatter import MessagesFormatter
 
@@ -84,7 +84,7 @@ async def get_generative_ai_market_analysis_for_symbol_callback_handler(
             logger.error(f"Error retrieving Generative AI market analysis: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 "⚠️ Error retrieving Generative AI market analysis. "
-                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
+                + f"Please try again later:\n\n{html.code(format_exception(e))}"
             )
     else:
         await callback_query.message.answer(

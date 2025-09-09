@@ -1,6 +1,5 @@
 import logging
 import re
-from html import escape as html_escape
 
 from aiogram import F, html
 from aiogram.fsm.context import FSMContext
@@ -10,6 +9,7 @@ from crypto_trailing_stop.config import get_dispacher
 from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
+from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ async def toggle_push_notification_callback_handler(callback_query: CallbackQuer
         except Exception as e:
             logger.error(f"Error trying to toggle push notifications for this chat: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ An error occurred while toggling push notifications. Please try again later:\n\n{html.code(html_escape(str(e)))}"  # noqa: E501
+                f"⚠️ An error occurred while toggling push notifications. Please try again later:\n\n{html.code(format_exception(e))}"  # noqa: E501
             )
     else:
         await callback_query.message.answer(
