@@ -1,6 +1,5 @@
 import logging
 import re
-from html import escape as html_escape
 
 from aiogram import F, html
 from aiogram.fsm.context import FSMContext
@@ -11,6 +10,7 @@ from crypto_trailing_stop.infrastructure.services.auto_entry_trader_event_handle
     AutoEntryTraderEventHandlerService,
 )
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
+from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ async def trigger_auto_entry_trader_callback_handler(callback_query: CallbackQue
             logger.error(f"Error triggering Auto-Entry Trader: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 "⚠️ An error occurred while triggering Auto-Entry Trader"
-                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
+                + f"Please try again later:\n\n{html.code(format_exception(e))}"
             )
     else:
         await callback_query.message.answer(

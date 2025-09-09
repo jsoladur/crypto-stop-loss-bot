@@ -1,6 +1,5 @@
 import logging
 import re
-from html import escape as html_escape
 
 from aiogram import F, html
 from aiogram.fsm.context import FSMContext
@@ -16,6 +15,7 @@ from crypto_trailing_stop.infrastructure.services.orders_analytics_service impor
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
+from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from crypto_trailing_stop.interfaces.telegram.messages_formatter import MessagesFormatter
 
@@ -63,7 +63,7 @@ async def handle_persist_stop_loss_callback(callback_query: CallbackQuery, state
         except Exception as e:
             logger.error(f"Error persisting stop loss: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ An error occurred while persisting a stop loss. Please try again later:\n\n{html.code(html_escape(str(e)))}"  # noqa: E501
+                f"⚠️ An error occurred while persisting a stop loss. Please try again later:\n\n{html.code(format_exception(e))}"  # noqa: E501
             )
     else:
         await callback_query.message.answer(

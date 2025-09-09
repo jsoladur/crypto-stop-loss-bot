@@ -1,6 +1,5 @@
 import logging
 import re
-from html import escape as html_escape
 
 from aiogram import F, html
 from aiogram.fsm.context import FSMContext
@@ -13,6 +12,7 @@ from crypto_trailing_stop.infrastructure.services.session_storage_service import
 from crypto_trailing_stop.interfaces.telegram.callbacks.buy_sell_signals_config.buy_sell_signals_config_form import (
     BuySellSignalsConfigForm,
 )
+from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from crypto_trailing_stop.interfaces.telegram.messages_formatter import MessagesFormatter
 
@@ -39,7 +39,7 @@ async def buy_sell_signals_config_form_submit_handler(form: BuySellSignalsConfig
         logger.error(f"Error persisting Buy/Sell signals config: {str(e)}", exc_info=True)
         await form.answer(
             "⚠️ An error occurred while persisting an Buy/Sell signals configuration. "
-            + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
+            + f"Please try again later:\n\n{html.code(format_exception(e))}"
         )
 
 
@@ -56,7 +56,7 @@ async def persist_buy_sell_signals_config_callback_handler(callback_query: Callb
             logger.error(f"Error persisting Buy/Sell signals config: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 "⚠️ An error occurred while persisting an Buy/Sell signals configuration. "
-                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
+                + f"Please try again later:\n\n{html.code(format_exception(e))}"
             )
     else:
         await callback_query.message.answer(

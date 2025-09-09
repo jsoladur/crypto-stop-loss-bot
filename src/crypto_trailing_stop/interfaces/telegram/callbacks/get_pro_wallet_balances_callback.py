@@ -1,5 +1,4 @@
 import logging
-from html import escape as html_escape
 
 from aiogram import html
 from aiogram.fsm.context import FSMContext
@@ -9,6 +8,7 @@ from crypto_trailing_stop.config import get_dispacher
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.global_summary_service import GlobalSummaryService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
+from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from crypto_trailing_stop.interfaces.telegram.messages_formatter import MessagesFormatter
 
@@ -41,7 +41,7 @@ async def get_pro_wallet_balances_callback(callback_query: CallbackQuery, state:
             logger.error(f"Error fetching get Bit2Me Pro Wallet balances: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 "⚠️ An error occurred while fetching Bit2Me Pro Wallet balances. "
-                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
+                + f"Please try again later:\n\n{html.code(format_exception(e))}"
             )
     else:
         await callback_query.message.answer(

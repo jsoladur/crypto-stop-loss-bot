@@ -1,5 +1,4 @@
 import logging
-from html import escape as html_escape
 
 from aiogram import html
 from aiogram.fsm.context import FSMContext
@@ -8,6 +7,7 @@ from aiogram.types import CallbackQuery
 from crypto_trailing_stop.config import get_dispacher
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
+from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ async def stop_loss_percent_home_callback_handler(callback_query: CallbackQuery,
         except Exception as e:
             logger.error(f"Error trying to retrieve global flags: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ An error occurred while retrieving global flags. Please try again later:\n\n{html.code(html_escape(str(e)))}"  # noqa: E501
+                f"⚠️ An error occurred while retrieving global flags. Please try again later:\n\n{html.code(format_exception(e))}"  # noqa: E501
             )
     else:
         await callback_query.message.answer(

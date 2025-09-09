@@ -1,5 +1,4 @@
 import logging
-from html import escape as html_escape
 
 from aiogram import html
 from aiogram.fsm.context import FSMContext
@@ -11,6 +10,7 @@ from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service imp
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
+from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ async def current_metrics_home_callback_handler(callback_query: CallbackQuery, s
         except Exception as e:
             logger.error(f"Error retrieving favourite symbols: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ An error occurred while retrieving favourite symbols. Please try again later:\n\n{html.code(html_escape(str(e)))}"  # noqa: E501
+                f"⚠️ An error occurred while retrieving favourite symbols. Please try again later:\n\n{html.code(format_exception(e))}"  # noqa: E501
             )
     else:
         await callback_query.message.answer(

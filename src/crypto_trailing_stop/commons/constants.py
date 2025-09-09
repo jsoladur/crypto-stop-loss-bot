@@ -4,6 +4,8 @@ _MIN_VOLUME_THRESHOLD_VALUES = np.sort(
     np.append(np.concatenate((np.arange(0.05, 1.35, 0.10), np.arange(1.30, 2.10, 0.10))), 1.0)
 ).tolist()
 
+TELEGRAM_REPLY_EXCEPTION_MESSAGE_MAX_LENGTH = 3_000
+
 DEFAULT_DIVERGENCE_WINDOW = 60
 DEFAULT_JOB_INTERVAL_SECONDS = 5  # 5 seconds
 DEFAULT_TRAILING_STOP_LOSS_PERCENT = 5.0  # Best Spot Loss value intra-day, based on experience

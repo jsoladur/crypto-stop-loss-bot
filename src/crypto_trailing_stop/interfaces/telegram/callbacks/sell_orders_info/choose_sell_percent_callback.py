@@ -1,6 +1,5 @@
 import logging
 import re
-from html import escape as html_escape
 
 from aiogram import F, html
 from aiogram.fsm.context import FSMContext
@@ -9,6 +8,7 @@ from aiogram.types import CallbackQuery
 from crypto_trailing_stop.config import get_dispacher
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
+from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ async def choose_sell_percent_callback_handler(callback_query: CallbackQuery, st
             logger.error(f"Error triggering Auto-Entry Trader: {str(e)}", exc_info=True)
             await callback_query.message.answer(
                 "⚠️ An error occurred while triggering immediate sell order."
-                + f"Please try again later:\n\n{html.code(html_escape(str(e)))}"
+                + f"Please try again later:\n\n{html.code(format_exception(e))}"
             )
     else:
         await callback_query.message.answer(
