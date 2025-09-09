@@ -1,6 +1,5 @@
 import logging
 import re
-from html import escape as html_escape
 
 from aiogram import F, html
 from aiogram.fsm.context import FSMContext
@@ -10,6 +9,7 @@ from crypto_trailing_stop.config import get_dispacher
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
+from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ async def toggle_global_flag_callback_handler(callback_query: CallbackQuery, sta
         except Exception as e:
             logger.error(f"Error trying to toggle global flag: {str(e)}", exc_info=True)
             await callback_query.message.answer(
-                f"⚠️ An error occurred while toggling global flag. Please try again later:\n\n{html.code(html_escape(str(e)))}"  # noqa: E501
+                f"⚠️ An error occurred while toggling global flag. Please try again later:\n\n{html.code(format_exception(e))}"  # noqa: E501
             )
     else:
         await callback_query.message.answer(

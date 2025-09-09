@@ -3,9 +3,11 @@ import math
 from abc import ABC
 from html import escape as html_escape
 
+import pydash
 from aiogram import html
 from httpx import AsyncClient
 
+from crypto_trailing_stop.commons.constants import TELEGRAM_REPLY_EXCEPTION_MESSAGE_MAX_LENGTH
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
@@ -55,7 +57,10 @@ class AbstractService(ABC):
             await self._telegram_service.send_message(chat_id=tg_chat_id, text=message)
 
     async def _notify_fatal_error_via_telegram(self, e: Exception) -> None:
-        exception_text = f"{e.__class__.__name__} :: {str(e)}" if str(e) else e.__class__.__name__
+        exception_message = (
+            pydash.truncate(str(e), length=TELEGRAM_REPLY_EXCEPTION_MESSAGE_MAX_LENGTH) if str(e) else ""
+        )
+        exception_text = f"{e.__class__.__name__} :: {exception_message}" if exception_message else e.__class__.__name__
         try:
             telegram_chat_ids = await self._push_notification_service.get_actived_subscription_by_type(
                 notification_type=PushNotificationTypeEnum.BACKGROUND_JOB_FALTAL_ERRORS
@@ -64,7 +69,7 @@ class AbstractService(ABC):
                 await self._telegram_service.send_message(
                     chat_id=tg_chat_id,
                     text=f"⚠️ [{self.__class__.__name__}] FATAL ERROR occurred! "
-                    + f"Please try again later:\n\n{html.code(html_escape(exception_text))}",
+                    + f"Error message:\n\n{html.code(html_escape(exception_text))}",
                 )
         except Exception as e:
             logger.warning(f"Unexpected error, notifying fatal error via Telegram: {exception_text}", exc_info=True)
