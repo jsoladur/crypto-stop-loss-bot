@@ -19,6 +19,13 @@ PAIRS=(
     "TRUMP/EUR:binance"
     "PENGU/EUR:kraken"
     "BNB/EUR:binance"
+    # Divergence coins
+    "DOT/EUR:binance"
+    "GALA/EUR:binance"
+    "SHIB/EUR:binance"
+    "NEAR/EUR:binance"
+    "EGLD/EUR:binance"
+    "XLM/EUR:binance"
 )
 
 # Define the directory where the result logs will be saved.
