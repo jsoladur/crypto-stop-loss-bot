@@ -134,7 +134,7 @@ class BacktestingCliService:
             # 2.2 Store the all execution results in a parquet file
             now = datetime.now()
             os.makedirs("data/backtesting/raw", exist_ok=True)
-            parquet_file = f"data/backtesting/raw/{symbol.replace('/', '_')}_{tp_filter}_{now.strftime('%d%m%y%H%M%S')}{now.microsecond // 1000:03d}.parquet"  # noqa: E501
+            parquet_file = f"data/backtesting/raw/{symbol.replace('/', '_')}_{timeframe}_{tp_filter}_{now.strftime('%d%m%y%H%M%S')}{now.microsecond // 1000:03d}.parquet"  # noqa: E501
             self._serde.save(results=executions_results, filepath=parquet_file)
         else:
             # 3.1 Load execution results from parquet file stored previously
