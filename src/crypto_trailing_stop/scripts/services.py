@@ -332,57 +332,79 @@ class BacktestingCliService:
     def _calculate_parameter_refinement(
         self, first_execution_result_summary: BacktestingExecutionSummary
     ) -> tuple[set[tuple[int, int]], list[float], list[float], list[float]]:
-        lowest_buy_min_volume_threshold = min(
-            result.parameters.buy_min_volume_threshold for result in first_execution_result_summary.all
-        )
-        highest_buy_min_volume_threshold = max(
-            result.parameters.buy_min_volume_threshold for result in first_execution_result_summary.all
-        )
-        lowest_buy_max_volume_threshold = min(
-            result.parameters.buy_max_volume_threshold for result in first_execution_result_summary.all
-        )
-        highest_buy_max_volume_threshold = max(
-            result.parameters.buy_max_volume_threshold for result in first_execution_result_summary.all
-        )
-        lowest_sell_min_volume_threshold = min(
-            result.parameters.sell_min_volume_threshold for result in first_execution_result_summary.all
-        )
-        highest_sell_min_volume_threshold = max(
-            result.parameters.sell_min_volume_threshold for result in first_execution_result_summary.all
-        )
+        buy_min_volume_threshold_values = [
+            result.parameters.buy_min_volume_threshold
+            for result in first_execution_result_summary.all
+            if result.parameters.enable_buy_volume_filter
+        ]
+        if buy_min_volume_threshold_values:
+            lowest_buy_min_volume_threshold = min(buy_min_volume_threshold_values)
+            highest_buy_min_volume_threshold = max(buy_min_volume_threshold_values)
+            buy_min_volume_threshold_values_second_iteration = [
+                round(v, ndigits=2)
+                for v in np.arange(
+                    lowest_buy_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
+                    if (lowest_buy_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) > 0
+                    else lowest_buy_min_volume_threshold,
+                    highest_buy_min_volume_threshold + MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
+                    if highest_buy_min_volume_threshold < MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION[-1]
+                    else MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION[-1],
+                    MIN_VOLUME_THRESHOLD_STEP_VALUE,
+                ).tolist()
+            ]
+        else:
+            buy_min_volume_threshold_values_second_iteration = []
 
-        buy_min_volume_threshold_values_second_iteration = np.arange(
-            lowest_buy_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
-            if (lowest_buy_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) > 0
-            else lowest_buy_min_volume_threshold,
-            highest_buy_min_volume_threshold + MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
-            if highest_buy_min_volume_threshold < MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION[-1]
-            else MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION[-1],
-            MIN_VOLUME_THRESHOLD_STEP_VALUE,
-        )
-        buy_max_volume_threshold_values_second_iteration = np.arange(
-            lowest_buy_max_volume_threshold - MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
-            if (lowest_buy_max_volume_threshold - MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) > 0
-            else lowest_buy_max_volume_threshold,
-            highest_buy_max_volume_threshold + MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
-            if highest_buy_max_volume_threshold < MAX_VOLUME_THRESHOLD_VALUES_FIRST_ITERATION[-1]
-            else MAX_VOLUME_THRESHOLD_VALUES_FIRST_ITERATION[-1],
-            MAX_VOLUME_THRESHOLD_STEP_VALUE,
-        )
-        sell_min_volume_threshold_values_second_iteration = np.arange(
-            lowest_sell_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
-            if (lowest_sell_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) > 0
-            else lowest_sell_min_volume_threshold,
-            highest_sell_min_volume_threshold + MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
-            if highest_sell_min_volume_threshold < MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION[-1]
-            else MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION[-1],
-            MIN_VOLUME_THRESHOLD_STEP_VALUE,
-        )
+        buy_max_volume_threshold_values = [
+            result.parameters.buy_max_volume_threshold
+            for result in first_execution_result_summary.all
+            if result.parameters.enable_buy_volume_filter
+        ]
+        if buy_max_volume_threshold_values:
+            lowest_buy_max_volume_threshold = min(buy_max_volume_threshold_values)
+            highest_buy_max_volume_threshold = max(buy_max_volume_threshold_values)
+            buy_max_volume_threshold_values_second_iteration = [
+                round(v, ndigits=2)
+                for v in np.arange(
+                    lowest_buy_max_volume_threshold - MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
+                    if (lowest_buy_max_volume_threshold - MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) > 0
+                    else lowest_buy_max_volume_threshold,
+                    highest_buy_max_volume_threshold + MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
+                    if highest_buy_max_volume_threshold < MAX_VOLUME_THRESHOLD_VALUES_FIRST_ITERATION[-1]
+                    else MAX_VOLUME_THRESHOLD_VALUES_FIRST_ITERATION[-1],
+                    MAX_VOLUME_THRESHOLD_STEP_VALUE,
+                ).tolist()
+            ]
+        else:
+            buy_max_volume_threshold_values_second_iteration = []
+
+        sell_min_volume_threshold_values = [
+            result.parameters.sell_min_volume_threshold
+            for result in first_execution_result_summary.all
+            if result.parameters.enable_sell_volume_filter
+        ]
+        if sell_min_volume_threshold_values:
+            lowest_sell_min_volume_threshold = min(sell_min_volume_threshold_values)
+            highest_sell_min_volume_threshold = max(sell_min_volume_threshold_values)
+            sell_min_volume_threshold_values_second_iteration = [
+                round(v, ndigits=2)
+                for v in np.arange(
+                    lowest_sell_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
+                    if (lowest_sell_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) > 0
+                    else lowest_sell_min_volume_threshold,
+                    highest_sell_min_volume_threshold + MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
+                    if highest_sell_min_volume_threshold < MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION[-1]
+                    else MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION[-1],
+                    MIN_VOLUME_THRESHOLD_STEP_VALUE,
+                ).tolist()
+            ]
+        else:
+            sell_min_volume_threshold_values_second_iteration = []
+
         best_emas = {
             (result.parameters.ema_short_value, result.parameters.ema_mid_value)
             for result in first_execution_result_summary.all
         }
-
         return (
             best_emas,
             buy_min_volume_threshold_values_second_iteration,
@@ -504,14 +526,20 @@ class BacktestingCliService:
 
         # Volume thresholds combinations
         buy_volume_threshold_tuples = list(product(buy_min_volume_threshold_values, buy_max_volume_threshold_values))
-        vol_case_buy_disabled = [(False, buy_min_volume_threshold_values[0], buy_max_volume_threshold_values[0])]
-        vol_case_buy_enabled = [(True, min_t, max_t) for min_t, max_t in buy_volume_threshold_tuples]
-        vol_buy_cases = vol_case_buy_disabled + vol_case_buy_enabled
+        if buy_volume_threshold_tuples:
+            vol_case_buy_disabled = [(False, buy_min_volume_threshold_values[0], buy_max_volume_threshold_values[0])]
+            vol_case_buy_enabled = [(True, min_t, max_t) for min_t, max_t in buy_volume_threshold_tuples]
+            vol_buy_cases = vol_case_buy_disabled + vol_case_buy_enabled
+        else:
+            vol_buy_cases = [(False, 0.00, 0.00)]
 
-        # Case: Sell filter OFF
-        vol_case_sell_disabled = [(False, sell_min_volume_threshold_values[0])]
-        vol_case_sell_enabled = [(True, min_t) for min_t in sell_min_volume_threshold_values]
-        vol_sell_cases = vol_case_sell_disabled + vol_case_sell_enabled
+        if sell_min_volume_threshold_values:
+            # Case: Sell filter OFF
+            vol_case_sell_disabled = [(False, sell_min_volume_threshold_values[0])]
+            vol_case_sell_enabled = [(True, min_t) for min_t in sell_min_volume_threshold_values]
+            vol_sell_cases = vol_case_sell_disabled + vol_case_sell_enabled
+        else:
+            vol_sell_cases = [(False, 0.00)]
 
         # Now, create the full cartesian product considering all combinations
         full_cartesian_product = list(
@@ -652,8 +680,9 @@ class BacktestingCliService:
         symbol: str,
         timeframe: str,
         tp_filter: TakeProfitFilter,
-        suffix: str,
         results: list[BacktestingExecutionResult],
+        *,
+        suffix: str,
     ) -> None:
         os.makedirs("data/backtesting/raw", exist_ok=True)
         parquet_file = f"data/backtesting/raw/{symbol.replace('/', '_')}_{timeframe}_{tp_filter}_{suffix}.parquet"  # noqa: E501
