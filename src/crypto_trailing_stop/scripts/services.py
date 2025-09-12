@@ -232,6 +232,7 @@ class BacktestingCliService:
         disable_progress_bar: bool = False,
         echo_fn: Callable[[str], None],
     ):
+        echo_fn("🍵 Starting first run with bigger volume ranges...")
         # 2.1 Run first iteration for backtesting in order to find out best candidates
         first_executions_results = self._apply_cartesian_production_execution(
             symbol=symbol,
@@ -262,12 +263,20 @@ class BacktestingCliService:
             min_sqn=None,
             executions_results=first_executions_results,
         )
+        echo_fn("🍵 Calculating refinement parameters...")
         (
             best_emas,
             buy_min_volume_threshold_values_second_iteration,
             buy_max_volume_threshold_values_second_iteration,
             sell_min_volume_threshold_values_second_iteration,
         ) = self._calculate_parameter_refinement(first_execution_result_summary)
+        echo_fn("--- 🍵 Refinement parameters ---")
+        echo_fn(f"Best EMAs:                      {str(best_emas)}")
+        echo_fn(f"Buy Min Volume Thresholds:      {str(buy_min_volume_threshold_values_second_iteration)}")
+        echo_fn(f"Buy Max Volume Thresholds:      {str(buy_max_volume_threshold_values_second_iteration)}")
+        echo_fn(f"Sell Min Volume Thresholds:     {str(sell_min_volume_threshold_values_second_iteration)}")
+        echo_fn("-----------------------------")
+        echo_fn("🍵 Running second iteration with refined parameters...")
         # 2.4 Run second iteration with refinmement
         first_executions_results = self._apply_cartesian_production_execution(
             symbol=symbol,
@@ -288,6 +297,7 @@ class BacktestingCliService:
         self._save_executions_results_in_parquet_file(
             symbol, timeframe, tp_filter, first_executions_results, suffix="second_run"
         )
+        echo_fn("🍵 Done, gathering results...")
         # 2.6 Get final results
         ret: BacktestingExecutionSummary = self._get_backtesting_result_summary(
             downloaded_months_back=downloaded_months_back,
