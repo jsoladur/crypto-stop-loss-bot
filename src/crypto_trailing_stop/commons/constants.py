@@ -1,9 +1,5 @@
 import numpy as np
 
-_MIN_VOLUME_THRESHOLD_VALUES = np.sort(
-    np.append(np.concatenate((np.arange(0.05, 1.35, 0.10), np.arange(1.30, 2.10, 0.10))), 1.0)
-).tolist()
-
 TELEGRAM_REPLY_EXCEPTION_MESSAGE_MAX_LENGTH = 3_000
 
 DEFAULT_DIVERGENCE_WINDOW = 60
@@ -48,9 +44,9 @@ SP_TP_PAIRS = [f"{sp_percent}/{tp_percent}" for sp_percent, tp_percent in SP_TP_
 EMA_LONG_VALUES = [150, 200, 233]
 ADX_THRESHOLD_VALUES = [15, 20, 25]
 MIN_VOLUME_THRESHOLD_VALUES = [
-    round(min_volume_threshold, ndigits=2) for min_volume_threshold in _MIN_VOLUME_THRESHOLD_VALUES
+    round(min_volume_threshold, ndigits=2) for min_volume_threshold in np.arange(0.05, 2.05, 0.05).tolist()
 ]
 MAX_VOLUME_THRESHOLD_VALUES = [
-    round(max_volume_threshold, ndigits=2) for max_volume_threshold in np.arange(2.5, 4.5, 0.5).tolist()
+    round(max_volume_threshold, ndigits=2) for max_volume_threshold in np.arange(2.5, 4.75, 0.25).tolist()
 ]
 YES_NO_VALUES = ["Yes", "No"]
