@@ -41,10 +41,14 @@ EMA_SHORT_MID_PAIRS = [f"{ema_short}/{ema_mid}" for ema_short, ema_mid in EMA_SH
 SP_TP_PAIRS = [f"{sp_percent}/{tp_percent}" for sp_percent, tp_percent in SP_TP_PAIRS_AS_TUPLES]
 EMA_LONG_VALUES = [150, 200, 233]
 ADX_THRESHOLD_VALUES = [15, 20, 25]
+MIN_VOLUME_THRESHOLD_STEP_VALUE = 0.05
+MAX_VOLUME_THRESHOLD_STEP_VALUE = 0.25
 MIN_VOLUME_THRESHOLD_VALUES = [
-    round(min_volume_threshold, ndigits=2) for min_volume_threshold in np.arange(0.05, 2.05, 0.05).tolist()
+    round(min_volume_threshold, ndigits=2)
+    for min_volume_threshold in np.arange(0.05, 2.05, MIN_VOLUME_THRESHOLD_STEP_VALUE).tolist()
 ]
 MAX_VOLUME_THRESHOLD_VALUES = [
-    round(max_volume_threshold, ndigits=2) for max_volume_threshold in np.arange(2.5, 4.75, 0.25).tolist()
+    round(max_volume_threshold, ndigits=2)
+    for max_volume_threshold in np.arange(2.5, 4.75, MAX_VOLUME_THRESHOLD_STEP_VALUE).tolist()
 ]
 YES_NO_VALUES = ["Yes", "No"]
