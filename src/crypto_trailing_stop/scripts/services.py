@@ -324,7 +324,7 @@ class BacktestingCliService:
         if echo_fn:
             echo_fn(f"Full raw combinations to test: {len(full_cartesian_product)}")
         # --- HEURISTIC PRUNING ---
-        ret = self._apply_heuristic_pruning(symbol, full_cartesian_product)
+        ret = self._convert_cartesian_product_to_config_items(symbol, full_cartesian_product)
         if echo_fn:
             echo_fn(f"  -- Discarded combinations by heuristic: {len(full_cartesian_product) - len(ret)}")
             echo_fn(f"TOTAL COMBINATIONS TO TEST: {len(ret)}")
@@ -347,8 +347,8 @@ class BacktestingCliService:
                 raise ValueError(f"Take Profit filter '{tp_filter}' value is not supported.")
         return sp_tp_tuples
 
-    def _apply_heuristic_pruning(
-        self, symbol: str, full_cartesian_product: list[tuple]
+    def _convert_cartesian_product_to_config_items(
+        self, symbol: str, full_cartesian_product: list[tuple], apply_heuristics: bool = True
     ) -> list[BuySellSignalsConfigItem]:
         ret = []
         for params in full_cartesian_product:
@@ -359,75 +359,65 @@ class BacktestingCliService:
                 (enable_buy_volume_filter, buy_min_volume_threshold, buy_max_volume_threshold),
                 (enable_sell_volume_filter, sell_min_volume_threshold),
             ) = params
-            # Filter out combinations that don't make sense based on heuristic rules
-            # Rule 1: If ADX filter is disabled,
-            # TP should not be too high (to avoid over-leveraging in non-trending markets)
-            is_valid_tp_for_no_trend = adx_threshold > 0 or not enable_exit_on_take_profit or tp_multiplier <= 4.0
-            # Rule 2: If ADX filter is enabled with a high threshold,
-            # TP should not be too low (to ensure we capture strong trends)
-            is_valid_tp_for_strong_trend = adx_threshold < 25 or not enable_exit_on_take_profit or tp_multiplier >= 4.0
-
-            # Rule 3: Ensure a logical Risk/Reward ratio when TP is enabled.
-            # A TP multiplier should be significantly larger than the SL multiplier (e.g., R:R > 1.5).
-            is_logical_risk_reward = not enable_exit_on_take_profit or tp_multiplier > sl_multiplier * 1.5
-
-            # Rule 4: Prune illogical volume filter settings. The min threshold must be less than the max.
-            is_logical_buy_volume_range = (
-                not enable_buy_volume_filter or buy_min_volume_threshold < buy_max_volume_threshold
+            config = BuySellSignalsConfigItem(
+                symbol=symbol,
+                ema_short_value=ema_short,
+                ema_mid_value=ema_mid,
+                ema_long_value=200,
+                stop_loss_atr_multiplier=sl_multiplier,
+                take_profit_atr_multiplier=tp_multiplier,
+                enable_adx_filter=adx_threshold > 0,
+                adx_threshold=adx_threshold,
+                enable_buy_volume_filter=enable_buy_volume_filter,
+                buy_min_volume_threshold=buy_min_volume_threshold,
+                buy_max_volume_threshold=buy_max_volume_threshold,
+                enable_sell_volume_filter=enable_sell_volume_filter,
+                sell_min_volume_threshold=sell_min_volume_threshold,
+                enable_exit_on_take_profit=enable_exit_on_take_profit,
             )
-
-            # Rule 5: Avoid overly restrictive combinations.
-            # If ADX is very strict, don't also have a very strict volume filter.
-            is_not_too_restrictive = not (
-                adx_threshold >= 25 and enable_buy_volume_filter and buy_min_volume_threshold > 1.5
-            )
-
-            # Rule 6: In non-trending markets (ADX filter off), enforce volume filter to confirm moves.
-            is_volume_filter_enforced_in_chop = adx_threshold > 0 or enable_buy_volume_filter
-
-            # Rule 7: For fast EMAs (which can be noisy), enforce a confirmation filter (either ADX or Volume).
-            is_fast_ema_filtered = (
-                (ema_short, ema_mid) not in [(7, 18), (8, 20)] or adx_threshold > 0 or enable_buy_volume_filter
-            )
-
-            # Rule 8: For the slowest EMA pair, also enforce a filter (ADX, BUY or SELL Volume).
-            is_slow_ema_filtered = (
-                (ema_short, ema_mid) != (9, 21)
-                or adx_threshold > 0
-                or enable_buy_volume_filter
-                or enable_sell_volume_filter
-            )
-
-            if all(
-                [
-                    is_valid_tp_for_no_trend,
-                    is_valid_tp_for_strong_trend,
-                    is_logical_risk_reward,
-                    is_logical_buy_volume_range,
-                    is_not_too_restrictive,
-                    is_volume_filter_enforced_in_chop,
-                    is_fast_ema_filtered,
-                    is_slow_ema_filtered,
-                ]
-            ):
-                simulated_bs_config = BuySellSignalsConfigItem(
-                    symbol=symbol,
-                    ema_short_value=ema_short,
-                    ema_mid_value=ema_mid,
-                    ema_long_value=200,
-                    stop_loss_atr_multiplier=sl_multiplier,
-                    take_profit_atr_multiplier=tp_multiplier,
-                    enable_adx_filter=adx_threshold > 0,
-                    adx_threshold=adx_threshold,
-                    enable_buy_volume_filter=enable_buy_volume_filter,
-                    buy_min_volume_threshold=buy_min_volume_threshold,
-                    buy_max_volume_threshold=buy_max_volume_threshold,
-                    enable_sell_volume_filter=enable_sell_volume_filter,
-                    sell_min_volume_threshold=sell_min_volume_threshold,
-                    enable_exit_on_take_profit=enable_exit_on_take_profit,
-                )
-                ret.append(simulated_bs_config)
+            if not apply_heuristics or self._apply_heuristics(config):
+                ret.append(config)
         return ret
+
+    def _apply_heuristics(self, config: BuySellSignalsConfigItem) -> bool:
+        # Filter out combinations that don't make sense based on heuristic rules
+        # Rule 1: If ADX filter is disabled,
+        # TP should not be too high (to avoid over-leveraging in non-trending markets)
+        is_valid_tp_for_no_trend = (
+            config.adx_threshold > 0
+            or not config.enable_exit_on_take_profit
+            or config.take_profit_atr_multiplier <= 4.0
+        )
+        # Rule 2: If ADX filter is enabled with a high threshold,
+        # TP should not be too low (to ensure we capture strong trends)
+        is_valid_tp_for_strong_trend = (
+            config.adx_threshold < 25
+            or not config.enable_exit_on_take_profit
+            or config.take_profit_atr_multiplier >= 4.0
+        )
+        # Rule 3: Avoid overly restrictive combinations.
+        # If ADX is very strict, don't also have a very strict volume filter.
+        is_not_too_restrictive = not (
+            config.adx_threshold >= 25 and config.enable_buy_volume_filter and config.buy_min_volume_threshold > 1.5
+        )
+        # Rule 4: In non-trending markets (ADX filter off), enforce volume filter to confirm moves.
+        is_volume_filter_enforced_in_chop = config.adx_threshold > 0 or config.enable_buy_volume_filter
+        # Rule 7: For fast EMAs (which can be noisy), enforce a confirmation filter (either ADX or Volume).
+        is_fast_ema_filtered = (
+            (config.ema_short_value, config.ema_mid_value) not in [(7, 18), (8, 20)]
+            or config.adx_threshold > 0
+            or config.enable_buy_volume_filter
+        )
+        match = all(
+            [
+                is_valid_tp_for_no_trend,
+                is_valid_tp_for_strong_trend,
+                is_not_too_restrictive,
+                is_volume_filter_enforced_in_chop,
+                is_fast_ema_filtered,
+            ]
+        )
+        return match
 
     def _to_execution_result(
         self,

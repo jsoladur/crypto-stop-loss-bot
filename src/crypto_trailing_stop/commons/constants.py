@@ -30,11 +30,9 @@ STOP_LOSS_PERCENT_BUFFER = 0.75
 # Buy Sell Signals Config
 EMA_SHORT_MID_PAIRS_AS_TUPLES = [(7, 18), (8, 20), (9, 21)]
 SP_TP_PAIRS_AS_TUPLES = [
-    (2.5, 3.5),  # RRR: 1.4
-    (2.5, 3.8),  # RRR: 1.52
+    (2.5, 3.8),  # RRR: 1.5
     (2.5, 4.0),  # RRR: 1.6
-    (2.5, 4.2),  # RRR: 1.68
-    (3.0, 4.2),  # RRR: 1.4
+    (2.5, 4.2),  # RRR: 1.7
     (3.0, 4.5),  # RRR: 1.5
     (3.0, 4.8),  # RRR: 1.6
     (3.0, 5.1),  # RRR: 1.7
