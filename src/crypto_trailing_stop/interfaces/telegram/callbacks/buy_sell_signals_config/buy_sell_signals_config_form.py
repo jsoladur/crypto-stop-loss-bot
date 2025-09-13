@@ -66,16 +66,14 @@ class BuySellSignalsConfigForm(Form):
         error_message_text="❌ Invalid BUY Min. Volume Threshold value. Valid values: "
         + f"{', '.join([str(value) for value in MIN_VOLUME_THRESHOLD_VALUES])}",
         filter=F.text.in_([str(value) for value in MIN_VOLUME_THRESHOLD_VALUES]) & F.text,
-        reply_markup=KeyboardsBuilder.get_min_volume_threshold_keyboard(),
+        reply_markup=KeyboardsBuilder.get_volume_threshold_keyboard(MIN_VOLUME_THRESHOLD_VALUES),
     )
     buy_max_volume_threshold: float = FormField(
         enter_message_text="🔇 Select BUY Max. Volume Threshold",
         error_message_text="❌ Invalid BUY Max. Volume Threshold value. Valid values: "
         + f"{', '.join([str(value) for value in MAX_VOLUME_THRESHOLD_VALUES])}",
         filter=F.text.in_([str(value) for value in MAX_VOLUME_THRESHOLD_VALUES]) & F.text,
-        reply_markup=ReplyKeyboardBuilder()
-        .add(*(KeyboardButton(text=str(value)) for value in MAX_VOLUME_THRESHOLD_VALUES))
-        .as_markup(),
+        reply_markup=KeyboardsBuilder.get_volume_threshold_keyboard(MAX_VOLUME_THRESHOLD_VALUES),
     )
     enable_sell_volume_filter: str = FormField(
         enter_message_text="💣 Enable SELL Volume Filter?",
@@ -88,7 +86,7 @@ class BuySellSignalsConfigForm(Form):
         error_message_text="❌ Invalid SELL Min. Volume Threshold value. Valid values: "
         + f"{', '.join([str(value) for value in MIN_VOLUME_THRESHOLD_VALUES])}",
         filter=F.text.in_([str(value) for value in MIN_VOLUME_THRESHOLD_VALUES]) & F.text,
-        reply_markup=KeyboardsBuilder.get_min_volume_threshold_keyboard(),
+        reply_markup=KeyboardsBuilder.get_volume_threshold_keyboard(MIN_VOLUME_THRESHOLD_VALUES),
     )
     # NOTE: [JMSOLA] Always is enabled in the strategy, so no need to configure it for now
     # enable_exit_on_sell_signal: str = FormField(

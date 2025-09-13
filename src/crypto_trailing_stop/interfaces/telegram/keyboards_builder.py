@@ -7,7 +7,6 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
 from crypto_trailing_stop.commons.constants import (
     AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST,
-    MIN_VOLUME_THRESHOLD_VALUES,
     PERCENT_TO_SELL_LIST,
     SP_TP_PAIRS,
     STOP_LOSS_STEPS_VALUE_LIST,
@@ -264,9 +263,9 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
         return builder.as_markup()
 
     @staticmethod
-    def get_min_volume_threshold_keyboard() -> ReplyKeyboardMarkup:
+    def get_volume_threshold_keyboard(values: list[float]) -> ReplyKeyboardMarkup:
         builder = ReplyKeyboardBuilder()
-        keyboard_buttons = [KeyboardButton(text=str(value)) for value in MIN_VOLUME_THRESHOLD_VALUES]
+        keyboard_buttons = [KeyboardButton(text=str(value)) for value in values]
         for buttons_chunk in pydash.chunk(keyboard_buttons, size=3):
             builder.row(*buttons_chunk)
         return builder.as_markup()

@@ -1,6 +1,6 @@
 [project]
 name = "crypto-trailing-stop"
-version = "0.42.0"
+version = "0.42.1"
 description = "A Python-based bot for automated cryptocurrency trading"
 readme = "README.md"
 authors = [
@@ -57,7 +57,7 @@ dev = [
     "taskipy>=1.14.1",
     "testcontainers>=4.10.0",
     "tqdm>=4.67.1",
-    "typer[all]>=0.15.2",
+    "typer>=0.15.2",
 ]
 
 [project.scripts]
