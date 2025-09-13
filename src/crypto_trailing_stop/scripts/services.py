@@ -354,7 +354,7 @@ class BacktestingCliService:
                 round(v, ndigits=2)
                 for v in np.arange(
                     lowest_buy_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
-                    if (lowest_buy_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) > 0
+                    if (lowest_buy_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) >= 0
                     else lowest_buy_min_volume_threshold,
                     highest_buy_min_volume_threshold + MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
                     if highest_buy_min_volume_threshold < MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION[-1]
@@ -377,7 +377,7 @@ class BacktestingCliService:
                 round(v, ndigits=2)
                 for v in np.arange(
                     lowest_buy_max_volume_threshold - MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
-                    if (lowest_buy_max_volume_threshold - MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) > 0
+                    if (lowest_buy_max_volume_threshold - MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) >= 0
                     else lowest_buy_max_volume_threshold,
                     highest_buy_max_volume_threshold + MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
                     if highest_buy_max_volume_threshold < MAX_VOLUME_THRESHOLD_VALUES_FIRST_ITERATION[-1]
@@ -400,7 +400,7 @@ class BacktestingCliService:
                 round(v, ndigits=2)
                 for v in np.arange(
                     lowest_sell_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
-                    if (lowest_sell_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) > 0
+                    if (lowest_sell_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) >= 0
                     else lowest_sell_min_volume_threshold,
                     highest_sell_min_volume_threshold + MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
                     if highest_sell_min_volume_threshold < MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION[-1]
@@ -638,7 +638,7 @@ class BacktestingCliService:
         )
         # Rule 4: In non-trending markets (ADX filter off), enforce volume filter to confirm moves.
         is_volume_filter_enforced_in_chop = config.adx_threshold > 0 or config.enable_buy_volume_filter
-        # Rule 7: For fast EMAs (which can be noisy), enforce a confirmation filter (either ADX or Volume).
+        # Rule 5: For fast EMAs (which can be noisy), enforce a confirmation filter (either ADX or Volume).
         is_fast_ema_filtered = (
             (config.ema_short_value, config.ema_mid_value) not in [(7, 18), (8, 20)]
             or config.adx_threshold > 0
