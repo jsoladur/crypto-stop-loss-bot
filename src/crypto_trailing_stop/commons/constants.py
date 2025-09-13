@@ -1,9 +1,5 @@
 import numpy as np
 
-_MIN_VOLUME_THRESHOLD_VALUES = np.sort(
-    np.append(np.concatenate((np.arange(0.05, 1.35, 0.10), np.arange(1.30, 2.10, 0.10))), 1.0)
-).tolist()
-
 TELEGRAM_REPLY_EXCEPTION_MESSAGE_MAX_LENGTH = 3_000
 
 DEFAULT_DIVERGENCE_WINDOW = 60
@@ -34,11 +30,9 @@ STOP_LOSS_PERCENT_BUFFER = 0.75
 # Buy Sell Signals Config
 EMA_SHORT_MID_PAIRS_AS_TUPLES = [(7, 18), (8, 20), (9, 21)]
 SP_TP_PAIRS_AS_TUPLES = [
-    (2.5, 3.5),  # RRR: 1.4
-    (2.5, 3.8),  # RRR: 1.52
+    (2.5, 3.8),  # RRR: 1.5
     (2.5, 4.0),  # RRR: 1.6
-    (2.5, 4.2),  # RRR: 1.68
-    (3.0, 4.2),  # RRR: 1.4
+    (2.5, 4.2),  # RRR: 1.7
     (3.0, 4.5),  # RRR: 1.5
     (3.0, 4.8),  # RRR: 1.6
     (3.0, 5.1),  # RRR: 1.7
@@ -47,10 +41,14 @@ EMA_SHORT_MID_PAIRS = [f"{ema_short}/{ema_mid}" for ema_short, ema_mid in EMA_SH
 SP_TP_PAIRS = [f"{sp_percent}/{tp_percent}" for sp_percent, tp_percent in SP_TP_PAIRS_AS_TUPLES]
 EMA_LONG_VALUES = [150, 200, 233]
 ADX_THRESHOLD_VALUES = [15, 20, 25]
+MIN_VOLUME_THRESHOLD_STEP_VALUE = 0.05
+MAX_VOLUME_THRESHOLD_STEP_VALUE = 0.25
 MIN_VOLUME_THRESHOLD_VALUES = [
-    round(min_volume_threshold, ndigits=2) for min_volume_threshold in _MIN_VOLUME_THRESHOLD_VALUES
+    round(min_volume_threshold, ndigits=2)
+    for min_volume_threshold in np.arange(0.05, 2.05, MIN_VOLUME_THRESHOLD_STEP_VALUE).tolist()
 ]
 MAX_VOLUME_THRESHOLD_VALUES = [
-    round(max_volume_threshold, ndigits=2) for max_volume_threshold in np.arange(2.5, 4.5, 0.5).tolist()
+    round(max_volume_threshold, ndigits=2)
+    for max_volume_threshold in np.arange(2.5, 4.75, MAX_VOLUME_THRESHOLD_STEP_VALUE).tolist()
 ]
 YES_NO_VALUES = ["Yes", "No"]
