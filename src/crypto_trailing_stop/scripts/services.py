@@ -256,10 +256,10 @@ class BacktestingCliService:
         # 2.3 Get first Execution Result Summary
         first_execution_result_summary: BacktestingExecutionSummary = self._get_backtesting_result_summary(
             downloaded_months_back=downloaded_months_back,
-            disable_minimal_trades=True,
-            disable_decent_win_rate=True,
-            decent_win_rate=50.0,  # First execution aims to get at least one result!
-            min_profit_factor=None,
+            disable_minimal_trades=disable_minimal_trades,
+            disable_decent_win_rate=disable_decent_win_rate,
+            decent_win_rate=decent_win_rate,
+            min_profit_factor=min_profit_factor,
             min_sqn=None,
             executions_results=first_executions_results,
         )
@@ -278,7 +278,7 @@ class BacktestingCliService:
         echo_fn("-----------------------------")
         echo_fn("🍵 Running second iteration with refined parameters...")
         # 2.4 Run second iteration with refinmement
-        first_executions_results = self._apply_cartesian_production_execution(
+        second_executions_results = self._apply_cartesian_production_execution(
             symbol=symbol,
             initial_cash=initial_cash,
             ema_short_mid_pairs_as_tuples=best_emas,
@@ -295,7 +295,7 @@ class BacktestingCliService:
         )
         # 2.5 Store the all execution results in a parquet file for the second run
         self._save_executions_results_in_parquet_file(
-            symbol, timeframe, tp_filter, first_executions_results, suffix="second_run"
+            symbol, timeframe, tp_filter, second_executions_results, suffix="second_run"
         )
         echo_fn("🍵 Done, gathering results...")
         # 2.6 Get final results
@@ -306,7 +306,7 @@ class BacktestingCliService:
             decent_win_rate=decent_win_rate,
             min_profit_factor=min_profit_factor,
             min_sqn=min_sqn,
-            executions_results=first_executions_results,
+            executions_results=second_executions_results,
         )
         return ret
 
@@ -353,7 +353,9 @@ class BacktestingCliService:
             buy_min_volume_threshold_values_second_iteration = [
                 round(v, ndigits=2)
                 for v in np.arange(
-                    lowest_buy_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
+                    lowest_buy_min_volume_threshold
+                    - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
+                    + MIN_VOLUME_THRESHOLD_STEP_VALUE
                     if (lowest_buy_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) >= 0
                     else lowest_buy_min_volume_threshold,
                     highest_buy_min_volume_threshold + MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
@@ -376,7 +378,9 @@ class BacktestingCliService:
             buy_max_volume_threshold_values_second_iteration = [
                 round(v, ndigits=2)
                 for v in np.arange(
-                    lowest_buy_max_volume_threshold - MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
+                    lowest_buy_max_volume_threshold
+                    - MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
+                    + MAX_VOLUME_THRESHOLD_STEP_VALUE
                     if (lowest_buy_max_volume_threshold - MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) >= 0
                     else lowest_buy_max_volume_threshold,
                     highest_buy_max_volume_threshold + MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
@@ -399,7 +403,9 @@ class BacktestingCliService:
             sell_min_volume_threshold_values_second_iteration = [
                 round(v, ndigits=2)
                 for v in np.arange(
-                    lowest_sell_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
+                    lowest_sell_min_volume_threshold
+                    - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
+                    + MIN_VOLUME_THRESHOLD_STEP_VALUE
                     if (lowest_sell_min_volume_threshold - MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION) >= 0
                     else lowest_sell_min_volume_threshold,
                     highest_sell_min_volume_threshold + MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION
