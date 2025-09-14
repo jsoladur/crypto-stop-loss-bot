@@ -259,23 +259,23 @@ class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
         Returns:
             list[tuple[Bit2MeTradeDto, float]]: Each trade used alongside with the used amount
         """
-        idx, sum_order_amount = 0, 0.0
+        idx, filled_sell_amount = 0, 0.0
         correlated_filled_buy_trades = []
-        while sum_order_amount < sell_order.order_amount and idx < len(buy_trades):
+        while filled_sell_amount < sell_order.order_amount and idx < len(buy_trades):
             current_buy_trade = buy_trades[idx]
-            rest_sell_order_amount_to_allocate = sell_order.order_amount - sum_order_amount
             # Calculate how much we can get from this trade
             previous_used_trade_amount = previous_used_buy_trades.setdefault(current_buy_trade.id, 0.0)
-            rest_trade_amount_to_allocate = current_buy_trade.amount_after_fee - previous_used_trade_amount
-            if rest_trade_amount_to_allocate > 0:
-                correlated_filled_buy_trades.append((current_buy_trade, rest_trade_amount_to_allocate))
-                sum_order_amount += rest_trade_amount_to_allocate
-                if rest_sell_order_amount_to_allocate >= rest_trade_amount_to_allocate:
-                    previous_used_buy_trades[current_buy_trade.id] = current_buy_trade.amount_after_fee
+            remaining_trade_amount = current_buy_trade.amount_after_fee - previous_used_trade_amount
+            if remaining_trade_amount > 0:
+                remaining_sell_amount = sell_order.order_amount - filled_sell_amount
+                if remaining_sell_amount >= remaining_trade_amount:
+                    filled_sell_amount += remaining_trade_amount
+                    correlated_filled_buy_trades.append((current_buy_trade, remaining_trade_amount))
+                    previous_used_buy_trades[current_buy_trade.id] += remaining_trade_amount
                 else:
-                    previous_used_buy_trades[current_buy_trade.id] += (
-                        rest_trade_amount_to_allocate - rest_sell_order_amount_to_allocate
-                    )
+                    filled_sell_amount += remaining_sell_amount
+                    correlated_filled_buy_trades.append((current_buy_trade, remaining_sell_amount))
+                    previous_used_buy_trades[current_buy_trade.id] += remaining_sell_amount
             idx += 1
         return correlated_filled_buy_trades
 
