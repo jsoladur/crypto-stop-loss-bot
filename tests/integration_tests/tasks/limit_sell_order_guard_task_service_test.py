@@ -12,7 +12,11 @@ from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 from werkzeug import Response
 
-from crypto_trailing_stop.commons.constants import BIT2ME_TAKER_FEES, PERCENT_TO_SELL_LIST
+from crypto_trailing_stop.commons.constants import (
+    BIT2ME_RETRYABLE_HTTP_STATUS_CODES,
+    BIT2ME_TAKER_FEES,
+    PERCENT_TO_SELL_LIST,
+)
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -264,7 +268,7 @@ async def should_ignore_sell_1h_signal_and_not_sell_when_price_is_lower_than_bre
             httpserver.check_assertions()
 
 
-@pytest.mark.parametrize("bit2me_error_status_code", [403, 412, 429, 500, 502])
+@pytest.mark.parametrize("bit2me_error_status_code", BIT2ME_RETRYABLE_HTTP_STATUS_CODES + [500])
 @pytest.mark.asyncio
 async def should_create_market_sell_order_when_stop_loss_triggered(
     faker: Faker, bit2me_error_status_code: int, integration_test_env: tuple[HTTPServer, str]
