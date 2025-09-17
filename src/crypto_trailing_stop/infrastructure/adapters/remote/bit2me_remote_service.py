@@ -25,7 +25,10 @@ from httpx import (
 from pandas import Timedelta
 from pydantic import RootModel
 
-from crypto_trailing_stop.commons.constants import DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS
+from crypto_trailing_stop.commons.constants import (
+    BIT2ME_RETRYABLE_HTTP_STATUS_CODES,
+    DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS,
+)
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler
 from crypto_trailing_stop.config import get_configuration_properties
@@ -70,9 +73,10 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             should_give_up = method != "GET"
         elif isinstance(e, ValueError):
             cause = e.__cause__
-            should_give_up = not isinstance(cause, HTTPStatusError) or getattr(
-                cause.response, "status_code", None
-            ) not in [403, 412, 429, 502]
+            should_give_up = (
+                not isinstance(cause, HTTPStatusError)
+                or getattr(cause.response, "status_code", None) not in BIT2ME_RETRYABLE_HTTP_STATUS_CODES
+            )
         return should_give_up
 
     async def get_favourite_crypto_currencies(self, *, client: AsyncClient | None = None) -> list[str]:
