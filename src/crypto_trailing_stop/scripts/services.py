@@ -263,6 +263,17 @@ class BacktestingCliService:
             min_sqn=None,
             executions_results=first_executions_results,
         )
+        if len(first_execution_result_summary.all) <= 0:
+            first_execution_result_summary: BacktestingExecutionSummary = self._get_backtesting_result_summary(
+                downloaded_months_back=downloaded_months_back,
+                disable_minimal_trades=True,
+                disable_decent_win_rate=True,
+                decent_win_rate=decent_win_rate,
+                min_profit_factor=None,
+                min_sqn=None,
+                executions_results=first_executions_results,
+            )
+
         echo_fn("🍵 Calculating refinement parameters...")
         (
             best_emas,
