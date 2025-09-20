@@ -6,23 +6,24 @@ source .venv/bin/activate
 # Define the "SYMBOL:EXCHANGE" pairs you want to test.
 PAIRS=(
     # Current trading
-    # "ADA/EUR:binance"
-    # "LINK/EUR:binance"
-    # "SOL/EUR:binance"
-    # "DOGE/EUR:binance"
+    "DOGE/EUR:binance"
     "SUI/EUR:binance"
-    # "ETH/EUR:binance"
-    "RENDER/EUR:binance"
+    "PENGU/EUR:binance"
+    "PEPE/EUR:binance"
+    "ADA/EUR:binance"
+    "LINK/EUR:binance"
+    "SOL/EUR:binance"
+    "ETH/EUR:binance"
+    # "RENDER/EUR:binance"
     # New coins
     # "DOT/EUR:binance"
-    # "PEPE/EUR:binance"
     # "NEAR/EUR:binance"
     # "EGLD/EUR:binance"
     # "BNB/EUR:binance"
     # Divergence coins
-    "GALA/EUR:binance"
-    "SHIB/EUR:binance"
-    "XLM/EUR:binance"
+    # "GALA/EUR:binance"
+    # "SHIB/EUR:binance"
+    # "XLM/EUR:binance"
     # Deprecated
     "XRP/EUR:binance"
 )
