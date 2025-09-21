@@ -32,6 +32,7 @@ from crypto_trailing_stop.scripts.constants import (
     DEFAULT_LIMIT_DOWNLOAD_BATCHES,
     DEFAULT_MONTHS_BACK,
     DEFAULT_TRADING_MARKET_CONFIG,
+    ITERATE_OVER_EXEC_RESULTS_MAX_ATTEMPS,
     MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION,
     MAX_VOLUME_THRESHOLD_VALUES_FIRST_ITERATION,
     MIN_ENTRIES_PER_WEEK,
@@ -254,17 +255,17 @@ class BacktestingCliService:
             symbol, timeframe, tp_filter, first_executions_results, suffix="first_run"
         )
         # 2.3 Get first Execution Result Summary
-        first_execution_result_summary: BacktestingExecutionSummary = self._get_backtesting_result_summary(
+        first_execution_result_summary = self._iter_over_executions_results_to_get_final_results(
             downloaded_months_back=downloaded_months_back,
             disable_minimal_trades=disable_minimal_trades,
             disable_decent_win_rate=disable_decent_win_rate,
             decent_win_rate=decent_win_rate,
             min_profit_factor=min_profit_factor,
-            min_sqn=None,
+            min_sqn=min_sqn,
             executions_results=first_executions_results,
         )
         if len(first_execution_result_summary.all) <= 0:
-            first_execution_result_summary: BacktestingExecutionSummary = self._get_backtesting_result_summary(
+            first_execution_result_summary = self._iter_over_executions_results_to_get_final_results(
                 downloaded_months_back=downloaded_months_back,
                 disable_minimal_trades=True,
                 disable_decent_win_rate=True,
@@ -310,7 +311,7 @@ class BacktestingCliService:
         )
         echo_fn("🍵 Done, gathering results...")
         # 2.6 Get final results
-        ret: BacktestingExecutionSummary = self._get_backtesting_result_summary(
+        ret = self._iter_over_executions_results_to_get_final_results(
             downloaded_months_back=downloaded_months_back,
             disable_minimal_trades=disable_minimal_trades,
             disable_decent_win_rate=disable_decent_win_rate,
@@ -332,14 +333,14 @@ class BacktestingCliService:
         min_profit_factor: float | None = None,
         min_sqn: float | None = None,
         tp_filter: TakeProfitFilter = "all",
-    ):
+    ) -> BacktestingExecutionSummary:
         executions_results = self._serde.load(from_parquet)
         # 3.2 Filter results based on cli parameters
         if tp_filter == "enabled":
             executions_results = [res for res in executions_results if res.parameters.enable_exit_on_take_profit]
         elif tp_filter == "disabled":
             executions_results = [res for res in executions_results if not res.parameters.enable_exit_on_take_profit]
-        ret = self._get_backtesting_result_summary(
+        ret = self._iter_over_executions_results_to_get_final_results(
             downloaded_months_back=downloaded_months_back,
             disable_minimal_trades=disable_minimal_trades,
             disable_decent_win_rate=disable_decent_win_rate,
@@ -474,6 +475,52 @@ class BacktestingCliService:
         # Filter out any runs that failed (they will return None)
         executions_results = [res for res in results if res is not None]
         return executions_results
+
+    def _iter_over_executions_results_to_get_final_results(
+        self,
+        *,
+        downloaded_months_back: int = DEFAULT_MONTHS_BACK,
+        disable_minimal_trades: bool = False,
+        disable_decent_win_rate: bool = False,
+        decent_win_rate: float = DECENT_WIN_RATE_THRESHOLD,
+        min_profit_factor: float | None = None,
+        min_sqn: float | None = None,
+        executions_results: list[BacktestingExecutionResult],
+    ) -> BacktestingExecutionSummary:
+        ret: BacktestingExecutionSummary = None
+        attemps = 0
+        current_min_sqn = None
+        while attemps < ITERATE_OVER_EXEC_RESULTS_MAX_ATTEMPS and (ret is None or len(ret.all) <= 0):
+            attemps += 1
+            current_min_sqn = min_sqn if current_min_sqn is None else (current_min_sqn - 0.1)
+            current_min_sqn = round(current_min_sqn, ndigits=2) if current_min_sqn is not None else None
+            ret = self._get_backtesting_result_summary(
+                downloaded_months_back=downloaded_months_back,
+                disable_minimal_trades=disable_minimal_trades,
+                disable_decent_win_rate=disable_decent_win_rate,
+                decent_win_rate=decent_win_rate,
+                min_profit_factor=min_profit_factor,
+                min_sqn=current_min_sqn if current_min_sqn is not None and current_min_sqn > 0 else None,
+                executions_results=executions_results,
+            )
+        attemps = 0
+        current_min_profit = None
+        while attemps < ITERATE_OVER_EXEC_RESULTS_MAX_ATTEMPS and (ret is None or len(ret.all) <= 0):
+            attemps += 1
+            current_min_profit = min_profit_factor if current_min_profit is None else (current_min_profit - 0.1)
+            current_min_profit = round(current_min_profit, ndigits=2) if current_min_profit is not None else None
+            ret = self._get_backtesting_result_summary(
+                downloaded_months_back=downloaded_months_back,
+                disable_minimal_trades=disable_minimal_trades,
+                disable_decent_win_rate=disable_decent_win_rate,
+                decent_win_rate=decent_win_rate,
+                min_profit_factor=current_min_profit
+                if current_min_profit is not None and current_min_profit > 0
+                else None,
+                min_sqn=None,
+                executions_results=executions_results,
+            )
+        return ret
 
     def _get_backtesting_result_summary(
         self,
