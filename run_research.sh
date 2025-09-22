@@ -5,14 +5,14 @@ source .venv/bin/activate
 # --- CONFIGURATION ---
 # Define the "SYMBOL:EXCHANGE" pairs you want to test.
 PAIRS=(
+    "LINK/EUR:binance"
+    "SOL/EUR:binance"
     # Current trading
-    "SUI/EUR:binance"
-    "PENGU/EUR:binance"
-    "DOT/EUR:binance"
-    "PEPE/EUR:binance"
+    # "SUI/EUR:binance"
+    # "PENGU/EUR:binance"
+    # "DOT/EUR:binance"
+    # "PEPE/EUR:binance"
     # "ADA/EUR:binance"
-    # "LINK/EUR:binance"
-    # "SOL/EUR:binance"
     # "ETH/EUR:binance"
     # "DOGE/EUR:binance"
     # "RENDER/EUR:binance"
