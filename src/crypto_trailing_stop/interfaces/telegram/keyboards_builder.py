@@ -155,7 +155,7 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
             )
             for idx, candlestick in enumerate(CandleStickEnum)
         ]
-        for buttons_chunk in pydash.chunk(buttons, size=3):
+        for buttons_chunk in pydash.chunk(buttons, size=2):
             builder.row(*buttons_chunk)
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()

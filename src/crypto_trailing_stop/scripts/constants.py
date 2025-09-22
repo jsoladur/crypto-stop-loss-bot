@@ -20,3 +20,4 @@ MAX_VOLUME_THRESHOLD_VALUES_FIRST_ITERATION = [
     round(max_volume_threshold, ndigits=2)
     for max_volume_threshold in np.arange(2.5, 4.5, MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION).tolist()
 ]
+ITERATE_OVER_EXEC_RESULTS_MAX_ATTEMPS = 15

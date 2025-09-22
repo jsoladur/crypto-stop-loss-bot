@@ -133,13 +133,13 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
         # 1. Calculate simple 'ta' indicators first
         self._calculate_simple_indicators(df, buy_sell_signals_config)
-        # 2. NOW, drop the initial NaN values and reset the index.
+        # 2. Calculate complex indicators on the DataFrame.
+        # This ensures the long lookback for divergence has enough data to work with.
+        self._calculate_complex_indicators(df)
+        # 3. NOW, drop NaN values and reset the index.
         # This cleans the data from the shorter lookback periods of the simple indicators.
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)
-        # 3. THEN, calculate complex indicators on the now-clean DataFrame.
-        # This ensures the long lookback for divergence has enough data to work with.
-        self._calculate_complex_indicators(df)
         logger.debug("Indicator calculation complete.")
         return df, buy_sell_signals_config
 
