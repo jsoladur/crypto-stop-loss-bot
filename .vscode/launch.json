@@ -52,12 +52,10 @@
       "program": "src/crypto_trailing_stop/scripts/cli.py",
       "args": [
         "research",
-        "ADA/EUR",
-        "--no-download-candles",
-        "--min-sqn=1.8",
-        "--min-profit-factor=1.5"
-        // "--tp-filter=disabled",
-        // "--from-parquet=data/backtesting/raw/SUI_EUR_enabled_040925225612769.parquet"
+         "PENGU/EUR",
+         "--min-sqn=1.8",
+         "--min-profit-factor=1.5",
+         "--from-parquet=./data/backtesting/raw/PENGU_EUR_1h_all_first_run.parquet"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
