@@ -317,11 +317,7 @@ async def should_create_market_sell_order_when_stop_loss_triggered(
     ) as notify_fatal_error_via_telegram_mock:
         with patch.object(Bot, "send_message"):
             await limit_sell_order_guard_task_service.run()
-            if bit2me_error_status_code == 500:
-                notify_fatal_error_via_telegram_mock.assert_called()
-            else:
-                notify_fatal_error_via_telegram_mock.assert_not_called()
-
+            notify_fatal_error_via_telegram_mock.assert_not_called()
             httpserver.check_assertions()
 
 
