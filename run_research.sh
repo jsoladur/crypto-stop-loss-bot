@@ -5,27 +5,27 @@ source .venv/bin/activate
 # --- CONFIGURATION ---
 # Define the "SYMBOL:EXCHANGE" pairs you want to test.
 PAIRS=(
+    # Current trading
+    "DOGE/EUR:binance"
     "LINK/EUR:binance"
     "SOL/EUR:binance"
-    # Current trading
-    # "SUI/EUR:binance"
-    # "PENGU/EUR:binance"
-    # "DOT/EUR:binance"
-    # "PEPE/EUR:binance"
-    # "ADA/EUR:binance"
-    # "ETH/EUR:binance"
-    # "DOGE/EUR:binance"
-    # "RENDER/EUR:binance"
+    "SUI/EUR:binance"
+    "DOT/EUR:binance"
+    "ADA/EUR:binance"
+    "ETH/EUR:binance"
+    "PEPE/EUR:binance"
     # New coins
-    # "NEAR/EUR:binance"
-    # "EGLD/EUR:binance"
-    # "BNB/EUR:binance"
+    "PENGU/EUR:binance"
+    "NEAR/EUR:binance"
+    "EGLD/EUR:binance"
+    "BNB/EUR:binance"
     # Divergence coins
-    # "GALA/EUR:binance"
-    # "SHIB/EUR:binance"
-    # "XLM/EUR:binance"
+    "GALA/EUR:binance"
+    "SHIB/EUR:binance"
+    "XLM/EUR:binance"
     # Deprecated
-    # "XRP/EUR:binance"
+    "XRP/EUR:binance"
+    "RENDER/EUR:binance"
 )
 
 # Define the directory where the result logs will be saved.
@@ -56,7 +56,7 @@ for pair in "${PAIRS[@]}"; do
 
     # 3. Execute the 'research' command, passing the exchange.
     #    Redirect stdout to log_file and stderr to progress_file.
-    cli research "$symbol" --exchange="$exchange" --min-sqn=1.8 --min-profit-factor=1.5 "$@" > "$log_file" 2> "$progress_file"
+    cli research "$symbol" --exchange="$exchange" --decent-win-rate=75.0 --min-sqn=1.8 --min-profit-factor=1.5 "$@" > "$log_file" 2> "$progress_file"
 
     echo "✅ Finished research for ${symbol} on ${exchange}."
     echo "--------------------------------------------------"
