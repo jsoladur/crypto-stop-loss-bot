@@ -131,7 +131,8 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
     ) -> list[Bit2MeTickersDto]:
         symbols = list(symbols) if isinstance(symbols, (list, set, tuple, frozenset)) else [symbols]
         response = await self._perform_http_request(url="/v2/trading/tickers", client=client)
-        ret = RootModel[list[Bit2MeTickersDto]].model_validate_json(response.content).root
+        tickers_list = RootModel[list[Bit2MeTickersDto]].model_validate_json(response.content).root
+        ret = [tickers for tickers in tickers_list if tickers.close is not None]
         if symbols:
             ret = [tickers for tickers in ret if tickers.symbol in symbols]
         return ret
