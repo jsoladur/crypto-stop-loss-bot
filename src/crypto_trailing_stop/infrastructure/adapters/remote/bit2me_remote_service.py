@@ -233,7 +233,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
 
     async def get_trading_market_config_by_symbol(
         self, symbol: str, *, client: AsyncClient | None = None
-    ) -> Bit2MeMarketConfigDto | None:
+    ) -> Bit2MeMarketConfigDto:
         market_config_list = await self.get_trading_market_config_list(client=client)
         if symbol not in market_config_list:
             raise ValueError(f"Market config for symbol '{symbol}' not found in Bit2Me API.")

@@ -17,8 +17,8 @@ class Order:
     status: OrderStatusEnum
     side: OrderSideEnum
     amount: float
-    stop_price: float | int | None
     price: float | None = None
+    stop_price: float | None = None
 
     @property
     def effective_price(self) -> float | int:
