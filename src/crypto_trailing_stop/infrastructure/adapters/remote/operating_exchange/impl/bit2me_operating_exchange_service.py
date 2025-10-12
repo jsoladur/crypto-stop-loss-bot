@@ -23,9 +23,9 @@ if TYPE_CHECKING:
 
 
 class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService, metaclass=SingletonABCMeta):
-    def __init__(self):
+    def __init__(self, bit2me_remote_service: Bit2MeRemoteService) -> None:
         super().__init__()
-        self._remote_service = Bit2MeRemoteService()
+        self._bit2me_remote_service = bit2me_remote_service
 
     async def get_favourite_crypto_currencies(self, *, client: Any | None = None) -> list[str]:
         raise NotImplementedError()

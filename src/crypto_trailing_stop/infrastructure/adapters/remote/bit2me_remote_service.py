@@ -65,6 +65,8 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         self._base_url = str(self._configuration_properties.bit2me_api_base_url)
         self._api_key = self._configuration_properties.bit2me_api_key
         self._api_secret = self._configuration_properties.bit2me_api_secret
+        if not self._base_url or not self._api_key or not self._api_secret:
+            raise ValueError("Bit2Me API configuration is missing or incomplete.")
 
     @staticmethod
     def _backoff_giveup_handler(e: Exception) -> bool:
