@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
 
 
-class AbstractOperatingExchange(ABC):
+class AbstractOperatingExchangeService(ABC):
     async def get_pending_sell_orders(
         self, *, order_type: OrderTypeEnum | None = None, client: Any | None = None
     ) -> list[Order]:
