@@ -3,6 +3,6 @@ from datetime import datetime
 
 
 @dataclass(frozen=True, kw_only=True)
-class AccountInfoDto:
+class AccountInfo:
     registration_date: datetime
     currency_code: str

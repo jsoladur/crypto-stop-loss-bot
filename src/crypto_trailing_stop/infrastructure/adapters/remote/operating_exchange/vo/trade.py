@@ -4,7 +4,7 @@ from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enum
 
 
 @dataclass(frozen=True, kw_only=True)
-class Bit2MeTradeDto:
+class Trade:
     id: str
     symbol: str
     side: OrderSideEnum
