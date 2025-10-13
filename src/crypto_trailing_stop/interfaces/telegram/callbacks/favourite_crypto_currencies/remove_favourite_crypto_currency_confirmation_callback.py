@@ -29,8 +29,7 @@ async def remove_favourite_crypto_currency_confirmation_handler(
         await callback_query.message.answer(
             f"⚠️ Are you sure you want to remove {html.bold(currency)} from your favourite crypto currencies?",
             reply_markup=keyboards_builder.get_yes_no_keyboard(
-                yes_button_callback_data=f"perform_remove_favourite_currency$${currency}",
-                no_button_callback_data="favourite_crypto_currencies_home",
+                yes_button_callback_data=f"perform_remove_favourite_currency$${currency}"
             ),
         )
     else:

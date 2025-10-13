@@ -33,7 +33,8 @@ async def perform_remove_favourite_currency_callback_handler(callback_query: Cal
             currency = match.group(1)
             await favourite_crypto_currency_service.remove(currency)
             await callback_query.message.answer(
-                f"ℹ️ {html.bold(currency)} crypto currency has been removed from favourites."
+                f"ℹ️ {html.bold(currency)} crypto currency has been removed from your favourites.",
+                reply_markup=keyboards_builder.get_home_keyboard(),
             )
         except Exception as e:
             logger.error(f"Error removing the selected crypto currency: {str(e)}", exc_info=True)

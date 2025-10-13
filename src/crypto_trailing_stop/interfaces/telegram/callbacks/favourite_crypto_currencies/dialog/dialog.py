@@ -49,7 +49,7 @@ _dialog = Dialog(
         Format("ℹ️ Select a crypto currency to add as favourite:"),
         ScrollingGroup(
             Select(
-                Format("{item}"),
+                Format("☆ {item}"),
                 id="select_item",
                 item_id_getter=lambda x: x,  # here x is the string "Item N"
                 items="items",
