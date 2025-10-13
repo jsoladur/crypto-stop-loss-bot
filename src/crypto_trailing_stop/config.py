@@ -7,6 +7,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram_dialog import setup_dialogs
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from authlib.integrations.starlette_client import OAuth
 from pydantic import AnyUrl, Field
@@ -133,6 +134,7 @@ def get_dispacher() -> Dispatcher:
     global _dispacher
     if _dispacher is None:
         _dispacher = Dispatcher(storage=MemoryStorage())
+        setup_dialogs(_dispacher)
     return _dispacher
 
 

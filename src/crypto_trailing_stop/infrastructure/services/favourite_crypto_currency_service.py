@@ -49,3 +49,11 @@ class FavouriteCryptoCurrencyService(metaclass=SingletonMeta):
                 await self._bit2me_remote_service.remove_favourite_crypto_currency(currency)
             await favourite_crypto_currency.delete()
             logger.info(f"Removed {currency} from favourite crypto currencies")
+
+    async def get_non_favourite_crypto_currencies(self) -> list[str]:
+        all_trading_crypto_currencies = await self._bit2me_remote_service.get_trading_crypto_currencies()
+        favourite_crypto_currencies = await self.find_all()
+        ret = sorted(
+            [currency for currency in all_trading_crypto_currencies if currency not in favourite_crypto_currencies]
+        )
+        return ret

@@ -239,6 +239,11 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         ohlcv = response.json()
         return ohlcv
 
+    async def get_trading_crypto_currencies(self, *, client: AsyncClient | None = None) -> list[str]:
+        market_config_list = await self.get_trading_market_config_list(client=client)
+        ret = [symbol.split("/")[0].strip().upper() for symbol in market_config_list.keys()]
+        return ret
+
     async def get_trading_market_config_by_symbol(
         self, symbol: str, *, client: AsyncClient | None = None
     ) -> Bit2MeMarketConfigDto | None:

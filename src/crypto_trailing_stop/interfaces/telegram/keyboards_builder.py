@@ -47,6 +47,7 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
     def get_home_keyboard(self) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
         builder.row(InlineKeyboardButton(text="🪙 ₿alances", callback_data="get_pro_wallet_balances"))
+        builder.row(InlineKeyboardButton(text="🌟 Favourites", callback_data="favourite_crypto_currencies_home"))
         builder.row(
             InlineKeyboardButton(text="📈 Summary", callback_data="get_global_summary"),
             InlineKeyboardButton(text="📤 Sell Orders", callback_data="get_sell_orders_info"),
@@ -64,7 +65,6 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
             InlineKeyboardButton(text="🔔 Alerts", callback_data="push_notificacions_home"),
         )
         builder.row(InlineKeyboardButton(text="🚏 Stop Loss %", callback_data="stop_loss_percent_home"))
-        builder.row(InlineKeyboardButton(text="🌟 Favourites", callback_data="favourite_crypto_currencies_home"))
         builder.row(InlineKeyboardButton(text="🎯 Take-Profit Toggler", callback_data="take_profit_toggler_home"))
         builder.row(InlineKeyboardButton(text="🚥 Market Signals", callback_data="last_market_signals_home"))
         if self._configuration_properties.gemini_pro_api_enabled:
