@@ -7,6 +7,9 @@ from pytest_httpserver.httpserver import HandlerType
 
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
 from tests.helpers.constants import MOCK_CRYPTO_CURRENCIES
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
@@ -20,7 +23,9 @@ async def should_set_auto_buy_trader_config_properly(
 ) -> None:
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
 
-    auto_buy_trader_config_service = AutoBuyTraderConfigService(bit2me_remote_service=Bit2MeRemoteService())
+    auto_buy_trader_config_service = AutoBuyTraderConfigService(
+        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    )
     favourite_crypto_currencies = _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
     auto_buy_trader_config_list = await auto_buy_trader_config_service.find_all()
     assert len(auto_buy_trader_config_list) == len(favourite_crypto_currencies)

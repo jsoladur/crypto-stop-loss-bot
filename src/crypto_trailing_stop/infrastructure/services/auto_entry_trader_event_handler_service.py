@@ -27,6 +27,9 @@ from crypto_trailing_stop.infrastructure.services.crypto_analytics_service impor
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_enum import PushNotificationTypeEnum
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.global_summary_service import GlobalSummaryService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
@@ -47,6 +50,9 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
         self._bit2me_remote_service = Bit2MeRemoteService()
         self._ccxt_remote_service = CcxtRemoteService()
         self._global_flag_service = GlobalFlagService()
+        self._favourite_crypto_currency_service = FavouriteCryptoCurrencyService(
+            bit2me_remote_service=self._bit2me_remote_service
+        )
         self._buy_sell_signals_config_service = BuySellSignalsConfigService(
             bit2me_remote_service=self._bit2me_remote_service
         )
@@ -67,7 +73,7 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             crypto_analytics_service=self._crypto_analytics_service,
         )
         self._auto_buy_trader_config_service = AutoBuyTraderConfigService(
-            bit2me_remote_service=self._bit2me_remote_service
+            favourite_crypto_currency_service=self._favourite_crypto_currency_service
         )
 
     @override
