@@ -60,7 +60,8 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             favourite_crypto_currency_service=self._favourite_crypto_currency_service
         )
         self._stop_loss_percent_service = StopLossPercentService(
-            bit2me_remote_service=self._bit2me_remote_service, global_flag_service=self._global_flag_service
+            favourite_crypto_currency_service=self._favourite_crypto_currency_service,
+            global_flag_service=self._global_flag_service,
         )
         self._global_summary_service = GlobalSummaryService(bit2me_remote_service=self._bit2me_remote_service)
         self._crypto_analytics_service = CryptoAnalyticsService(

@@ -43,10 +43,11 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         self._market_signal_service = MarketSignalService()
         self._ccxt_remote_service = CcxtRemoteService()
         self._limit_sell_order_guard_cache_service = LimitSellOrderGuardCacheService()
+        self._favourite_crypto_currency_service = FavouriteCryptoCurrencyService(
+            bit2me_remote_service=self._bit2me_remote_service
+        )
         self._buy_sell_signals_config_service = BuySellSignalsConfigService(
-            favourite_crypto_currency_service=FavouriteCryptoCurrencyService(
-                bit2me_remote_service=self._bit2me_remote_service
-            )
+            favourite_crypto_currency_service=self._favourite_crypto_currency_service
         )
         self._crypto_analytics_service = CryptoAnalyticsService(
             bit2me_remote_service=self._bit2me_remote_service,
@@ -57,7 +58,8 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             bit2me_remote_service=self._bit2me_remote_service,
             ccxt_remote_service=self._ccxt_remote_service,
             stop_loss_percent_service=StopLossPercentService(
-                bit2me_remote_service=self._bit2me_remote_service, global_flag_service=GlobalFlagService()
+                favourite_crypto_currency_service=self._favourite_crypto_currency_service,
+                global_flag_service=GlobalFlagService(),
             ),
             buy_sell_signals_config_service=self._buy_sell_signals_config_service,
             crypto_analytics_service=self._crypto_analytics_service,

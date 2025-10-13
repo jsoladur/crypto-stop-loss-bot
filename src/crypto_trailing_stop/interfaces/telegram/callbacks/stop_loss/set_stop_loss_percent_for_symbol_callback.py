@@ -7,6 +7,9 @@ from aiogram.types import CallbackQuery
 
 from crypto_trailing_stop.config import get_dispacher
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
@@ -18,7 +21,8 @@ dp = get_dispacher()
 session_storage_service = SessionStorageService()
 keyboards_builder = KeyboardsBuilder()
 stop_loss_percent_service = StopLossPercentService(
-    bit2me_remote_service=Bit2MeRemoteService(), global_flag_service=GlobalFlagService()
+    favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService()),
+    global_flag_service=GlobalFlagService(),
 )
 
 

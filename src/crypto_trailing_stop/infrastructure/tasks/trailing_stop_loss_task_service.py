@@ -29,10 +29,11 @@ logger = logging.getLogger(__name__)
 class TrailingStopLossTaskService(AbstractTaskService):
     def __init__(self):
         super().__init__()
+        favourite_crypto_currency_service = FavouriteCryptoCurrencyService(
+            bit2me_remote_service=self._bit2me_remote_service
+        )
         buy_sell_signals_config_service = BuySellSignalsConfigService(
-            favourite_crypto_currency_service=FavouriteCryptoCurrencyService(
-                bit2me_remote_service=self._bit2me_remote_service
-            )
+            favourite_crypto_currency_service=favourite_crypto_currency_service
         )
         self._configuration_properties = get_configuration_properties()
         self._ccxt_remote_service = CcxtRemoteService()
@@ -40,7 +41,8 @@ class TrailingStopLossTaskService(AbstractTaskService):
             bit2me_remote_service=self._bit2me_remote_service,
             ccxt_remote_service=self._ccxt_remote_service,
             stop_loss_percent_service=StopLossPercentService(
-                bit2me_remote_service=self._bit2me_remote_service, global_flag_service=GlobalFlagService()
+                favourite_crypto_currency_service=favourite_crypto_currency_service,
+                global_flag_service=GlobalFlagService(),
             ),
             buy_sell_signals_config_service=buy_sell_signals_config_service,
             crypto_analytics_service=CryptoAnalyticsService(
