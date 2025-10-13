@@ -92,12 +92,12 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
 
     async def add_favourite_crypto_currency(self, currency: str, *, client: AsyncClient | None = None) -> None:
         await self._perform_http_request(
-            method="POST", url="/v1/currency-favorites/favorite", body={"currency": currency}, client=client
+            method="POST", url="/v1/currency-favorites/favorites", body={"currency": currency}, client=client
         )
 
     async def remove_favourite_crypto_currency(self, currency: str, *, client: AsyncClient | None = None) -> None:
         await self._perform_http_request(
-            method="DELETE", url="/v1/currency-favorites/favorite", body={"currency": currency}, client=client
+            method="DELETE", url="/v1/currency-favorites/favorites", body={"currency": currency}, client=client
         )
 
     async def get_account_info(self, *, client: AsyncClient | None = None) -> Bit2MeAccountInfoDto:

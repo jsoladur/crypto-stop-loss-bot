@@ -64,11 +64,24 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
             InlineKeyboardButton(text="🔔 Alerts", callback_data="push_notificacions_home"),
         )
         builder.row(InlineKeyboardButton(text="🚏 Stop Loss %", callback_data="stop_loss_percent_home"))
+        builder.row(InlineKeyboardButton(text="🌟 Favourites", callback_data="favourite_crypto_currencies_home"))
         builder.row(InlineKeyboardButton(text="🎯 Take-Profit Toggler", callback_data="take_profit_toggler_home"))
         builder.row(InlineKeyboardButton(text="🚥 Market Signals", callback_data="last_market_signals_home"))
         if self._configuration_properties.gemini_pro_api_enabled:
             builder.row(InlineKeyboardButton(text="🪄 Gemini Generative AI", callback_data="gemini_generative_ai_home"))
         builder.row(InlineKeyboardButton(text="📴 Logout", callback_data="logout"))
+        return builder.as_markup()
+
+    def get_favourite_crypto_currencies_keyboard(self, favourite_crypto_currencies: list[str]) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        for crypto_currency in favourite_crypto_currencies:
+            builder.row(
+                InlineKeyboardButton(
+                    text=f"🌟 {crypto_currency}", callback_data=f"remove_favourite_crypto_currency$${crypto_currency}"
+                )
+            )
+        builder.row(InlineKeyboardButton(text="➕ Add New", callback_data="add_favourite_crypto_currency"))
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 
     def get_stop_loss_percent_items_keyboard(
