@@ -22,31 +22,27 @@ class FavouriteCryptoCurrencyService(metaclass=SingletonMeta):
                 logger.warning(
                     f"Favourite crypto currency {exchange_favourite} is not in the database, adding it automatically"
                 )
-                await self.add(exchange_favourite, remote=False)
+                await self.add(exchange_favourite)
         all_favourites = database_favourites.union(operating_exchange_favourites)
         ret = sorted([favourite.upper() for favourite in all_favourites])
         return ret
 
-    async def add(self, currency: str, *, remote: bool = True) -> None:
+    async def add(self, currency: str) -> None:
         currency = currency.upper()
         favourite_crypto_currency = (
             await FavouriteCryptoCurrency.objects().where(FavouriteCryptoCurrency.currency == currency).first()
         )
         if not favourite_crypto_currency:
-            if remote:
-                await self._bit2me_remote_service.add_favourite_crypto_currency(currency)
             favourite_crypto_currency = FavouriteCryptoCurrency(currency=currency)
             await favourite_crypto_currency.save()
             logger.info(f"Added {currency} to favourite crypto currencies")
 
-    async def remove(self, currency: str, *, remote: bool = True) -> None:
+    async def remove(self, currency: str) -> None:
         currency = currency.upper()
         favourite_crypto_currency = (
             await FavouriteCryptoCurrency.objects().where(FavouriteCryptoCurrency.currency == currency).first()
         )
         if favourite_crypto_currency:
-            if remote:
-                await self._bit2me_remote_service.remove_favourite_crypto_currency(currency)
             await favourite_crypto_currency.delete()
             logger.info(f"Removed {currency} from favourite crypto currencies")
 

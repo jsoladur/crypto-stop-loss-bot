@@ -90,16 +90,6 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         favourite_crypto_currencies = [favourite_currency["currency"] for favourite_currency in response.json()]
         return favourite_crypto_currencies
 
-    async def add_favourite_crypto_currency(self, currency: str, *, client: AsyncClient | None = None) -> None:
-        await self._perform_http_request(
-            method="POST", url="/v1/currency-favorites/favorites", body={"currency": currency}, client=client
-        )
-
-    async def remove_favourite_crypto_currency(self, currency: str, *, client: AsyncClient | None = None) -> None:
-        await self._perform_http_request(
-            method="DELETE", url="/v1/currency-favorites/favorites", body={"currency": currency}, client=client
-        )
-
     async def get_account_info(self, *, client: AsyncClient | None = None) -> Bit2MeAccountInfoDto:
         response = await self._perform_http_request(url="/v1/account", client=client)
         ret = Bit2MeAccountInfoDto.model_validate_json(response.content)
