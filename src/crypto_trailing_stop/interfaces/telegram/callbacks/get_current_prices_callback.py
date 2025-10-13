@@ -9,6 +9,9 @@ from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service i
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
@@ -21,10 +24,14 @@ session_storage_service = SessionStorageService()
 keyboards_builder = KeyboardsBuilder()
 messages_formatter = MessagesFormatter()
 bit2me_remote_service = Bit2MeRemoteService()
+favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
 crypto_analytics_service = CryptoAnalyticsService(
     bit2me_remote_service=Bit2MeRemoteService(),
     ccxt_remote_service=CcxtRemoteService(),
-    buy_sell_signals_config_service=BuySellSignalsConfigService(bit2me_remote_service=bit2me_remote_service),
+    favourite_crypto_currency_service=favourite_crypto_currency_service,
+    buy_sell_signals_config_service=BuySellSignalsConfigService(
+        favourite_crypto_currency_service=favourite_crypto_currency_service
+    ),
 )
 
 

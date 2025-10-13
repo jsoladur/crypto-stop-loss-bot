@@ -7,6 +7,9 @@ from pytest_httpserver.httpserver import HandlerType
 
 from crypto_trailing_stop.commons.constants import DEFAULT_TRAILING_STOP_LOSS_PERCENT
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
@@ -23,7 +26,8 @@ async def should_set_stop_loss_percent_service_properly(
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
 
     stop_loss_percent_service = StopLossPercentService(
-        bit2me_remote_service=Bit2MeRemoteService(), global_flag_service=GlobalFlagService()
+        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService()),
+        global_flag_service=GlobalFlagService(),
     )
     favourite_crypto_currencies = _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
     stop_loss_percent_item_list = await stop_loss_percent_service.find_all()

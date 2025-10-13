@@ -24,10 +24,14 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import B
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
     Bit2MeTradingWalletBalanceDto,
 )
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.database.models.push_notification import PushNotification
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_enum import PushNotificationTypeEnum
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.limit_sell_order_guard_cache_service import (
     LimitSellOrderGuardCacheService,
 )
@@ -74,7 +78,10 @@ async def should_create_market_sell_order_when_market_for_immediate_sell_order(
     first_order_and_price, *_ = buy_prices
     first_order, buy_price = first_order_and_price
     crypto_currency, *_ = first_order.symbol.split("/")
-    await BuySellSignalsConfigService().save_or_update(
+    buy_sell_signals_config_service = BuySellSignalsConfigService(
+        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    )
+    await buy_sell_signals_config_service.save_or_update(
         BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
     )
     task_manager = get_task_manager_instance()
@@ -181,7 +188,10 @@ async def should_create_market_sell_order_when_auto_exit_sell_or_bearish_diverge
     )
     first_order, *_ = opened_sell_bit2me_orders
     crypto_currency, *_ = first_order.symbol.split("/")
-    await BuySellSignalsConfigService().save_or_update(
+    buy_sell_signals_config_service = BuySellSignalsConfigService(
+        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    )
+    await buy_sell_signals_config_service.save_or_update(
         BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
     )
     task_manager = get_task_manager_instance()
@@ -236,7 +246,10 @@ async def should_ignore_sell_1h_signal_and_not_sell_when_price_is_lower_than_bre
     first_order_and_price, *_ = buy_prices
     first_order, buy_price = first_order_and_price
     crypto_currency, *_ = first_order.symbol.split("/")
-    await BuySellSignalsConfigService().save_or_update(
+    buy_sell_signals_config_service = BuySellSignalsConfigService(
+        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    )
+    await buy_sell_signals_config_service.save_or_update(
         BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
     )
     task_manager = get_task_manager_instance()
@@ -290,7 +303,12 @@ async def should_create_market_sell_order_when_stop_loss_triggered(
     )
     for current_order in opened_sell_bit2me_orders:
         crypto_currency, *_ = current_order.symbol.split("/")
-        await BuySellSignalsConfigService().save_or_update(
+        buy_sell_signals_config_service = BuySellSignalsConfigService(
+            favourite_crypto_currency_service=FavouriteCryptoCurrencyService(
+                bit2me_remote_service=Bit2MeRemoteService()
+            )
+        )
+        await buy_sell_signals_config_service.save_or_update(
             BuySellSignalsConfigItem(
                 symbol=crypto_currency, enable_exit_on_sell_signal=False, enable_exit_on_take_profit=False
             )

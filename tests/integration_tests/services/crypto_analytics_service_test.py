@@ -16,6 +16,9 @@ from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service i
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from tests.helpers.constants import MOCK_CRYPTO_CURRENCIES
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import Bit2MeTickersDtoObjectMother, Bit2MeTradingWalletBalanceDtoObjectMother
@@ -32,10 +35,14 @@ async def should_get_favourite_symbols_properly(
         faker, httpserver, bit2me_api_key, bit2me_api_secret
     )
     bit2me_remote_service = Bit2MeRemoteService()
+    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
     crypto_analytics_service = CryptoAnalyticsService(
         bit2me_remote_service=bit2me_remote_service,
         ccxt_remote_service=CcxtRemoteService(),
-        buy_sell_signals_config_service=BuySellSignalsConfigService(bit2me_remote_service=bit2me_remote_service),
+        favourite_crypto_currency_service=favourite_crypto_currency_service,
+        buy_sell_signals_config_service=BuySellSignalsConfigService(
+            favourite_crypto_currency_service=favourite_crypto_currency_service
+        ),
     )
     favourite_symbols = await crypto_analytics_service.get_favourite_symbols()
     expected_symbols = [
@@ -51,11 +58,15 @@ async def should_get_favourite_tickers_properly(
 ) -> None:
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
     _prepare_httpserver_mock_for_get_favourite_tickers(faker, httpserver, bit2me_api_key, bit2me_api_secret)
-    bit2me_remote_service = (Bit2MeRemoteService(),)
+    bit2me_remote_service = Bit2MeRemoteService()
+    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
     crypto_analytics_service = CryptoAnalyticsService(
         bit2me_remote_service=bit2me_remote_service,
         ccxt_remote_service=CcxtRemoteService(),
-        buy_sell_signals_config_service=BuySellSignalsConfigService(bit2me_remote_service=bit2me_remote_service),
+        favourite_crypto_currency_service=favourite_crypto_currency_service,
+        buy_sell_signals_config_service=BuySellSignalsConfigService(
+            favourite_crypto_currency_service=favourite_crypto_currency_service
+        ),
     )
     tickers_list = await crypto_analytics_service.get_favourite_tickers()
     assert tickers_list is not None and len(tickers_list) > 0
