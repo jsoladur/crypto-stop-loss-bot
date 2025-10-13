@@ -1,5 +1,7 @@
 import logging
 
+from httpx import AsyncClient
+
 from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.database.models.favourite_crypto_currency import FavouriteCryptoCurrency
@@ -11,12 +13,12 @@ class FavouriteCryptoCurrencyService(metaclass=SingletonMeta):
     def __init__(self, bit2me_remote_service: Bit2MeRemoteService) -> None:
         self._bit2me_remote_service = bit2me_remote_service
 
-    async def find_all(self) -> list[str]:
+    async def find_all(self, *, client: AsyncClient | None = None) -> list[str]:
         favourite_crypto_currencies = await FavouriteCryptoCurrency.objects()
         database_favourites = {
             favourite_crypto_currency.currency for favourite_crypto_currency in favourite_crypto_currencies
         }
-        operating_exchange_favourites = await self._bit2me_remote_service.get_favourite_crypto_currencies()
+        operating_exchange_favourites = await self._bit2me_remote_service.get_favourite_crypto_currencies(client=client)
         for exchange_favourite in operating_exchange_favourites:
             if exchange_favourite not in database_favourites:
                 logger.warning(
@@ -42,9 +44,9 @@ class FavouriteCryptoCurrencyService(metaclass=SingletonMeta):
         await FavouriteCryptoCurrency.delete().where(FavouriteCryptoCurrency.currency == currency)
         logger.info(f"Removed {currency} from favourite crypto currencies")
 
-    async def get_non_favourite_crypto_currencies(self) -> list[str]:
-        all_trading_crypto_currencies = await self._bit2me_remote_service.get_trading_crypto_currencies()
-        favourite_crypto_currencies = await self.find_all()
+    async def get_non_favourite_crypto_currencies(self, *, client: AsyncClient | None = None) -> list[str]:
+        all_trading_crypto_currencies = await self._bit2me_remote_service.get_trading_crypto_currencies(client=client)
+        favourite_crypto_currencies = await self.find_all(client=client)
         ret = sorted(
             [currency for currency in all_trading_crypto_currencies if currency not in favourite_crypto_currencies]
         )
