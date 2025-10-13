@@ -35,13 +35,13 @@ async def should_get_favourite_symbols_properly(
         faker, httpserver, bit2me_api_key, bit2me_api_secret
     )
     bit2me_remote_service = Bit2MeRemoteService()
+    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
     crypto_analytics_service = CryptoAnalyticsService(
         bit2me_remote_service=bit2me_remote_service,
         ccxt_remote_service=CcxtRemoteService(),
+        favourite_crypto_currency_service=favourite_crypto_currency_service,
         buy_sell_signals_config_service=BuySellSignalsConfigService(
-            favourite_crypto_currency_service=FavouriteCryptoCurrencyService(
-                bit2me_remote_service=Bit2MeRemoteService()
-            )
+            favourite_crypto_currency_service=favourite_crypto_currency_service
         ),
     )
     favourite_symbols = await crypto_analytics_service.get_favourite_symbols()
@@ -58,14 +58,14 @@ async def should_get_favourite_tickers_properly(
 ) -> None:
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
     _prepare_httpserver_mock_for_get_favourite_tickers(faker, httpserver, bit2me_api_key, bit2me_api_secret)
-    bit2me_remote_service = (Bit2MeRemoteService(),)
+    bit2me_remote_service = Bit2MeRemoteService()
+    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
     crypto_analytics_service = CryptoAnalyticsService(
         bit2me_remote_service=bit2me_remote_service,
         ccxt_remote_service=CcxtRemoteService(),
+        favourite_crypto_currency_service=favourite_crypto_currency_service,
         buy_sell_signals_config_service=BuySellSignalsConfigService(
-            favourite_crypto_currency_service=FavouriteCryptoCurrencyService(
-                bit2me_remote_service=Bit2MeRemoteService()
-            )
+            favourite_crypto_currency_service=favourite_crypto_currency_service
         ),
     )
     tickers_list = await crypto_analytics_service.get_favourite_tickers()

@@ -30,14 +30,16 @@ keyboards_builder = KeyboardsBuilder()
 messages_formatter = MessagesFormatter()
 bit2me_remote_service = Bit2MeRemoteService()
 global_flag_service = GlobalFlagService()
+favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
 auto_buy_trader_config_service = AutoBuyTraderConfigService(
-    favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    favourite_crypto_currency_service=favourite_crypto_currency_service
 )
 crypto_analytics_service = CryptoAnalyticsService(
     bit2me_remote_service=bit2me_remote_service,
     ccxt_remote_service=CcxtRemoteService(),
+    favourite_crypto_currency_service=favourite_crypto_currency_service,
     buy_sell_signals_config_service=BuySellSignalsConfigService(
-        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+        favourite_crypto_currency_service=favourite_crypto_currency_service
     ),
 )
 

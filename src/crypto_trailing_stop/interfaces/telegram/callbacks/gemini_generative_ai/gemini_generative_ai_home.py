@@ -21,11 +21,13 @@ logger = logging.getLogger(__name__)
 dp = get_dispacher()
 session_storage_service = SessionStorageService()
 keyboards_builder = KeyboardsBuilder()
+favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
 crypto_analytics_service = CryptoAnalyticsService(
     bit2me_remote_service=Bit2MeRemoteService(),
     ccxt_remote_service=CcxtRemoteService(),
+    favourite_crypto_currency_service=favourite_crypto_currency_service,
     buy_sell_signals_config_service=BuySellSignalsConfigService(
-        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+        favourite_crypto_currency_service=favourite_crypto_currency_service
     ),
 )
 

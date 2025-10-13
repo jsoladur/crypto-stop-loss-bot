@@ -48,6 +48,7 @@ class TrailingStopLossTaskService(AbstractTaskService):
             crypto_analytics_service=CryptoAnalyticsService(
                 bit2me_remote_service=self._bit2me_remote_service,
                 ccxt_remote_service=CcxtRemoteService(),
+                favourite_crypto_currency_service=favourite_crypto_currency_service,
                 buy_sell_signals_config_service=buy_sell_signals_config_service,
             ),
         )

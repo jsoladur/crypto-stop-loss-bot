@@ -45,6 +45,7 @@ orders_analytics_service = OrdersAnalyticsService(
     crypto_analytics_service=CryptoAnalyticsService(
         bit2me_remote_service=bit2me_remote_service,
         ccxt_remote_service=ccxt_remote_service,
+        favourite_crypto_currency_service=favourite_crypto_currency_service,
         buy_sell_signals_config_service=buy_sell_signals_config_service,
     ),
 )
