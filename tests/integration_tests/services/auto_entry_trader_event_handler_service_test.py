@@ -107,7 +107,9 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
     auto_buy_trader_config_service = AutoBuyTraderConfigService(
         favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=bit2me_remote_service)
     )
-    buy_sell_signals_config_service = BuySellSignalsConfigService(bit2me_remote_service=bit2me_remote_service)
+    buy_sell_signals_config_service = BuySellSignalsConfigService(
+        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=bit2me_remote_service)
+    )
     global_flag_service = GlobalFlagService()
 
     market_signal_item, _, crypto_currency, *_ = _prepare_httpserver_mock(

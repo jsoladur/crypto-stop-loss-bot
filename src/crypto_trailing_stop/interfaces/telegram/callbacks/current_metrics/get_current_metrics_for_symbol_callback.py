@@ -36,7 +36,9 @@ auto_buy_trader_config_service = AutoBuyTraderConfigService(
 crypto_analytics_service = CryptoAnalyticsService(
     bit2me_remote_service=bit2me_remote_service,
     ccxt_remote_service=CcxtRemoteService(),
-    buy_sell_signals_config_service=BuySellSignalsConfigService(bit2me_remote_service=bit2me_remote_service),
+    buy_sell_signals_config_service=BuySellSignalsConfigService(
+        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    ),
 )
 
 

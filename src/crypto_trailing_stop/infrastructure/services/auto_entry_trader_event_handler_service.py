@@ -54,7 +54,10 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             bit2me_remote_service=self._bit2me_remote_service
         )
         self._buy_sell_signals_config_service = BuySellSignalsConfigService(
-            bit2me_remote_service=self._bit2me_remote_service
+            favourite_crypto_currency_service=self._favourite_crypto_currency_service
+        )
+        self._auto_buy_trader_config_service = AutoBuyTraderConfigService(
+            favourite_crypto_currency_service=self._favourite_crypto_currency_service
         )
         self._stop_loss_percent_service = StopLossPercentService(
             bit2me_remote_service=self._bit2me_remote_service, global_flag_service=self._global_flag_service
@@ -71,9 +74,6 @@ class AutoEntryTraderEventHandlerService(AbstractService, metaclass=SingletonABC
             stop_loss_percent_service=self._stop_loss_percent_service,
             buy_sell_signals_config_service=self._buy_sell_signals_config_service,
             crypto_analytics_service=self._crypto_analytics_service,
-        )
-        self._auto_buy_trader_config_service = AutoBuyTraderConfigService(
-            favourite_crypto_currency_service=self._favourite_crypto_currency_service
         )
 
     @override

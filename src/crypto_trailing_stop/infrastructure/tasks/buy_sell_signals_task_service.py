@@ -53,7 +53,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
             bit2me_remote_service=self._bit2me_remote_service,
             ccxt_remote_service=self._ccxt_remote_service,
             buy_sell_signals_config_service=BuySellSignalsConfigService(
-                bit2me_remote_service=self._bit2me_remote_service
+                favourite_crypto_currency_service=self._favourite_crypto_currency_service
             ),
         )
         self._auto_buy_trader_config_service = AutoBuyTraderConfigService(

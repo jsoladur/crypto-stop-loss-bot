@@ -14,6 +14,9 @@ from crypto_trailing_stop.infrastructure.adapters.remote.gemini_remote_service i
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.gemini_generative_ai_service import GeminiGenerativeAiService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
@@ -30,7 +33,9 @@ bit2me_remote_service = Bit2MeRemoteService()
 crypto_analytics_service = CryptoAnalyticsService(
     bit2me_remote_service=bit2me_remote_service,
     ccxt_remote_service=CcxtRemoteService(),
-    buy_sell_signals_config_service=BuySellSignalsConfigService(bit2me_remote_service=bit2me_remote_service),
+    buy_sell_signals_config_service=BuySellSignalsConfigService(
+        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    ),
 )
 gemini_generative_ai_service = GeminiGenerativeAiService(gemini_remote_service=GeminiRemoteService())
 

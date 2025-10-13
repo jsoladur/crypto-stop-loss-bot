@@ -8,6 +8,9 @@ from pytest_httpserver.httpserver import HandlerType
 from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from tests.helpers.constants import MOCK_CRYPTO_CURRENCIES
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
@@ -23,7 +26,9 @@ async def should_set_buy_sell_signals_config_properly(
 
     configuration_properties = get_configuration_properties()
 
-    buy_sell_signals_config_service = BuySellSignalsConfigService(bit2me_remote_service=Bit2MeRemoteService())
+    buy_sell_signals_config_service = BuySellSignalsConfigService(
+        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    )
     favourite_crypto_currencies = _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
     buy_sell_signals_config_list = await buy_sell_signals_config_service.find_all()
     assert len(buy_sell_signals_config_list) == len(favourite_crypto_currencies)
