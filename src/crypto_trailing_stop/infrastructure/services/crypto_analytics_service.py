@@ -112,7 +112,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         return ret
 
     async def _internal_get_favourite_symbols(self, *, client: AsyncClient) -> list[str]:
-        favourite_crypto_currencies = await self._favourite_crypto_currency_service.find_all(client=client)
+        favourite_crypto_currencies = await self._favourite_crypto_currency_service.find_all()
         bit2me_account_info = await self._bit2me_remote_service.get_account_info(client=client)
         symbols = {
             f"{crypto_currency}/{bit2me_account_info.profile.currency_code}"

@@ -22,32 +22,22 @@ async def should_set_buy_sell_signals_config_properly(
 ) -> None:
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
 
-    remote_favourite_crypto_currencies = _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
+    _prepare_httpserver_mock(httpserver, bit2me_api_key, bit2me_api_secret)
 
     bit2me_remote_service = Bit2MeRemoteService()
     favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=bit2me_remote_service)
     async with await bit2me_remote_service.get_http_client() as client:
-        returned_favourite_crypto_currencies = await favourite_crypto_currency_service.find_all(client=client)
-        assert len(returned_favourite_crypto_currencies) == len(remote_favourite_crypto_currencies)
-
-        assert all(
-            returned_favourite_crypto_currency in remote_favourite_crypto_currencies
-            for returned_favourite_crypto_currency in returned_favourite_crypto_currencies
-        )
-
-        rest_crypto_currencies = [
-            currency for currency in MOCK_CRYPTO_CURRENCIES if currency not in remote_favourite_crypto_currencies
-        ]
-        selected_crypto_currency_to_add = faker.random_element(rest_crypto_currencies)
-
+        returned_favourite_crypto_currencies = await favourite_crypto_currency_service.find_all()
+        assert len(returned_favourite_crypto_currencies) <= 0
+        selected_crypto_currency_to_add = faker.random_element(MOCK_CRYPTO_CURRENCIES)
         non_favourite_crypto_currencies = await favourite_crypto_currency_service.get_non_favourite_crypto_currencies(
             client=client
         )
         assert selected_crypto_currency_to_add in non_favourite_crypto_currencies
 
         await favourite_crypto_currency_service.add(selected_crypto_currency_to_add)
-        returned_favourite_crypto_currencies = await favourite_crypto_currency_service.find_all(client=client)
-        assert len(returned_favourite_crypto_currencies) == len(remote_favourite_crypto_currencies) + 1
+        returned_favourite_crypto_currencies = await favourite_crypto_currency_service.find_all()
+        assert len(returned_favourite_crypto_currencies) == 1
         assert selected_crypto_currency_to_add in returned_favourite_crypto_currencies
 
         non_favourite_crypto_currencies = await favourite_crypto_currency_service.get_non_favourite_crypto_currencies(
@@ -56,8 +46,8 @@ async def should_set_buy_sell_signals_config_properly(
         assert selected_crypto_currency_to_add not in non_favourite_crypto_currencies
 
         await favourite_crypto_currency_service.remove(selected_crypto_currency_to_add)
-        returned_favourite_crypto_currencies = await favourite_crypto_currency_service.find_all(client=client)
-        assert len(returned_favourite_crypto_currencies) == len(remote_favourite_crypto_currencies)
+        returned_favourite_crypto_currencies = await favourite_crypto_currency_service.find_all()
+        assert len(returned_favourite_crypto_currencies) <= 0
         assert selected_crypto_currency_to_add not in returned_favourite_crypto_currencies
 
         non_favourite_crypto_currencies = await favourite_crypto_currency_service.get_non_favourite_crypto_currencies(
@@ -68,20 +58,7 @@ async def should_set_buy_sell_signals_config_properly(
         httpserver.check_assertions()
 
 
-def _prepare_httpserver_mock(
-    faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str
-) -> list[str]:
-    # Mock call /v1/currency-favorites/favorites
-    favourite_crypto_currencies = set(faker.random_choices(MOCK_CRYPTO_CURRENCIES, length=3))
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/currency-favorites/favorites", method="GET"
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.PERMANENT,
-    ).respond_with_json(
-        [{"currency": favourite_crypto_currency} for favourite_crypto_currency in favourite_crypto_currencies]
-    )
-
+def _prepare_httpserver_mock(httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str) -> list[str]:
     raw_market_config_list = load_raw_market_config_list()
     httpserver.expect(
         Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/market-config", method="GET").set_bit2me_api_key_and_secret(
@@ -89,5 +66,3 @@ def _prepare_httpserver_mock(
         ),
         handler_type=HandlerType.PERMANENT,
     ).respond_with_json(raw_market_config_list)
-
-    return favourite_crypto_currencies

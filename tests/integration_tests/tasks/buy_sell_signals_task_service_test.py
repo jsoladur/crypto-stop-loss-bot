@@ -58,7 +58,7 @@ async def should_send_via_telegram_notifications_after_detecting_buy_sell_signal
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
     await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.BUY_SELL_SIGNALS)
 
-    crypto_currency = _prepare_httpserver_mock(
+    crypto_currency = await _prepare_httpserver_mock(
         faker, httpserver, bit2me_api_key, bit2me_api_secret, fetch_ohlcv_return_value_filename
     )
 
@@ -110,14 +110,15 @@ async def _run_task_service(buy_sell_signals_task_service: BuySellSignalsTaskSer
         await buy_sell_signals_task_service.run()
 
 
-def _prepare_httpserver_mock(
+async def _prepare_httpserver_mock(
     faker: Faker,
     httpserver: HTTPServer,
     bit2me_api_key: str,
     bik2me_api_secret: str,
     fetch_ohlcv_return_value_filename: str,
 ) -> None:
-    favourite_crypto_currency = faker.random_element(MOCK_CRYPTO_CURRENCIES)
+    favourite_crypto_currency = await _prepare_favourite_crypto_currency(faker)
+
     registration_year = datetime.now(UTC).year - 1
     account_info = Bit2MeAccountInfoDto(
         registrationDate=faker.date_time_between_dates(
@@ -140,14 +141,6 @@ def _prepare_httpserver_mock(
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.PERMANENT,
     ).respond_with_json(fetch_ohlcv_return_value)
-
-    # Mock call /v1/currency-favorites/favorites
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/currency-favorites/favorites", method="GET"
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json([{"currency": favourite_crypto_currency}])
     # Trading Wallet Balances
     httpserver.expect(
         Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/wallet/balance", method="GET").set_bit2me_api_key_and_secret(
@@ -179,4 +172,11 @@ def _prepare_httpserver_mock(
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
 
+    return favourite_crypto_currency
+
+
+async def _prepare_favourite_crypto_currency(faker: Faker) -> str:
+    favourite_crypto_currency = faker.random_element(MOCK_CRYPTO_CURRENCIES)
+    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    await favourite_crypto_currency_service.add(favourite_crypto_currency)
     return favourite_crypto_currency
