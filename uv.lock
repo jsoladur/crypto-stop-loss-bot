@@ -41,6 +41,20 @@ wheels = [
 ]
 
 [[package]]
+name = "aiogram-dialog"
+version = "2.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiogram" },
+    { name = "cachetools" },
+    { name = "jinja2" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f2/b9/cfadb823578f9aff44f10928f8020dc4abda82078fba62295aae8869e894/aiogram_dialog-2.4.0.tar.gz", hash = "sha256:e8f0a811be3a58d1e48dfb9dd79108fd0e25c8ab7f8067c31c49f2f583ba4ecc", size = 80359, upload-time = "2025-07-08T22:41:41.078Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/50/d0/1c6511eb6840d06efbfba12cf6e59f688f9e314ab90af34027fa8069af75/aiogram_dialog-2.4.0-py3-none-any.whl", hash = "sha256:4e5fd8f7db66b6d252983c4025968b379069f4a2022db60bde36e5b91268b6ad", size = 112911, upload-time = "2025-07-08T22:41:47.61Z" },
+]
+
+[[package]]
 name = "aiogram3-form"
 version = "2.0.5"
 source = { registry = "https://pypi.org/simple" }
@@ -519,10 +533,11 @@ wheels = [
 
 [[package]]
 name = "crypto-trailing-stop"
-version = "0.43.6"
+version = "0.44.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiogram" },
+    { name = "aiogram-dialog" },
     { name = "aiogram3-form" },
     { name = "apscheduler" },
     { name = "authlib" },
@@ -569,6 +584,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiogram", specifier = ">=3.20.0.post0" },
+    { name = "aiogram-dialog", specifier = ">=2.4.0" },
     { name = "aiogram3-form", specifier = ">=2.0.5" },
     { name = "apscheduler", specifier = ">=3.11.0" },
     { name = "authlib", specifier = ">=1.6.0" },

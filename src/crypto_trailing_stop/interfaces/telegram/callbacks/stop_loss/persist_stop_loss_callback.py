@@ -10,6 +10,9 @@ from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service i
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
@@ -27,10 +30,13 @@ keyboards_builder = KeyboardsBuilder()
 messages_formatter = MessagesFormatter()
 bit2me_remote_service = Bit2MeRemoteService()
 ccxt_remote_service = CcxtRemoteService()
+favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
 stop_loss_percent_service = StopLossPercentService(
-    bit2me_remote_service=bit2me_remote_service, global_flag_service=GlobalFlagService()
+    favourite_crypto_currency_service=favourite_crypto_currency_service, global_flag_service=GlobalFlagService()
 )
-buy_sell_signals_config_service = BuySellSignalsConfigService(bit2me_remote_service=bit2me_remote_service)
+buy_sell_signals_config_service = BuySellSignalsConfigService(
+    favourite_crypto_currency_service=favourite_crypto_currency_service
+)
 orders_analytics_service = OrdersAnalyticsService(
     bit2me_remote_service=bit2me_remote_service,
     ccxt_remote_service=ccxt_remote_service,
@@ -39,6 +45,7 @@ orders_analytics_service = OrdersAnalyticsService(
     crypto_analytics_service=CryptoAnalyticsService(
         bit2me_remote_service=bit2me_remote_service,
         ccxt_remote_service=ccxt_remote_service,
+        favourite_crypto_currency_service=favourite_crypto_currency_service,
         buy_sell_signals_config_service=buy_sell_signals_config_service,
     ),
 )
