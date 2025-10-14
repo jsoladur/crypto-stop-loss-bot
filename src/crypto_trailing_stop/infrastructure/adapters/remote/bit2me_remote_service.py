@@ -85,11 +85,6 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
                     should_give_up = status_code not in (*BIT2ME_RETRYABLE_HTTP_STATUS_CODES, 500)
         return should_give_up
 
-    async def get_favourite_crypto_currencies(self, *, client: AsyncClient | None = None) -> list[str]:
-        response = await self._perform_http_request(url="/v1/currency-favorites/favorites", client=client)
-        favourite_crypto_currencies = [favourite_currency["currency"] for favourite_currency in response.json()]
-        return favourite_crypto_currencies
-
     async def get_account_info(self, *, client: AsyncClient | None = None) -> Bit2MeAccountInfoDto:
         response = await self._perform_http_request(url="/v1/account", client=client)
         ret = Bit2MeAccountInfoDto.model_validate_json(response.content)

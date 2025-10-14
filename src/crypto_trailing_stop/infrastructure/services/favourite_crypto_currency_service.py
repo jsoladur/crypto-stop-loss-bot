@@ -13,20 +13,11 @@ class FavouriteCryptoCurrencyService(metaclass=SingletonMeta):
     def __init__(self, bit2me_remote_service: Bit2MeRemoteService) -> None:
         self._bit2me_remote_service = bit2me_remote_service
 
-    async def find_all(self, *, client: AsyncClient | None = None) -> list[str]:
+    async def find_all(self) -> list[str]:
         favourite_crypto_currencies = await FavouriteCryptoCurrency.objects()
-        database_favourites = {
-            favourite_crypto_currency.currency for favourite_crypto_currency in favourite_crypto_currencies
-        }
-        operating_exchange_favourites = await self._bit2me_remote_service.get_favourite_crypto_currencies(client=client)
-        for exchange_favourite in operating_exchange_favourites:
-            if exchange_favourite not in database_favourites:
-                logger.warning(
-                    f"Favourite crypto currency {exchange_favourite} is not in the database, adding it automatically"
-                )
-                await self.add(exchange_favourite)
-        all_favourites = database_favourites.union(operating_exchange_favourites)
-        ret = sorted([favourite.upper() for favourite in all_favourites])
+        ret = sorted(
+            [favourite_crypto_currency.currency.upper() for favourite_crypto_currency in favourite_crypto_currencies]
+        )
         return ret
 
     async def add(self, currency: str) -> None:
@@ -46,7 +37,7 @@ class FavouriteCryptoCurrencyService(metaclass=SingletonMeta):
 
     async def get_non_favourite_crypto_currencies(self, *, client: AsyncClient | None = None) -> list[str]:
         all_trading_crypto_currencies = await self._bit2me_remote_service.get_trading_crypto_currencies(client=client)
-        favourite_crypto_currencies = await self.find_all(client=client)
+        favourite_crypto_currencies = await self.find_all()
         ret = sorted(
             [currency for currency in all_trading_crypto_currencies if currency not in favourite_crypto_currencies]
         )
