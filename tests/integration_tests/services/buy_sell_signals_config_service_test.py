@@ -4,7 +4,8 @@ import pytest
 from faker import Faker
 from pytest_httpserver import HTTPServer
 
-from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
@@ -22,7 +23,7 @@ async def should_set_buy_sell_signals_config_properly(
 ) -> None:
     _ = integration_test_jobs_disabled_env
 
-    configuration_properties = get_configuration_properties()
+    configuration_properties: ConfigurationProperties = get_application_container().configuration_properties()
 
     buy_sell_signals_config_service = BuySellSignalsConfigService(
         favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())

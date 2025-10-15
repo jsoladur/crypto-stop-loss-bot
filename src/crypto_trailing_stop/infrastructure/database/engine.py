@@ -6,14 +6,17 @@ from piccolo.engine.base import Engine
 from piccolo.engine.sqlite import SQLiteEngine
 from piccolo.table import Table
 
-from crypto_trailing_stop.config import get_configuration_properties
-
 _engine: Engine | None = None
 
 
 async def init_database() -> None:
     global _engine
-    configuration_properties = get_configuration_properties()
+
+    # FIXME: Review this import here!
+    from crypto_trailing_stop.config.dependencies import get_application_container
+
+    application_container = get_application_container()
+    configuration_properties = application_container.configuration_properties()
     if configuration_properties.database_in_memory:  # pragma: no cover
         _engine = SQLiteEngine(path=":memory:")
     else:

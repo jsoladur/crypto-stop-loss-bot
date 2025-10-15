@@ -3,8 +3,7 @@ from asyncio import Lock
 
 import pydash
 
-from crypto_trailing_stop.commons.patterns import SingletonMeta
-from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.database.models.stop_loss_percent import StopLossPercent
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
@@ -16,11 +15,14 @@ from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item impo
 logger = logging.getLogger(__name__)
 
 
-class StopLossPercentService(metaclass=SingletonMeta):
+class StopLossPercentService:
     def __init__(
-        self, favourite_crypto_currency_service: FavouriteCryptoCurrencyService, global_flag_service: GlobalFlagService
+        self,
+        configuration_properties: ConfigurationProperties,
+        favourite_crypto_currency_service: FavouriteCryptoCurrencyService,
+        global_flag_service: GlobalFlagService,
     ) -> None:
-        self._configuration_properties = get_configuration_properties()
+        self._configuration_properties = configuration_properties
         self._favourite_crypto_currency_service = favourite_crypto_currency_service
         self._global_flag_service = global_flag_service
         self._lock = Lock()

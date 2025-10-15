@@ -3,7 +3,6 @@ from datetime import datetime
 
 import pandas as pd
 
-from crypto_trailing_stop.config import get_configuration_properties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.tasks.vo.types import RSIState
 
@@ -39,7 +38,10 @@ class CryptoMarketMetrics:
 
     @property
     def rsi_state(self) -> RSIState:
-        configuration_properties = get_configuration_properties()
+        # FIXME: Review this import here!
+        from crypto_trailing_stop.config.dependencies import get_application_container
+
+        configuration_properties = get_application_container().configuration_properties()
         main_trend_is_up = bool(self.closing_price > self.ema_long)
         if self.rsi > configuration_properties.buy_sell_signals_rsi_overbought:
             rsi_state = "bullish_momentum" if main_trend_is_up else "overbought"

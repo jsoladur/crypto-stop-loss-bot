@@ -1,7 +1,6 @@
 import logging
 
-from crypto_trailing_stop.commons.patterns import SingletonMeta
-from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.database.models.global_flag import GlobalFlag
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.vo.global_flag_item import GlobalFlagItem
@@ -9,9 +8,9 @@ from crypto_trailing_stop.infrastructure.services.vo.global_flag_item import Glo
 logger = logging.getLogger(__name__)
 
 
-class GlobalFlagService(metaclass=SingletonMeta):
-    def __init__(self) -> None:
-        self._configuration_properties = get_configuration_properties()
+class GlobalFlagService:
+    def __init__(self, configuration_properties: ConfigurationProperties) -> None:
+        self._configuration_properties = configuration_properties
 
     async def find_all(self) -> list[GlobalFlagItem]:
         flags = await GlobalFlag.objects()

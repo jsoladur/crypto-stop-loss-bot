@@ -7,7 +7,7 @@ from faker import Faker
 from pytest_httpserver import HTTPServer
 
 from crypto_trailing_stop.commons.constants import SIGNALS_EVALUATION_RESULT_EVENT_NAME
-from crypto_trailing_stop.config import get_event_emitter
+from crypto_trailing_stop.config.dependencies import get_event_emitter
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import SignalsEvaluationResult
@@ -129,6 +129,7 @@ async def _invoke_on_signals_evaluation_result(
     market_signal_service: MarketSignalService, signals: SignalsEvaluationResult, *, use_event_emitter: bool
 ) -> None:
     if use_event_emitter:
+        # FIXME: Review this test!
         event_emitter = get_event_emitter()
         event_emitter.emit(SIGNALS_EVALUATION_RESULT_EVENT_NAME, signals)
         await asyncio.sleep(delay=1.0)

@@ -4,7 +4,7 @@ from urllib.parse import urlparse, urlunparse
 
 from fastapi import APIRouter, Query, Request, Response, status
 
-from crypto_trailing_stop.config import get_configuration_properties, get_oauth_context
+from crypto_trailing_stop.config.dependencies import get_application_container, get_oauth_context
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.dtos.login_dto import LoginDto
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
@@ -14,10 +14,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/login", tags=["login"])
 
-configuration_properties = get_configuration_properties()
-keyboards_builder = KeyboardsBuilder()
-session_storage_service = SessionStorageService()
-telegram_service = TelegramService(session_storage_service=session_storage_service, keyboards_builder=keyboards_builder)
+application_container = get_application_container()
+configuration_properties = application_container.configuration_properties()
+keyboards_builder: KeyboardsBuilder = (
+    application_container.interfaces_container().telegram_container().keyboards_builder()
+)
+session_storage_service: SessionStorageService = (
+    application_container.infrastructure_container().services_container().session_storage_service()
+)
+telegram_service: TelegramService = application_container.interfaces_container().telegram_container().telegram_service()
 
 
 @router.get("/oauth")
@@ -30,7 +35,6 @@ async def login(login_query_params: Annotated[LoginDto, Query()], request: Reque
         response = Response(status_code=status.HTTP_200_OK)
     else:
         request.session["login_query_params"] = login_query_params.model_dump(mode="python")
-        # TODO: Refactor this to use a more generic URL building method
         parsed_public_domain = urlparse(configuration_properties.public_domain)
         parsed_login_callback_url = request.url_for("login_callback")
         redirect_uri = urlunparse(

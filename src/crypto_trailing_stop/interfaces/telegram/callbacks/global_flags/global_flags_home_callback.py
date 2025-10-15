@@ -4,7 +4,7 @@ from aiogram import html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from crypto_trailing_stop.config import get_dispacher
+from crypto_trailing_stop.config.dependencies import get_dispacher
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception

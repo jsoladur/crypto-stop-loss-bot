@@ -2,14 +2,13 @@ import logging
 
 from httpx import AsyncClient
 
-from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.database.models.favourite_crypto_currency import FavouriteCryptoCurrency
 
 logger = logging.getLogger(__name__)
 
 
-class FavouriteCryptoCurrencyService(metaclass=SingletonMeta):
+class FavouriteCryptoCurrencyService:
     def __init__(self, bit2me_remote_service: Bit2MeRemoteService) -> None:
         self._bit2me_remote_service = bit2me_remote_service
 

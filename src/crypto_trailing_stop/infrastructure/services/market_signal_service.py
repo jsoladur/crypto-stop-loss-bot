@@ -2,9 +2,10 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import override
 
+from pyee.asyncio import AsyncIOEventEmitter
+
 from crypto_trailing_stop.commons.constants import SIGNALS_EVALUATION_RESULT_EVENT_NAME, TRIGGER_BUY_ACTION_EVENT_NAME
-from crypto_trailing_stop.commons.patterns import SingletonABCMeta
-from crypto_trailing_stop.config import get_configuration_properties, get_event_emitter
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.database.models.market_signal import MarketSignal
 from crypto_trailing_stop.infrastructure.services.base import AbstractEventHandlerService
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
@@ -14,15 +15,15 @@ from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
 logger = logging.getLogger(__name__)
 
 
-class MarketSignalService(AbstractEventHandlerService, metaclass=SingletonABCMeta):
-    def __init__(self) -> None:
+class MarketSignalService(AbstractEventHandlerService):
+    def __init__(self, configuration_properties: ConfigurationProperties, event_emitter: AsyncIOEventEmitter) -> None:
         super().__init__()
-        self._configuration_properties = get_configuration_properties()
+        self._configuration_properties = configuration_properties
+        self._event_emitter = event_emitter
 
     @override
     def configure(self) -> None:
-        event_emitter = get_event_emitter()
-        event_emitter.add_listener(SIGNALS_EVALUATION_RESULT_EVENT_NAME, self.on_signals_evaluation_result)
+        self._event_emitter.add_listener(SIGNALS_EVALUATION_RESULT_EVENT_NAME, self.on_signals_evaluation_result)
 
     async def find_by_symbol(
         self, symbol: str, *, timeframe: Timeframe | None = None, ascending: bool = True
@@ -100,8 +101,7 @@ class MarketSignalService(AbstractEventHandlerService, metaclass=SingletonABCMet
         new_market_signals = await self._save_new_market_signals(signals)
         for new_market_signal in new_market_signals:
             if new_market_signal.is_candidate_to_trigger_buy_action:
-                event_emitter = get_event_emitter()
-                event_emitter.emit(TRIGGER_BUY_ACTION_EVENT_NAME, new_market_signal)
+                self._event_emitter.emit(TRIGGER_BUY_ACTION_EVENT_NAME, new_market_signal)
 
     async def _save_new_market_signals(self, signals: SignalsEvaluationResult) -> list[MarketSignalItem]:
         if signals.timeframe != "4h":

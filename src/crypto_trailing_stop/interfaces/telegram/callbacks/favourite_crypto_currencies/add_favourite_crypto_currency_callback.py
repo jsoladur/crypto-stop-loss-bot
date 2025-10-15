@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 from aiogram_dialog import DialogManager, StartMode
 
-from crypto_trailing_stop.config import get_dispacher
+from crypto_trailing_stop.config.dependencies import get_dispacher
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.callbacks.favourite_crypto_currencies.dialog import (
     FavouriteCryptoCurrencyStates,

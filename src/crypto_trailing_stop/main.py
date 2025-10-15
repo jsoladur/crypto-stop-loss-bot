@@ -12,7 +12,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from crypto_trailing_stop.config import get_configuration_properties, get_dispacher, get_scheduler, get_telegram_bot
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
+from crypto_trailing_stop.config.dependencies import (
+    get_application_container,
+    get_dispacher,
+    get_scheduler,
+    get_telegram_bot,
+)
 from crypto_trailing_stop.infrastructure.database import init_database
 from crypto_trailing_stop.infrastructure.services.auto_entry_trader_event_handler_service import (
     AutoEntryTraderEventHandlerService,
@@ -20,8 +26,6 @@ from crypto_trailing_stop.infrastructure.services.auto_entry_trader_event_handle
 from crypto_trailing_stop.infrastructure.services.base import AbstractEventHandlerService
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
-from crypto_trailing_stop.interfaces.controllers.health_controller import router as health_router
-from crypto_trailing_stop.interfaces.controllers.login_controller import router as login_router
 
 logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -62,7 +66,8 @@ def _get_project_version() -> str:
 
 
 @asynccontextmanager
-async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
+async def _lifespan(_: FastAPI) -> AsyncGenerator[None]:
+    application_container = get_application_container()
     # Initialize database
     await init_database()
     # Background task manager initialization
@@ -70,7 +75,7 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
     logger.info(f"{len(task_manager.get_tasks())} jobs have been loaded!")
     # Telegram bot initialization
     # Initialize Bot instance with default bot properties which will be passed to all API calls
-    configuration_properties = get_configuration_properties()
+    configuration_properties: ConfigurationProperties = application_container.configuration_properties()
 
     # And the run events dispatching
     dp = get_dispacher()
@@ -106,10 +111,13 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
 def _boostrap_app() -> None:
     global app
     # Create FastAPI app with lifespan context manager
-    configuration_properties = get_configuration_properties()
-    # to initialize TaskManager
-    # and clean up resources on shutdown
-    # (if needed)
+    application_container = get_application_container()
+    configuration_properties: ConfigurationProperties = application_container.configuration_properties()
+
+    # FIXME: Review this import here!
+    from crypto_trailing_stop.interfaces.controllers.health_controller import router as health_router
+    from crypto_trailing_stop.interfaces.controllers.login_controller import router as login_router
+
     version = _get_project_version()
     app = FastAPI(
         title="Crypto Trailing Stop API",
@@ -120,7 +128,6 @@ def _boostrap_app() -> None:
         lifespan=_lifespan,
     )
     app.add_middleware(SessionMiddleware, secret_key=configuration_properties.session_secret_key)
-    configuration_properties = get_configuration_properties()
     if configuration_properties.cors_enabled:  # pragma: no cover
         app.add_middleware(
             CORSMiddleware,

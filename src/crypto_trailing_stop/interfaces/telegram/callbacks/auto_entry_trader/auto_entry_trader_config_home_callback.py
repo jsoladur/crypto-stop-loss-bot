@@ -4,7 +4,7 @@ from aiogram import html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from crypto_trailing_stop.config import get_dispacher
+from crypto_trailing_stop.config.dependencies import get_dispacher
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (

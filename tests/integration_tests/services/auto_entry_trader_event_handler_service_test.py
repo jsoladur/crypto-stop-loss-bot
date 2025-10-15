@@ -14,7 +14,7 @@ from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
 from crypto_trailing_stop.commons.constants import BIT2ME_TAKER_FEES, TRIGGER_BUY_ACTION_EVENT_NAME
-from crypto_trailing_stop.config import get_event_emitter
+from crypto_trailing_stop.config.dependencies import get_event_emitter
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_dto import (
@@ -148,6 +148,7 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
         ) as notify_fatal_error_via_telegram_mock:
             with patch.object(Bot, "send_message"):
                 if use_event_emitter:
+                    # FIXME: Review this test!
                     event_emitter = get_event_emitter()
                     event_emitter.emit(TRIGGER_BUY_ACTION_EVENT_NAME, market_signal_item)
                     await asyncio.sleep(delay=15.0)

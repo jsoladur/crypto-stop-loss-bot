@@ -7,7 +7,7 @@ from aiogram_dialog import Dialog, DialogManager, Window
 from aiogram_dialog.widgets.kbd import ScrollingGroup, Select
 from aiogram_dialog.widgets.text import Format
 
-from crypto_trailing_stop.config import get_dispacher
+from crypto_trailing_stop.config.dependencies import get_dispacher
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
     FavouriteCryptoCurrencyService,
