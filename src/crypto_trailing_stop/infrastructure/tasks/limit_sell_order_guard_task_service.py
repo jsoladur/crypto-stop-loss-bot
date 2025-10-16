@@ -154,9 +154,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             + f"Avg Buy Price = {guard_metrics.avg_buy_price} {fiat_currency} / "
             + f"Break-Even Price = {guard_metrics.break_even_price} {fiat_currency} / "
             + f"Stop Loss = {guard_metrics.stop_loss_percent_value}% / "
-            + f"Flex. Stop Loss = {guard_metrics.breathe_stop_loss_percent_value}% / "
             + f"Stop Price = {guard_metrics.safeguard_stop_price} {fiat_currency} / "
-            + f"Flex. Stop Price = {guard_metrics.breathe_safeguard_stop_price} {fiat_currency} / "
             + f"ATR Take Profit Limit price = {guard_metrics.suggested_take_profit_limit_price} {fiat_currency} / "
             + f"ATR value = {guard_metrics.current_attr_value} {fiat_currency} / "
             + f"Current Price = {tickers_close_formatted} {fiat_currency}"
@@ -259,19 +257,15 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         # Initialize variables
         is_marked_for_immediate_sell = immediate_sell_order_item is not None
         percent_to_sell = immediate_sell_order_item.percent_to_sell if is_marked_for_immediate_sell else 100.0
-        stop_loss_triggered, stop_loss_reached_at_closing_price, stop_loss_reached_at_current_price = (
+        stop_loss_triggered, take_profit_reached, exit_on_sell_signal, exit_on_bearish_divergence = (
+            False,
             False,
             False,
             False,
         )
-        take_profit_reached, exit_on_sell_signal, exit_on_bearish_divergence = (False, False, False)
         if not is_marked_for_immediate_sell:
             # Check if the safeguard stop price is reached
-            stop_loss_triggered, stop_loss_reached_at_closing_price, stop_loss_reached_at_current_price = (
-                self._is_stop_loss_triggered(
-                    tickers=tickers, guard_metrics=guard_metrics, last_candle_market_metrics=last_candle_market_metrics
-                )
-            )
+            stop_loss_triggered = self._is_stop_loss_triggered(tickers=tickers, guard_metrics=guard_metrics)
             if not stop_loss_triggered:
                 # Calculate exit_on_sell_signal
                 (
@@ -291,8 +285,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                     )
         return AutoExitReason(
             is_marked_for_immediate_sell=is_marked_for_immediate_sell,
-            stop_loss_reached_at_closing_price=stop_loss_reached_at_closing_price,
-            stop_loss_reached_at_current_price=stop_loss_reached_at_current_price,
+            stop_loss_triggered=stop_loss_triggered,
             exit_on_bearish_divergence=exit_on_bearish_divergence,
             exit_on_sell_signal=exit_on_sell_signal,
             take_profit_reached=take_profit_reached,
@@ -300,22 +293,12 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         )
 
     def _is_stop_loss_triggered(
-        self,
-        *,
-        tickers: Bit2MeTickersDto,
-        guard_metrics: LimitSellOrderGuardMetrics,
-        last_candle_market_metrics: CryptoMarketMetrics,
+        self, *, tickers: Bit2MeTickersDto, guard_metrics: LimitSellOrderGuardMetrics
     ) -> tuple[bool, bool, bool]:
         # XXX: [JMSOLA] Check if the safeguard stop price is reached
-        # If the latest candle's closing price is below the safeguard stop price,
-        # or the current sell price (bid) is below the breathe safeguard stop price
-        # We want to give breathe room to the price to fluctuate
-        stop_loss_reached_at_closing_price = bool(
-            last_candle_market_metrics.closing_price < guard_metrics.safeguard_stop_price
-        )
-        stop_loss_reached_at_current_price = bool(tickers.bid_or_close < guard_metrics.breathe_safeguard_stop_price)
-        stop_loss_triggered = stop_loss_reached_at_closing_price or stop_loss_reached_at_current_price
-        return stop_loss_triggered, stop_loss_reached_at_closing_price, stop_loss_reached_at_current_price
+        # or the current sell price (bid) is below the safeguard stop price
+        stop_loss_triggered = bool(tickers.bid_or_close < guard_metrics.safeguard_stop_price)
+        return stop_loss_triggered
 
     async def _should_auto_exit_on_sell_or_bearish_divergence_1h_signal(
         self,
@@ -396,16 +379,10 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                 + f"current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency})."
             )
         elif auto_exit_reason.stop_loss_triggered:
-            if auto_exit_reason.stop_loss_reached_at_closing_price:
-                price_message = (
-                    f"Closing {crypto_currency} price ({last_candle_market_metrics.closing_price} {fiat_currency})"
-                )
-                stop_price_message = (
-                    f"safeguard stop price calculated ({guard_metrics.safeguard_stop_price} {fiat_currency})"
-                )
-            else:
-                price_message = f"Current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency})"
-                stop_price_message = f"breathe safeguard stop price calculated ({guard_metrics.breathe_safeguard_stop_price} {fiat_currency})"  # noqa: E501
+            price_message = f"Current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency})"
+            stop_price_message = (
+                f"safeguard stop price calculated ({guard_metrics.safeguard_stop_price} {fiat_currency})"
+            )
             details = f"{price_message} is lower than the {stop_price_message}."
         elif auto_exit_reason.exit_on_bearish_divergence:
             details = (
