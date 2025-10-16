@@ -21,7 +21,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
-from crypto_trailing_stop.infrastructure.services.base import AbstractService
+from crypto_trailing_stop.infrastructure.services.base import AbstractEventHandlerService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
@@ -45,7 +45,7 @@ from crypto_trailing_stop.interfaces.telegram.services.telegram_service import T
 logger = logging.getLogger(__name__)
 
 
-class AutoEntryTraderEventHandlerService(AbstractService):
+class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
     def __init__(
         self,
         configuration_properties: ConfigurationProperties,

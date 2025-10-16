@@ -14,7 +14,6 @@ from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
 from crypto_trailing_stop.commons.constants import BIT2ME_TAKER_FEES, TRIGGER_BUY_ACTION_EVENT_NAME
-from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_dto import (
@@ -88,6 +87,8 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
     enable_atr_auto_take_profit: bool,
     integration_test_env: tuple[HTTPServer, str],
 ) -> None:
+    from crypto_trailing_stop.config.dependencies import get_application_container
+
     """
     Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
     """
@@ -150,8 +151,7 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
         ) as notify_fatal_error_via_telegram_mock:
             with patch.object(Bot, "send_message"):
                 if use_event_emitter:
-                    application_container = get_application_container()
-                    event_emitter = application_container.infrastructure_container().event_emitter()
+                    event_emitter = get_application_container().infrastructure_container().event_emitter()
                     event_emitter.emit(TRIGGER_BUY_ACTION_EVENT_NAME, market_signal_item)
                     await asyncio.sleep(delay=15.0)
                 else:
