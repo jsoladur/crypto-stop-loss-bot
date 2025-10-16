@@ -2,9 +2,10 @@ import logging
 from typing import Annotated
 from urllib.parse import urlparse, urlunparse
 
+from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Query, Request, Response, status
 
-from crypto_trailing_stop.config.dependencies import get_application_container, get_oauth_context
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.dtos.login_dto import LoginDto
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
@@ -16,12 +17,11 @@ router = APIRouter(prefix="/login", tags=["login"])
 
 application_container = get_application_container()
 configuration_properties = application_container.configuration_properties()
+oauth_context: OAuth = application_container.interfaces_container().controllers_container().oauth_context()
 keyboards_builder: KeyboardsBuilder = (
     application_container.interfaces_container().telegram_container().keyboards_builder()
 )
-session_storage_service: SessionStorageService = (
-    application_container.infrastructure_container().services_container().session_storage_service()
-)
+session_storage_service: SessionStorageService = application_container.session_storage_service()
 telegram_service: TelegramService = application_container.interfaces_container().telegram_container().telegram_service()
 
 
@@ -48,7 +48,6 @@ async def login(login_query_params: Annotated[LoginDto, Query()], request: Reque
             )
         )
         logger.info(f"Redirecting to Google OAuth with redirect URI: {redirect_uri}")
-        oauth_context = get_oauth_context()
         google_auth = oauth_context.create_client("google")
         response = await google_auth.authorize_redirect(request, redirect_uri)
     return response
@@ -65,7 +64,6 @@ async def login_callback(request: Request) -> Response:
         )
     else:
         login_query_params = LoginDto.model_validate(request.session["login_query_params"])
-        oauth_context = get_oauth_context()
         google_auth = oauth_context.create_client("google")
         token = await google_auth.authorize_access_token(request)
         userinfo = request.session["userinfo"] = token["userinfo"]

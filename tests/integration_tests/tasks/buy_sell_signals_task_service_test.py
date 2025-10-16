@@ -16,6 +16,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_bal
     Bit2MeTradingWalletBalanceDto,
 )
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.database.models.push_notification import PushNotification
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
@@ -177,6 +178,8 @@ async def _prepare_httpserver_mock(
 
 async def _prepare_favourite_crypto_currency(faker: Faker) -> str:
     favourite_crypto_currency = faker.random_element(MOCK_CRYPTO_CURRENCIES)
-    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
+        get_application_container().infrastructure_container().services_container().favourite_crypto_currency_service()
+    )
     await favourite_crypto_currency_service.add(favourite_crypto_currency)
     return favourite_crypto_currency

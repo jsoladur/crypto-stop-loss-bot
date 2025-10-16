@@ -1,28 +1,26 @@
 import logging
 import re
 
-from aiogram import F, html
+from aiogram import Dispatcher, F, html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from crypto_trailing_stop.config.dependencies import get_dispacher
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
-from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
-    FavouriteCryptoCurrencyService,
-)
-from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 logger = logging.getLogger(__name__)
 
-dp = get_dispacher()
-session_storage_service = SessionStorageService()
+application_container = get_application_container()
+dp: Dispatcher = application_container.dispatcher()
+session_storage_service: SessionStorageService = application_container.session_storage_service()
+keyboards_builder: KeyboardsBuilder = (
+    application_container.interfaces_container().telegram_container().keyboards_builder()
+)
 keyboards_builder = KeyboardsBuilder()
-stop_loss_percent_service = StopLossPercentService(
-    favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService()),
-    global_flag_service=GlobalFlagService(),
+stop_loss_percent_service: StopLossPercentService = (
+    application_container.infrastructure_container().services_container().stop_loss_percent_service()
 )
 
 

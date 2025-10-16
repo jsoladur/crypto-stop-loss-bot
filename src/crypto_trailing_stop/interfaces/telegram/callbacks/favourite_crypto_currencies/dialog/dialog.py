@@ -1,14 +1,13 @@
 import logging
 from typing import Any
 
-from aiogram import html
+from aiogram import Dispatcher, html
 from aiogram.types import CallbackQuery
 from aiogram_dialog import Dialog, DialogManager, Window
 from aiogram_dialog.widgets.kbd import ScrollingGroup, Select
 from aiogram_dialog.widgets.text import Format
 
-from crypto_trailing_stop.config.dependencies import get_dispacher
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
     FavouriteCryptoCurrencyService,
 )
@@ -20,9 +19,14 @@ from crypto_trailing_stop.interfaces.telegram.keyboards_builder import Keyboards
 
 logger = logging.getLogger(__name__)
 
-keyboards_builder = KeyboardsBuilder()
-dp = get_dispacher()
-favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+application_container = get_application_container()
+dp: Dispatcher = application_container.dispatcher()
+keyboards_builder: KeyboardsBuilder = (
+    application_container.interfaces_container().telegram_container().keyboards_builder()
+)
+favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
+    application_container.infrastructure_container().services_container().favourite_crypto_currency_service()
+)
 
 
 async def _on_crypto_currency_selected(callback_query: CallbackQuery, _: Any, __: DialogManager, currency: str) -> None:

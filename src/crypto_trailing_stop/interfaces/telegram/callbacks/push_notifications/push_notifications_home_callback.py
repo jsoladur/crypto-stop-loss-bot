@@ -1,10 +1,10 @@
 import logging
 
-from aiogram import html
+from aiogram import Dispatcher, html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from crypto_trailing_stop.config.dependencies import get_dispacher
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
@@ -12,10 +12,15 @@ from crypto_trailing_stop.interfaces.telegram.keyboards_builder import Keyboards
 
 logger = logging.getLogger(__name__)
 
-dp = get_dispacher()
-session_storage_service = SessionStorageService()
-keyboards_builder = KeyboardsBuilder()
-push_notification_service = PushNotificationService()
+application_container = get_application_container()
+dp: Dispatcher = application_container.dispatcher()
+session_storage_service: SessionStorageService = application_container.session_storage_service()
+keyboards_builder: KeyboardsBuilder = (
+    application_container.interfaces_container().telegram_container().keyboards_builder()
+)
+push_notification_service: PushNotificationService = (
+    application_container.infrastructure_container().services_container().push_notification_service()
+)
 
 
 @dp.callback_query(lambda c: c.data == "push_notificacions_home")

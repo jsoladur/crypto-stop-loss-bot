@@ -1,11 +1,10 @@
 import logging
 
-from aiogram import html
+from aiogram import Dispatcher, html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from crypto_trailing_stop.config.dependencies import get_dispacher
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
     FavouriteCryptoCurrencyService,
 )
@@ -15,10 +14,15 @@ from crypto_trailing_stop.interfaces.telegram.keyboards_builder import Keyboards
 
 logger = logging.getLogger(__name__)
 
-dp = get_dispacher()
-session_storage_service = SessionStorageService()
-keyboards_builder = KeyboardsBuilder()
-favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+application_container = get_application_container()
+dp: Dispatcher = application_container.dispatcher()
+session_storage_service: SessionStorageService = application_container.session_storage_service()
+keyboards_builder: KeyboardsBuilder = (
+    application_container.interfaces_container().telegram_container().keyboards_builder()
+)
+favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
+    application_container.infrastructure_container().services_container().favourite_crypto_currency_service()
+)
 
 
 @dp.callback_query(lambda c: c.data == "favourite_crypto_currencies_home")

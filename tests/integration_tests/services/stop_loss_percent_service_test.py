@@ -5,6 +5,7 @@ from faker import Faker
 from pytest_httpserver import HTTPServer
 
 from crypto_trailing_stop.commons.constants import DEFAULT_TRAILING_STOP_LOSS_PERCENT
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
     FavouriteCryptoCurrencyService,
@@ -52,7 +53,9 @@ async def should_set_stop_loss_percent_service_properly(
 
 
 async def _prepare_favourite_crypto_currencies(faker: Faker) -> list[str]:
-    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
+        get_application_container().infrastructure_container().services_container().favourite_crypto_currency_service()
+    )
     favourite_crypto_currencies = set(faker.random_choices(MOCK_CRYPTO_CURRENCIES, length=3))
     for crypto_currency in favourite_crypto_currencies:
         await favourite_crypto_currency_service.add(crypto_currency)

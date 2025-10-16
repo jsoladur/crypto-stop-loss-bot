@@ -1,21 +1,26 @@
 import logging
 import re
 
-from aiogram import F, html
+from aiogram import Dispatcher, F, html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from crypto_trailing_stop.config.dependencies import get_dispacher
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 logger = logging.getLogger(__name__)
 
-dp = get_dispacher()
-session_storage_service = SessionStorageService()
-keyboards_builder = KeyboardsBuilder()
-bit2_me_remote_service = Bit2MeRemoteService()
+application_container = get_application_container()
+dp: Dispatcher = application_container.dispatcher()
+session_storage_service: SessionStorageService = application_container.session_storage_service()
+keyboards_builder: KeyboardsBuilder = (
+    application_container.interfaces_container().telegram_container().keyboards_builder()
+)
+bit2me_remote_service: Bit2MeRemoteService = (
+    application_container.infrastructure_container().adapters_container().bit2me_remote_service()
+)
 
 REGEX = r"^immediate_sell_order\$\$(.+)\$\$(.+)$"
 
@@ -27,7 +32,7 @@ async def immediate_sell_order_confirmation_callback_handler(callback_query: Cal
         match = re.match(REGEX, callback_query.data)
         sell_order_id = match.group(1)
         sell_percent = float(match.group(2))
-        sell_order = await bit2_me_remote_service.get_order_by_id(sell_order_id)
+        sell_order = await bit2me_remote_service.get_order_by_id(sell_order_id)
         crypto_currency, *_ = sell_order.symbol.split("/")
         formatted_order_ammount = html.bold(f"{sell_order.order_amount} {crypto_currency}")
         await callback_query.message.answer(

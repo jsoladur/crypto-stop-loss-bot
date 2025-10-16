@@ -8,6 +8,7 @@ from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 from werkzeug import Response
 
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -41,7 +42,9 @@ async def should_calculate_all_limit_sell_order_guard_metrics_properly(
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
     bit2me_remote_service = Bit2MeRemoteService()
     ccxt_remote_service = CcxtRemoteService()
-    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
+        get_application_container().infrastructure_container().services_container().favourite_crypto_currency_service()
+    )
     buy_sell_signals_config_service = BuySellSignalsConfigService(
         favourite_crypto_currency_service=favourite_crypto_currency_service
     )

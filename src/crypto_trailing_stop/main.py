@@ -8,24 +8,22 @@ from contextlib import asynccontextmanager
 from os import getcwd, listdir, path
 from pathlib import Path
 
+from aiogram import Bot, Dispatcher
+from apscheduler.schedulers.base import BaseScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
-from crypto_trailing_stop.config.dependencies import (
-    get_application_container,
-    get_dispacher,
-    get_scheduler,
-    get_telegram_bot,
-)
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.database import init_database
 from crypto_trailing_stop.infrastructure.services.auto_entry_trader_event_handler_service import (
     AutoEntryTraderEventHandlerService,
 )
 from crypto_trailing_stop.infrastructure.services.base import AbstractEventHandlerService
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
-from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
+from crypto_trailing_stop.interfaces.controllers.health_controller import router as health_router
+from crypto_trailing_stop.interfaces.controllers.login_controller import router as login_router
 
 logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -71,18 +69,19 @@ async def _lifespan(_: FastAPI) -> AsyncGenerator[None]:
     # Initialize database
     await init_database()
     # Background task manager initialization
-    task_manager = await get_task_manager_instance().load_tasks()
+    task_manager = await application_container.infrastructure_container().tasks_container().task_manager().load_tasks()
     logger.info(f"{len(task_manager.get_tasks())} jobs have been loaded!")
     # Telegram bot initialization
     # Initialize Bot instance with default bot properties which will be passed to all API calls
     configuration_properties: ConfigurationProperties = application_container.configuration_properties()
 
     # And the run events dispatching
-    dp = get_dispacher()
+    dp: Dispatcher = application_container.dispatcher()
     if configuration_properties.telegram_bot_enabled:  # pragma: no cover
-        asyncio.create_task(dp.start_polling(get_telegram_bot()))
+        telegram_bot: Bot = application_container.interfaces_container().telegram_container().telegram_bot()
+        asyncio.create_task(dp.start_polling(telegram_bot))
 
-    scheduler = get_scheduler()
+    scheduler: BaseScheduler = application_container.infrastructure_container().tasks_container().scheduler()
     if configuration_properties.background_tasks_enabled:
         scheduler.start()
 
@@ -113,10 +112,6 @@ def _boostrap_app() -> None:
     # Create FastAPI app with lifespan context manager
     application_container = get_application_container()
     configuration_properties: ConfigurationProperties = application_container.configuration_properties()
-
-    # FIXME: Review this import here!
-    from crypto_trailing_stop.interfaces.controllers.health_controller import router as health_router
-    from crypto_trailing_stop.interfaces.controllers.login_controller import router as login_router
 
     version = _get_project_version()
     app = FastAPI(

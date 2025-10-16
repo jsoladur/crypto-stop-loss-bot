@@ -1,19 +1,22 @@
 import logging
 import re
 
-from aiogram import F, html
+from aiogram import Dispatcher, F, html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from crypto_trailing_stop.config.dependencies import get_dispacher
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 logger = logging.getLogger(__name__)
 
-dp = get_dispacher()
-session_storage_service = SessionStorageService()
-keyboards_builder = KeyboardsBuilder()
+application_container = get_application_container()
+dp: Dispatcher = application_container.dispatcher()
+session_storage_service: SessionStorageService = application_container.session_storage_service()
+keyboards_builder: KeyboardsBuilder = (
+    application_container.interfaces_container().telegram_container().keyboards_builder()
+)
 
 
 @dp.callback_query(F.data.regexp(r"^choose_metrics_candle\$\$(.+)$"))
