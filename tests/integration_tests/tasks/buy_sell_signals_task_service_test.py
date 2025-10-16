@@ -16,7 +16,6 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
     Bit2MeTradingWalletBalanceDto,
 )
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.database.models.push_notification import PushNotification
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
@@ -69,18 +68,18 @@ async def should_send_via_telegram_notifications_after_detecting_buy_sell_signal
     buy_sell_signals_task_service: BuySellSignalsTaskService = task_manager.get_tasks()[
         GlobalFlagTypeEnum.BUY_SELL_SIGNALS
     ]
+    buy_sell_signals_config_service: BuySellSignalsConfigService = (
+        get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
+    )
     # Pause job since won't be paused via start(..), stop(..)
     buy_sell_signals_task_service._job.pause()
 
     if enable_adx_filter:
-        buy_sell_signals_config_service = BuySellSignalsConfigService(
-            favourite_crypto_currency_service=FavouriteCryptoCurrencyService(
-                bit2me_remote_service=Bit2MeRemoteService()
-            )
+        buy_sell_signals_config_item: BuySellSignalsConfigItem = (
+            buy_sell_signals_config_service._get_defaults_by_symbol(symbol=crypto_currency)
         )
-        await buy_sell_signals_config_service.save_or_update(
-            BuySellSignalsConfigItem(symbol=crypto_currency, enable_adx_filter=True)
-        )
+        buy_sell_signals_config_item.enable_adx_filter = True
+        await buy_sell_signals_config_service.save_or_update(buy_sell_signals_config_item)
 
     # Provoke send a notification via Telegram
     push_notification = PushNotification(
