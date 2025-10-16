@@ -5,6 +5,7 @@ import pytest
 from aiogram.fsm.context import FSMContext
 from faker import Faker
 
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.enums import SessionKeysEnum
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 @pytest.mark.asyncio
 async def should_get_or_create_fsm_context(faker: Faker) -> None:
-    session_storage_service = SessionStorageService()
+    session_storage_service: SessionStorageService = get_application_container().session_storage_service()
     fsm_context = await session_storage_service.get_or_create_fsm_context(
         bot_id=faker.random_number(digits=9, fix_len=True),
         chat_id=faker.random_number(digits=9, fix_len=True),
@@ -25,7 +26,7 @@ async def should_get_or_create_fsm_context(faker: Faker) -> None:
 @pytest.mark.asyncio
 async def should_return_true_when_user_is_logged(faker: Faker) -> None:
     data = {SessionKeysEnum.USER_CONTEXT.value: faker.simple_profile()}
-    session_storage_service = SessionStorageService()
+    session_storage_service: SessionStorageService = get_application_container().session_storage_service()
     # Create a mock FSMContext instance
     mock_fsm_context = MagicMock(spec=FSMContext)
     mock_fsm_context.get_data = AsyncMock(return_value=data)
@@ -38,7 +39,7 @@ async def should_return_true_when_user_is_logged(faker: Faker) -> None:
 @pytest.mark.asyncio
 async def should_set_user_logged(faker: Faker) -> None:
     data = {}
-    session_storage_service = SessionStorageService()
+    session_storage_service: SessionStorageService = get_application_container().session_storage_service()
 
     mock_fsm_context = MagicMock(spec=FSMContext)
     mock_fsm_context.get_data = AsyncMock(return_value=data)
@@ -59,7 +60,7 @@ async def should_set_user_logged(faker: Faker) -> None:
 @pytest.mark.asyncio
 async def should_perform_logout(faker: Faker) -> None:
     user_data = {SessionKeysEnum.USER_CONTEXT.value: faker.simple_profile()}
-    session_storage_service = SessionStorageService()
+    session_storage_service: SessionStorageService = get_application_container().session_storage_service()
 
     mock_fsm_context = MagicMock(spec=FSMContext)
     mock_fsm_context.get_data = AsyncMock(return_value=user_data)

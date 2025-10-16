@@ -45,7 +45,7 @@ def defaults_env(faker: Faker) -> Generator[None]:
     environ["GOOGLE_OAUTH_CLIENT_SECRET"] = str(uuid4())
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def httpserver_test_env() -> Generator[tuple[HTTPServer, ...]]:
     with HTTPServer() as httpserver:
         # Set up the HTTP server for testing
