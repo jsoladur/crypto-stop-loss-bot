@@ -6,7 +6,6 @@ from pytest_httpserver import HTTPServer
 
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.config.dependencies import get_application_container
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
     FavouriteCryptoCurrencyService,
@@ -24,9 +23,8 @@ async def should_set_buy_sell_signals_config_properly(
     _ = integration_test_jobs_disabled_env
 
     configuration_properties: ConfigurationProperties = get_application_container().configuration_properties()
-
-    buy_sell_signals_config_service = BuySellSignalsConfigService(
-        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    buy_sell_signals_config_service: BuySellSignalsConfigService = (
+        get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
     )
     favourite_crypto_currencies = await _prepare_favourite_crypto_currencies(faker)
     buy_sell_signals_config_list = await buy_sell_signals_config_service.find_all()

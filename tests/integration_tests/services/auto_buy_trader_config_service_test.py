@@ -5,7 +5,6 @@ from faker import Faker
 from pytest_httpserver import HTTPServer
 
 from crypto_trailing_stop.config.dependencies import get_application_container
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
     FavouriteCryptoCurrencyService,
@@ -22,8 +21,8 @@ async def should_set_auto_buy_trader_config_properly(
 ) -> None:
     _ = integration_test_jobs_disabled_env
 
-    auto_buy_trader_config_service = AutoBuyTraderConfigService(
-        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    auto_buy_trader_config_service: AutoBuyTraderConfigService = (
+        get_application_container().infrastructure_container().services_container().auto_buy_trader_config_service()
     )
     favourite_crypto_currencies = await _prepare_favourite_crypto_currencies(faker)
     auto_buy_trader_config_list = await auto_buy_trader_config_service.find_all()

@@ -14,7 +14,7 @@ from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
 from crypto_trailing_stop.commons.constants import BIT2ME_TAKER_FEES, TRIGGER_BUY_ACTION_EVENT_NAME
-from crypto_trailing_stop.config.dependencies import get_event_emitter
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_dto import (
@@ -27,7 +27,6 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import B
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
     Bit2MeTradingWalletBalanceDto,
 )
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.database.models.push_notification import PushNotification
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
 from crypto_trailing_stop.infrastructure.services.auto_entry_trader_event_handler_service import (
@@ -36,12 +35,8 @@ from crypto_trailing_stop.infrastructure.services.auto_entry_trader_event_handle
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_enum import PushNotificationTypeEnum
-from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
-    FavouriteCryptoCurrencyService,
-)
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
-from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.constants import MOCK_SYMBOLS
@@ -102,16 +97,23 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except(exclusion=[GlobalFlagTypeEnum.AUTO_ENTRY_TRADER])
 
-    bit2me_remote_service = Bit2MeRemoteService()
-    auto_entry_trader_event_handler_service = AutoEntryTraderEventHandlerService()
-    auto_buy_trader_config_service = AutoBuyTraderConfigService(
-        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=bit2me_remote_service)
+    auto_entry_trader_event_handler_service: AutoEntryTraderEventHandlerService = (
+        get_application_container()
+        .infrastructure_container()
+        .services_container()
+        .auto_entry_trader_event_handler_service()
     )
-    buy_sell_signals_config_service = BuySellSignalsConfigService(
-        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=bit2me_remote_service)
-    )
-    global_flag_service = GlobalFlagService()
 
+    auto_buy_trader_config_service: AutoBuyTraderConfigService = (
+        get_application_container().infrastructure_container().services_container().auto_buy_trader_config_service()
+    )
+    buy_sell_signals_config_service: BuySellSignalsConfigService = (
+        get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
+    )
+
+    global_flag_service: GlobalFlagService = (
+        get_application_container().infrastructure_container().services_container().global_flag_service()
+    )
     market_signal_item, _, crypto_currency, *_ = _prepare_httpserver_mock(
         faker,
         httpserver,
@@ -122,9 +124,9 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
         unexpected_error_buy_market_order=unexpected_error_buy_market_order,
     )
     if not enable_atr_auto_take_profit:
-        await buy_sell_signals_config_service.save_or_update(
-            BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
-        )
+        buy_sell_signals_config_item = buy_sell_signals_config_service._get_defaults_by_symbol(symbol=crypto_currency)
+        buy_sell_signals_config_item.enable_exit_on_take_profit = False
+        await buy_sell_signals_config_service.save_or_update(buy_sell_signals_config_item)
 
     # Provoke send a notification via Telegram
     telegram_chat_id = faker.random_number(digits=9, fix_len=True)
@@ -148,8 +150,8 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
         ) as notify_fatal_error_via_telegram_mock:
             with patch.object(Bot, "send_message"):
                 if use_event_emitter:
-                    # FIXME: Review this test!
-                    event_emitter = get_event_emitter()
+                    application_container = get_application_container()
+                    event_emitter = application_container.infrastructure_container().event_emitter()
                     event_emitter.emit(TRIGGER_BUY_ACTION_EVENT_NAME, market_signal_item)
                     await asyncio.sleep(delay=15.0)
                 else:

@@ -17,6 +17,7 @@ from crypto_trailing_stop.commons.constants import (
     BIT2ME_TAKER_FEES,
     PERCENT_TO_SELL_LIST,
 )
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -38,7 +39,6 @@ from crypto_trailing_stop.infrastructure.services.limit_sell_order_guard_cache_s
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.immediate_sell_order_item import ImmediateSellOrderItem
-from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.limit_sell_order_guard_task_service import LimitSellOrderGuardTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
@@ -84,7 +84,7 @@ async def should_create_market_sell_order_when_market_for_immediate_sell_order(
     await buy_sell_signals_config_service.save_or_update(
         BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
     )
-    task_manager = get_task_manager_instance()
+    task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
 
     # Create fake market signals to simulate the sudden SELL 1H market signal
 
@@ -133,7 +133,7 @@ async def should_create_market_sell_order_when_take_profit_reached(
         faker, httpserver, bit2me_api_key, bit2me_api_secret, closing_crypto_currency_price_multipler=1.5
     )
 
-    task_manager = get_task_manager_instance()
+    task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
 
     # Provoke send a notification via Telegram
     telegram_chat_id = faker.random_number(digits=9, fix_len=True)
@@ -194,7 +194,7 @@ async def should_create_market_sell_order_when_auto_exit_sell_or_bearish_diverge
     await buy_sell_signals_config_service.save_or_update(
         BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
     )
-    task_manager = get_task_manager_instance()
+    task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
 
     # Create fake market signals to simulate the sudden SELL 1H market signal
     await _create_fake_market_signals(first_order, bearish_divergence=bearish_divergence)
@@ -252,7 +252,7 @@ async def should_ignore_sell_1h_signal_and_not_sell_when_price_is_lower_than_bre
     await buy_sell_signals_config_service.save_or_update(
         BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
     )
-    task_manager = get_task_manager_instance()
+    task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
 
     # Create fake market signals to simulate the sudden SELL 1H market signal
 
@@ -314,7 +314,7 @@ async def should_create_market_sell_order_when_stop_loss_triggered(
             )
         )
 
-    task_manager = get_task_manager_instance()
+    task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
 
     # Provoke send a notification via Telegram
     telegram_chat_id = faker.random_number(digits=9, fix_len=True)
