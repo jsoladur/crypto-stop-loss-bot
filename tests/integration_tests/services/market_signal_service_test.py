@@ -22,7 +22,9 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     faker: Faker, use_event_emitter: bool, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
 ) -> None:
     _ = integration_test_jobs_disabled_env
-    market_signal_service = MarketSignalService()
+    market_signal_service: MarketSignalService = (
+        get_application_container().infrastructure_container().services_container().market_signal_service()
+    )
 
     symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
     one_hour_signals = SignalsEvaluationResultObjectMother.list(timeframe="1h", symbol=symbol)
