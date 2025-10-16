@@ -38,7 +38,6 @@ class CryptoMarketMetrics:
 
     @property
     def rsi_state(self) -> RSIState:
-        # FIXME: Review this import here!
         from crypto_trailing_stop.config.dependencies import get_application_container
 
         configuration_properties = get_application_container().configuration_properties()

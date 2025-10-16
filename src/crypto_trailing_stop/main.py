@@ -2,14 +2,13 @@ import asyncio
 import importlib
 import logging
 import sys
-import tomllib
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from os import getcwd, listdir, path
-from pathlib import Path
+from os import listdir, path
 
 from aiogram import Bot, Dispatcher
 from apscheduler.schedulers.base import BaseScheduler
+from dependency_injector.providers import Singleton
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -17,11 +16,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.database import init_database
-from crypto_trailing_stop.infrastructure.services.auto_entry_trader_event_handler_service import (
-    AutoEntryTraderEventHandlerService,
-)
 from crypto_trailing_stop.infrastructure.services.base import AbstractEventHandlerService
-from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.interfaces.controllers.health_controller import router as health_router
 from crypto_trailing_stop.interfaces.controllers.login_controller import router as login_router
 
@@ -55,55 +50,39 @@ def _load_telegram_commands() -> None:
         )
 
 
-def _get_project_version() -> str:
-    pyproject_path = Path(getcwd()) / "pyproject.toml"
-    with pyproject_path.open("rb") as f:
-        pyproject = tomllib.load(f)
-    ret = pyproject["project"]["version"]
-    return ret
-
-
 @asynccontextmanager
 async def _lifespan(_: FastAPI) -> AsyncGenerator[None]:
     application_container = get_application_container()
+    configuration_properties: ConfigurationProperties = application_container.configuration_properties()
+    dp: Dispatcher = application_container.dispatcher()
+    scheduler: BaseScheduler = application_container.infrastructure_container().tasks_container().scheduler()
+
     # Initialize database
     await init_database()
     # Background task manager initialization
     task_manager = await application_container.infrastructure_container().tasks_container().task_manager().load_tasks()
     logger.info(f"{len(task_manager.get_tasks())} jobs have been loaded!")
-    # Telegram bot initialization
     # Initialize Bot instance with default bot properties which will be passed to all API calls
-    configuration_properties: ConfigurationProperties = application_container.configuration_properties()
-
+    # Telegram bot initialization
     # And the run events dispatching
-    dp: Dispatcher = application_container.dispatcher()
     if configuration_properties.telegram_bot_enabled:  # pragma: no cover
         telegram_bot: Bot = application_container.interfaces_container().telegram_container().telegram_bot()
         asyncio.create_task(dp.start_polling(telegram_bot))
-
-    scheduler: BaseScheduler = application_container.infrastructure_container().tasks_container().scheduler()
     if configuration_properties.background_tasks_enabled:
         scheduler.start()
-
     # Configure pyee listeners
-    event_handler_services: list[AbstractEventHandlerService] = [
-        MarketSignalService(),
-        AutoEntryTraderEventHandlerService(),
-    ]
-    for event_handler_service in event_handler_services:
-        event_handler_service.configure()
-
+    for provider in application_container.infrastructure_container().services_container().traverse(types=[Singleton]):
+        dependency_object = provider()
+        if isinstance(dependency_object, AbstractEventHandlerService):
+            dependency_object.configure()
     logger.info("Application startup complete.")
-
     # Yield control back to the FastAPI apps
     yield
-
     # Cleanup on shutdown
     if configuration_properties.telegram_bot_enabled:  # pragma: no cover
         asyncio.create_task(dp.stop_polling())
     if configuration_properties.background_tasks_enabled:
         scheduler.shutdown()
-
     logger.info("Application shutdown complete.")
 
 
@@ -112,8 +91,7 @@ def _boostrap_app() -> None:
     # Create FastAPI app with lifespan context manager
     application_container = get_application_container()
     configuration_properties: ConfigurationProperties = application_container.configuration_properties()
-
-    version = _get_project_version()
+    version = application_container.application_version()
     app = FastAPI(
         title="Crypto Trailing Stop API",
         description="API for Crypto Trailing Stop Bot",

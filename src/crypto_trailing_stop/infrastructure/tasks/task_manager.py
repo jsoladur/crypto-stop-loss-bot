@@ -16,6 +16,7 @@ class TaskManager:
         self._global_flag_service = global_flag_service
         self._tasks_container = tasks_container
         self._tasks: dict[GlobalFlagTypeEnum, AbstractTaskService] = {}
+        self._global_flag_service.set_task_manager(self)
 
     async def load_tasks(self) -> Self:
         self._tasks.update(self._import_task_modules())

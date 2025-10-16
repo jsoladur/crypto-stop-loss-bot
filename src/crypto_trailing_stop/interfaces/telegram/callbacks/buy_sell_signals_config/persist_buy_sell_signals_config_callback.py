@@ -5,6 +5,7 @@ from aiogram import Bot, Dispatcher, F, html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
@@ -19,11 +20,12 @@ logger = logging.getLogger(__name__)
 
 application_container = get_application_container()
 dp: Dispatcher = application_container.dispatcher()
+configuration_properties: ConfigurationProperties = application_container.configuration_properties()
 session_storage_service: SessionStorageService = application_container.session_storage_service()
 keyboards_builder: KeyboardsBuilder = (
     application_container.interfaces_container().telegram_container().keyboards_builder()
 )
-bot: Bot = application_container.interfaces_container().telegram_container().bot()
+bot: Bot = application_container.interfaces_container().telegram_container().telegram_bot()
 messages_formatter: MessagesFormatter = (
     application_container.interfaces_container().telegram_container().messages_formatter()
 )
@@ -36,7 +38,7 @@ buy_sell_signals_config_service: BuySellSignalsConfigService = (
 async def buy_sell_signals_config_form_submit_handler(form: BuySellSignalsConfigForm):
     try:
         symbol = await session_storage_service.get_buy_sell_signals_symbol_form(form.chat_id)
-        item = form.to_persistable(symbol)
+        item = form.to_persistable(symbol, configuration_properties=configuration_properties)
         await buy_sell_signals_config_service.save_or_update(item)
         message = f"✅ Buy/Sell signals for {html.bold(symbol)} configuration successfully persisted.\n\n"
         message += messages_formatter.format_buy_sell_signals_config_message(item)

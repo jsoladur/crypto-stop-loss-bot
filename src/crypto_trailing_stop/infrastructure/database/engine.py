@@ -10,11 +10,9 @@ _engine: Engine | None = None
 
 
 async def init_database() -> None:
-    global _engine
-
-    # FIXME: Review this import here!
     from crypto_trailing_stop.config.dependencies import get_application_container
 
+    global _engine
     application_container = get_application_container()
     configuration_properties = application_container.configuration_properties()
     if configuration_properties.database_in_memory:  # pragma: no cover

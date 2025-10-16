@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 application_container = get_application_container()
 dp: Dispatcher = application_container.dispatcher()
-home_handler: HomeHandler = application_container().interfaces_container().telegram_container().home_handler()
+home_handler: HomeHandler = application_container.interfaces_container().telegram_container().home_handler()
 
 
 @dp.callback_query(lambda c: c.data == "go_back_home")

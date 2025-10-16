@@ -24,6 +24,7 @@ from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service impo
 class ServicesContainer(containers.DeclarativeContainer):
     configuration_properties = providers.Dependency()
     event_emitter = providers.Dependency()
+    telegram_service = providers.Dependency()
 
     bit2me_remote_service = providers.Dependency()
     ccxt_remote_service = providers.Dependency()
@@ -31,12 +32,18 @@ class ServicesContainer(containers.DeclarativeContainer):
 
     global_flag_service = providers.Singleton(GlobalFlagService, configuration_properties=configuration_properties)
 
+    push_notification_service = providers.Singleton(
+        PushNotificationService, configuration_properties=configuration_properties
+    )
+
     favourite_crypto_currency_service = providers.Singleton(
         FavouriteCryptoCurrencyService, bit2me_remote_service=bit2me_remote_service
     )
 
     buy_sell_signals_config_service = providers.Singleton(
-        BuySellSignalsConfigService, favourite_crypto_currency_service=favourite_crypto_currency_service
+        BuySellSignalsConfigService,
+        configuration_properties=configuration_properties,
+        favourite_crypto_currency_service=favourite_crypto_currency_service,
     )
 
     stop_loss_percent_service = providers.Singleton(
@@ -56,7 +63,6 @@ class ServicesContainer(containers.DeclarativeContainer):
 
     crypto_analytics_service = providers.Singleton(
         CryptoAnalyticsService,
-        configuration_properties=configuration_properties,
         bit2me_remote_service=bit2me_remote_service,
         ccxt_remote_service=ccxt_remote_service,
         favourite_crypto_currency_service=favourite_crypto_currency_service,
@@ -77,6 +83,8 @@ class ServicesContainer(containers.DeclarativeContainer):
         configuration_properties=configuration_properties,
         event_emitter=event_emitter,
         bit2me_remote_service=bit2me_remote_service,
+        push_notification_service=push_notification_service,
+        telegram_service=telegram_service,
         ccxt_remote_service=ccxt_remote_service,
         global_flag_service=global_flag_service,
         favourite_crypto_currency_service=favourite_crypto_currency_service,
@@ -88,16 +96,17 @@ class ServicesContainer(containers.DeclarativeContainer):
         orders_analytics_service=orders_analytics_service,
     )
 
-    gemini_generatige_ai_service = providers.Singleton(
+    gemini_generative_ai_service = providers.Singleton(
         GeminiGenerativeAiService, gemini_remote_service=gemini_remote_service
     )
 
     limit_sell_order_guard_cache_service = providers.Singleton(LimitSellOrderGuardCacheService)
 
     market_signal_service = providers.Singleton(
-        MarketSignalService, configuration_properties=configuration_properties, event_emitter=event_emitter
-    )
-
-    push_notification_service = providers.Singleton(
-        PushNotificationService, configuration_properties=configuration_properties
+        MarketSignalService,
+        configuration_properties=configuration_properties,
+        event_emitter=event_emitter,
+        bit2me_remote_service=bit2me_remote_service,
+        push_notification_service=push_notification_service,
+        telegram_service=telegram_service,
     )

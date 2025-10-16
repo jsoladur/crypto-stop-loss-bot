@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class BuySellSignalsConfigItem:
     symbol: str
     # EMA and Risk Parameters

@@ -21,7 +21,9 @@ session_storage_service: SessionStorageService = application_container.session_s
 keyboards_builder: KeyboardsBuilder = (
     application_container.interfaces_container().telegram_container().keyboards_builder()
 )
-auto_entry_trader_event_handler_service = AutoEntryTraderEventHandlerService()
+auto_entry_trader_event_handler_service: AutoEntryTraderEventHandlerService = (
+    application_container.infrastructure_container().services_container().auto_entry_trader_event_handler_service()
+)
 
 
 @dp.callback_query(F.data.regexp(r"^trigger_auto_entry_trader\$\$(.+)$"))

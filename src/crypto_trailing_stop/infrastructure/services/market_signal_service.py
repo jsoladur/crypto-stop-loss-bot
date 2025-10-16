@@ -6,18 +6,28 @@ from pyee.asyncio import AsyncIOEventEmitter
 
 from crypto_trailing_stop.commons.constants import SIGNALS_EVALUATION_RESULT_EVENT_NAME, TRIGGER_BUY_ACTION_EVENT_NAME
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.database.models.market_signal import MarketSignal
 from crypto_trailing_stop.infrastructure.services.base import AbstractEventHandlerService
+from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import SignalsEvaluationResult
 from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
+from crypto_trailing_stop.interfaces.telegram.services.telegram_service import TelegramService
 
 logger = logging.getLogger(__name__)
 
 
 class MarketSignalService(AbstractEventHandlerService):
-    def __init__(self, configuration_properties: ConfigurationProperties, event_emitter: AsyncIOEventEmitter) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        configuration_properties: ConfigurationProperties,
+        event_emitter: AsyncIOEventEmitter,
+        bit2me_remote_service: Bit2MeRemoteService,
+        push_notification_service: PushNotificationService,
+        telegram_service: TelegramService,
+    ) -> None:
+        super().__init__(bit2me_remote_service, push_notification_service, telegram_service)
         self._configuration_properties = configuration_properties
         self._event_emitter = event_emitter
 

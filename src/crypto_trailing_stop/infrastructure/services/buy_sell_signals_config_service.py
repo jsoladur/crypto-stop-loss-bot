@@ -120,7 +120,7 @@ class BuySellSignalsConfigService:
             enable_exit_on_take_profit=buy_sell_signals_config.enable_exit_on_take_profit,
         )
 
-    async def _get_defaults_by_symbol(self, symbol: str) -> BuySellSignalsConfigItem:
+    def _get_defaults_by_symbol(self, symbol: str) -> BuySellSignalsConfigItem:
         return BuySellSignalsConfigItem(
             symbol=symbol.upper(),
             ema_short_value=self._configuration_properties.buy_sell_signals_ema_short_value,

@@ -1,3 +1,7 @@
+import tomllib
+from os import getcwd
+from pathlib import Path
+
 from aiogram import Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram_dialog import setup_dialogs
@@ -13,10 +17,20 @@ class ApplicationContainer(containers.DeclarativeContainer):
     configuration_properties = providers.Singleton(ConfigurationProperties)
 
     @staticmethod
+    def _project_version() -> str:
+        pyproject_path = Path(getcwd()) / "pyproject.toml"
+        with pyproject_path.open("rb") as f:
+            pyproject = tomllib.load(f)
+        ret = pyproject["project"]["version"]
+        return ret
+
+    @staticmethod
     def _dispacher() -> Dispatcher:
         dispacher = Dispatcher(storage=MemoryStorage())
         setup_dialogs(dispacher)
         return dispacher
+
+    application_version: str = providers.Callable(_project_version)
 
     dispatcher = providers.Singleton(_dispacher)
 

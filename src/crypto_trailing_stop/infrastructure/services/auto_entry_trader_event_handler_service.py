@@ -33,12 +33,14 @@ from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_serv
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.global_summary_service import GlobalSummaryService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
+from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
+from crypto_trailing_stop.interfaces.telegram.services.telegram_service import TelegramService
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +51,8 @@ class AutoEntryTraderEventHandlerService(AbstractService):
         configuration_properties: ConfigurationProperties,
         event_emitter: AsyncIOEventEmitter,
         bit2me_remote_service: Bit2MeRemoteService,
+        push_notification_service: PushNotificationService,
+        telegram_service: TelegramService,
         ccxt_remote_service: CcxtRemoteService,
         global_flag_service: GlobalFlagService,
         favourite_crypto_currency_service: FavouriteCryptoCurrencyService,
@@ -59,7 +63,7 @@ class AutoEntryTraderEventHandlerService(AbstractService):
         crypto_analytics_service: CryptoAnalyticsService,
         orders_analytics_service: OrdersAnalyticsService,
     ) -> None:
-        super().__init__()
+        super().__init__(bit2me_remote_service, push_notification_service, telegram_service)
         self._configuration_properties = configuration_properties
         self._event_emitter = event_emitter
         self._bit2me_remote_service = bit2me_remote_service

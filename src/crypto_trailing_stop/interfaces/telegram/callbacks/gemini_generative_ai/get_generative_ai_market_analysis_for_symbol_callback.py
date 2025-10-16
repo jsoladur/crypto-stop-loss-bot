@@ -28,7 +28,9 @@ keyboards_builder: KeyboardsBuilder = (
 messages_formatter: MessagesFormatter = (
     application_container.interfaces_container().telegram_container().messages_formatter()
 )
-bit2me_remote_service = Bit2MeRemoteService()
+bit2me_remote_service: Bit2MeRemoteService = (
+    application_container.infrastructure_container().adapters_container().bit2me_remote_service()
+)
 crypto_analytics_service: CryptoAnalyticsService = (
     application_container.infrastructure_container().services_container().crypto_analytics_service()
 )

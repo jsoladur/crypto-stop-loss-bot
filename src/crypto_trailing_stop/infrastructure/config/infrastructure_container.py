@@ -20,6 +20,7 @@ class InfrastructureContainer(containers.DeclarativeContainer):
         bit2me_remote_service=adapters_container.bit2me_remote_service,
         ccxt_remote_service=adapters_container.ccxt_remote_service,
         gemini_remote_service=adapters_container.gemini_remote_service,
+        telegram_service=telegram_service,
     )
     tasks_container = providers.Container(
         TasksContainer,
