@@ -8,13 +8,13 @@ from pydantic import RootModel
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto, Profile
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_dto import (
     Bit2MePortfolioBalanceDto,
     ConvertedBalanceDto,
     TotalDto,
 )
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.global_summary_service import GlobalSummaryService
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import Bit2MeSummaryXlsxObjectMother
@@ -27,7 +27,9 @@ async def should_calculate_global_summary_properly(
     faker: Faker, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
 ) -> None:
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
-    global_summary_service = GlobalSummaryService(bit2me_remote_service=Bit2MeRemoteService())
+    global_summary_service: GlobalSummaryService = (
+        get_application_container().infrastructure_container().services_container().global_summary_service()
+    )
     _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
     global_summary = await global_summary_service.get_global_summary()
 

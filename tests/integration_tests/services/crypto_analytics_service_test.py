@@ -7,14 +7,12 @@ from pydantic import RootModel
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto, Profile
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
     Bit2MeTradingWalletBalanceDto,
 )
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
-from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
-from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
     FavouriteCryptoCurrencyService,
@@ -34,15 +32,8 @@ async def should_get_favourite_symbols_properly(
     _, favourite_crypto_currencies, account_info = await _prepare_httpserver_mock_for_favourite_symbols(
         faker, httpserver, bit2me_api_key, bit2me_api_secret
     )
-    bit2me_remote_service = Bit2MeRemoteService()
-    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
-    crypto_analytics_service = CryptoAnalyticsService(
-        bit2me_remote_service=bit2me_remote_service,
-        ccxt_remote_service=CcxtRemoteService(),
-        favourite_crypto_currency_service=favourite_crypto_currency_service,
-        buy_sell_signals_config_service=BuySellSignalsConfigService(
-            favourite_crypto_currency_service=favourite_crypto_currency_service
-        ),
+    crypto_analytics_service: CryptoAnalyticsService = (
+        get_application_container().infrastructure_container().services_container().crypto_analytics_service()
     )
     favourite_symbols = await crypto_analytics_service.get_favourite_symbols()
     expected_symbols = [
@@ -58,15 +49,8 @@ async def should_get_favourite_tickers_properly(
 ) -> None:
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
     await _prepare_httpserver_mock_for_get_favourite_tickers(faker, httpserver, bit2me_api_key, bit2me_api_secret)
-    bit2me_remote_service = Bit2MeRemoteService()
-    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
-    crypto_analytics_service = CryptoAnalyticsService(
-        bit2me_remote_service=bit2me_remote_service,
-        ccxt_remote_service=CcxtRemoteService(),
-        favourite_crypto_currency_service=favourite_crypto_currency_service,
-        buy_sell_signals_config_service=BuySellSignalsConfigService(
-            favourite_crypto_currency_service=favourite_crypto_currency_service
-        ),
+    crypto_analytics_service: CryptoAnalyticsService = (
+        get_application_container().infrastructure_container().services_container().crypto_analytics_service()
     )
     tickers_list = await crypto_analytics_service.get_favourite_tickers()
     assert tickers_list is not None and len(tickers_list) > 0
@@ -138,7 +122,9 @@ async def _prepare_favourite_crypto_currencies(faker: Faker) -> list[str]:
     favourite_crypto_currencies = faker.random_choices(
         MOCK_CRYPTO_CURRENCIES, length=faker.pyint(min_value=2, max_value=len(MOCK_CRYPTO_CURRENCIES) - 1)
     )
-    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
+        get_application_container().infrastructure_container().services_container().favourite_crypto_currency_service()
+    )
     favourite_crypto_currencies = set(faker.random_choices(MOCK_CRYPTO_CURRENCIES, length=3))
     for crypto_currency in favourite_crypto_currencies:
         await favourite_crypto_currency_service.add(crypto_currency)

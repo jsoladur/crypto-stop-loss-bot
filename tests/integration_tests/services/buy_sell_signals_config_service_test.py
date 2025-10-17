@@ -4,8 +4,8 @@ import pytest
 from faker import Faker
 from pytest_httpserver import HTTPServer
 
-from crypto_trailing_stop.config import get_configuration_properties
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
     FavouriteCryptoCurrencyService,
@@ -22,10 +22,9 @@ async def should_set_buy_sell_signals_config_properly(
 ) -> None:
     _ = integration_test_jobs_disabled_env
 
-    configuration_properties = get_configuration_properties()
-
-    buy_sell_signals_config_service = BuySellSignalsConfigService(
-        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    configuration_properties: ConfigurationProperties = get_application_container().configuration_properties()
+    buy_sell_signals_config_service: BuySellSignalsConfigService = (
+        get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
     )
     favourite_crypto_currencies = await _prepare_favourite_crypto_currencies(faker)
     buy_sell_signals_config_list = await buy_sell_signals_config_service.find_all()
@@ -148,7 +147,9 @@ async def should_set_buy_sell_signals_config_properly(
 
 
 async def _prepare_favourite_crypto_currencies(faker: Faker) -> list[str]:
-    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
+        get_application_container().infrastructure_container().services_container().favourite_crypto_currency_service()
+    )
     favourite_crypto_currencies = set(faker.random_choices(MOCK_CRYPTO_CURRENCIES, length=3))
     for crypto_currency in favourite_crypto_currencies:
         await favourite_crypto_currency_service.add(crypto_currency)

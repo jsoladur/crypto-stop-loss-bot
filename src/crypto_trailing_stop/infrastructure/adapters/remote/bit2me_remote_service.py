@@ -30,9 +30,8 @@ from crypto_trailing_stop.commons.constants import (
     DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS,
     IDEMPOTENT_HTTP_METHODS,
 )
-from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler
-from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
@@ -58,10 +57,8 @@ logger = logging.getLogger(__name__)
 
 
 class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
-    __metaclass__ = SingletonMeta
-
-    def __init__(self):
-        self._configuration_properties = get_configuration_properties()
+    def __init__(self, configuration_properties: ConfigurationProperties) -> None:
+        self._configuration_properties = configuration_properties
         self._base_url = str(self._configuration_properties.bit2me_api_base_url)
         self._api_key = self._configuration_properties.bit2me_api_key
         self._api_secret = self._configuration_properties.bit2me_api_secret

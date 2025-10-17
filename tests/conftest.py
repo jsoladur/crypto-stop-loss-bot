@@ -45,7 +45,7 @@ def defaults_env(faker: Faker) -> Generator[None]:
     environ["GOOGLE_OAUTH_CLIENT_SECRET"] = str(uuid4())
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def httpserver_test_env() -> Generator[tuple[HTTPServer, ...]]:
     with HTTPServer() as httpserver:
         # Set up the HTTP server for testing
@@ -80,8 +80,7 @@ async def integration_test_jobs_disabled_env(
             _prepare_global_httpserver_mock_requests(faker, httpserver, bit2me_api_key, bit2me_api_secret)
             yield (manager.app, httpserver, bit2me_api_key, bit2me_api_secret)
     # Cleanup
-    httpserver.clear()
-    reload(config)
+    _cleanup(httpserver)
 
 
 @pytest.fixture
@@ -101,8 +100,7 @@ async def integration_test_env(
             _prepare_global_httpserver_mock_requests(faker, httpserver, bit2me_api_key, bit2me_api_secret)
             yield (manager.app, httpserver, bit2me_api_key, bit2me_api_secret)
     # Cleanup
-    httpserver.clear()
-    reload(config)
+    _cleanup(httpserver)
 
 
 def _prepare_global_httpserver_mock_requests(
@@ -115,3 +113,12 @@ def _prepare_global_httpserver_mock_requests(
         ),
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(raw_market_config_list)
+
+
+def _cleanup(httpserver: HTTPServer) -> None:
+    from crypto_trailing_stop.config.dependencies import get_application_container
+
+    application_container = get_application_container()
+    application_container.reset_singletons()
+    httpserver.clear()
+    reload(config)

@@ -1,12 +1,11 @@
 import logging
 
-from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.services.vo.immediate_sell_order_item import ImmediateSellOrderItem
 
 logger = logging.getLogger(__name__)
 
 
-class LimitSellOrderGuardCacheService(metaclass=SingletonMeta):
+class LimitSellOrderGuardCacheService:
     def __init__(self) -> None:
         # This will hold the IDs of orders to be immediately sold
         self._immediate_sell_orders_cache: dict[str, ImmediateSellOrderItem] = {}

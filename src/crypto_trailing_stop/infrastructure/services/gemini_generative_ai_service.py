@@ -5,11 +5,10 @@ from os import path
 from google import genai
 from mako.template import Template
 
-from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.adapters.remote.gemini_remote_service import GeminiRemoteService
 
 
-class GeminiGenerativeAiService(metaclass=SingletonMeta):
+class GeminiGenerativeAiService:
     def __init__(self, gemini_remote_service: GeminiRemoteService):
         self._gemini_remote_service = gemini_remote_service
         self._generative_ai_market_analysis_prompt_template: Template | None = None
