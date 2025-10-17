@@ -1,11 +1,11 @@
 import logging
 import re
 
-from aiogram import F, html
+from aiogram import Dispatcher, F, html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from crypto_trailing_stop.config import get_dispacher
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.auto_entry_trader_event_handler_service import (
     AutoEntryTraderEventHandlerService,
 )
@@ -15,10 +15,15 @@ from crypto_trailing_stop.interfaces.telegram.keyboards_builder import Keyboards
 
 logger = logging.getLogger(__name__)
 
-dp = get_dispacher()
-session_storage_service = SessionStorageService()
-keyboards_builder = KeyboardsBuilder()
-auto_entry_trader_event_handler_service = AutoEntryTraderEventHandlerService()
+application_container = get_application_container()
+dp: Dispatcher = application_container.dispatcher()
+session_storage_service: SessionStorageService = application_container.session_storage_service()
+keyboards_builder: KeyboardsBuilder = (
+    application_container.interfaces_container().telegram_container().keyboards_builder()
+)
+auto_entry_trader_event_handler_service: AutoEntryTraderEventHandlerService = (
+    application_container.infrastructure_container().services_container().auto_entry_trader_event_handler_service()
+)
 
 
 @dp.callback_query(F.data.regexp(r"^trigger_auto_entry_trader\$\$(.+)$"))

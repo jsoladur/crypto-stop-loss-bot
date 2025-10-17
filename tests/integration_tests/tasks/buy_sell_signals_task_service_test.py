@@ -10,12 +10,12 @@ from pydantic import RootModel
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto, Profile
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
     Bit2MeTradingWalletBalanceDto,
 )
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.database.models.push_notification import PushNotification
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
@@ -24,7 +24,6 @@ from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_serv
     FavouriteCryptoCurrencyService,
 )
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
-from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.buy_sell_signals_task_service import BuySellSignalsTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.constants import BUY_SELL_SIGNALS_MOCK_FILES_PATH, MOCK_CRYPTO_CURRENCIES
@@ -56,29 +55,31 @@ async def should_send_via_telegram_notifications_after_detecting_buy_sell_signal
     """
     # Mock the Bit2Me API
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+
+    application_container = get_application_container()
+    task_manager = application_container.infrastructure_container().tasks_container().task_manager()
+
     await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.BUY_SELL_SIGNALS)
 
     crypto_currency = await _prepare_httpserver_mock(
         faker, httpserver, bit2me_api_key, bit2me_api_secret, fetch_ohlcv_return_value_filename
     )
 
-    task_manager = get_task_manager_instance()
-
     buy_sell_signals_task_service: BuySellSignalsTaskService = task_manager.get_tasks()[
         GlobalFlagTypeEnum.BUY_SELL_SIGNALS
     ]
+    buy_sell_signals_config_service: BuySellSignalsConfigService = (
+        get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
+    )
     # Pause job since won't be paused via start(..), stop(..)
     buy_sell_signals_task_service._job.pause()
 
     if enable_adx_filter:
-        buy_sell_signals_config_service = BuySellSignalsConfigService(
-            favourite_crypto_currency_service=FavouriteCryptoCurrencyService(
-                bit2me_remote_service=Bit2MeRemoteService()
-            )
+        buy_sell_signals_config_item: BuySellSignalsConfigItem = (
+            buy_sell_signals_config_service._get_defaults_by_symbol(symbol=crypto_currency)
         )
-        await buy_sell_signals_config_service.save_or_update(
-            BuySellSignalsConfigItem(symbol=crypto_currency, enable_adx_filter=True)
-        )
+        buy_sell_signals_config_item.enable_adx_filter = True
+        await buy_sell_signals_config_service.save_or_update(buy_sell_signals_config_item)
 
     # Provoke send a notification via Telegram
     push_notification = PushNotification(
@@ -177,6 +178,8 @@ async def _prepare_httpserver_mock(
 
 async def _prepare_favourite_crypto_currency(faker: Faker) -> str:
     favourite_crypto_currency = faker.random_element(MOCK_CRYPTO_CURRENCIES)
-    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
+        get_application_container().infrastructure_container().services_container().favourite_crypto_currency_service()
+    )
     await favourite_crypto_currency_service.add(favourite_crypto_currency)
     return favourite_crypto_currency

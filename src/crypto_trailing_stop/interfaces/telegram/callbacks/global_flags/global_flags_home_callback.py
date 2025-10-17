@@ -1,10 +1,10 @@
 import logging
 
-from aiogram import html
+from aiogram import Dispatcher, html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from crypto_trailing_stop.config import get_dispacher
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
@@ -12,10 +12,15 @@ from crypto_trailing_stop.interfaces.telegram.keyboards_builder import Keyboards
 
 logger = logging.getLogger(__name__)
 
-dp = get_dispacher()
-session_storage_service = SessionStorageService()
-keyboards_builder = KeyboardsBuilder()
-global_flag_service = GlobalFlagService()
+application_container = get_application_container()
+dp: Dispatcher = application_container.dispatcher()
+session_storage_service: SessionStorageService = application_container.session_storage_service()
+keyboards_builder: KeyboardsBuilder = (
+    application_container.interfaces_container().telegram_container().keyboards_builder()
+)
+global_flag_service: GlobalFlagService = (
+    application_container.infrastructure_container().services_container().global_flag_service()
+)
 
 
 @dp.callback_query(lambda c: c.data == "global_flags_home")

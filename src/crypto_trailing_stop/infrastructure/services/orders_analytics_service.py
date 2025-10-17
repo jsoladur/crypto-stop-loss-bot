@@ -11,7 +11,6 @@ from crypto_trailing_stop.commons.constants import (
     STOP_LOSS_PERCENT_BUFFER,
     STOP_LOSS_STEPS_VALUE_LIST,
 )
-from crypto_trailing_stop.commons.patterns import SingletonABCMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -31,7 +30,7 @@ from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item impo
 logger = logging.getLogger(__name__)
 
 
-class OrdersAnalyticsService(AbstractService, metaclass=SingletonABCMeta):
+class OrdersAnalyticsService(AbstractService):
     def __init__(
         self,
         bit2me_remote_service: Bit2MeRemoteService,

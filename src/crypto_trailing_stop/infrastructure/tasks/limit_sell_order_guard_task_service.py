@@ -3,14 +3,16 @@ from datetime import UTC, datetime
 from typing import override
 
 from aiogram import html
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR
-from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
@@ -19,52 +21,48 @@ from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import 
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
     FavouriteCryptoCurrencyService,
 )
-from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.limit_sell_order_guard_cache_service import (
     LimitSellOrderGuardCacheService,
 )
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
-from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
+from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
 from crypto_trailing_stop.infrastructure.tasks.vo.auto_exit_reason import AutoExitReason
 from crypto_trailing_stop.infrastructure.tasks.vo.technical_indicators_cache_item import TechnicalIndicatorsCacheItem
+from crypto_trailing_stop.interfaces.telegram.services.telegram_service import TelegramService
 
 logger = logging.getLogger(__name__)
 
 
 class LimitSellOrderGuardTaskService(AbstractTaskService):
-    def __init__(self):
-        super().__init__()
-        self._configuration_properties = get_configuration_properties()
-        self._market_signal_service = MarketSignalService()
-        self._ccxt_remote_service = CcxtRemoteService()
-        self._limit_sell_order_guard_cache_service = LimitSellOrderGuardCacheService()
-        self._favourite_crypto_currency_service = FavouriteCryptoCurrencyService(
-            bit2me_remote_service=self._bit2me_remote_service
-        )
-        self._buy_sell_signals_config_service = BuySellSignalsConfigService(
-            favourite_crypto_currency_service=self._favourite_crypto_currency_service
-        )
-        self._crypto_analytics_service = CryptoAnalyticsService(
-            bit2me_remote_service=self._bit2me_remote_service,
-            ccxt_remote_service=self._ccxt_remote_service,
-            favourite_crypto_currency_service=self._favourite_crypto_currency_service,
-            buy_sell_signals_config_service=self._buy_sell_signals_config_service,
-        )
-        self._orders_analytics_service = OrdersAnalyticsService(
-            bit2me_remote_service=self._bit2me_remote_service,
-            ccxt_remote_service=self._ccxt_remote_service,
-            stop_loss_percent_service=StopLossPercentService(
-                favourite_crypto_currency_service=self._favourite_crypto_currency_service,
-                global_flag_service=GlobalFlagService(),
-            ),
-            buy_sell_signals_config_service=self._buy_sell_signals_config_service,
-            crypto_analytics_service=self._crypto_analytics_service,
-        )
+    def __init__(
+        self,
+        configuration_properties: ConfigurationProperties,
+        bit2me_remote_service: Bit2MeRemoteService,
+        push_notification_service: PushNotificationService,
+        telegram_service: TelegramService,
+        scheduler: AsyncIOScheduler,
+        market_signal_service: MarketSignalService,
+        ccxt_remote_service: CcxtRemoteService,
+        limit_sell_order_guard_cache_service: LimitSellOrderGuardCacheService,
+        favourite_crypto_currency_service: FavouriteCryptoCurrencyService,
+        buy_sell_signals_config_service: BuySellSignalsConfigService,
+        crypto_analytics_service: CryptoAnalyticsService,
+        orders_analytics_service: OrdersAnalyticsService,
+    ):
+        super().__init__(bit2me_remote_service, push_notification_service, telegram_service, scheduler)
+        self._configuration_properties = configuration_properties
+        self._market_signal_service = market_signal_service
+        self._ccxt_remote_service = ccxt_remote_service
+        self._limit_sell_order_guard_cache_service = limit_sell_order_guard_cache_service
+        self._favourite_crypto_currency_service = favourite_crypto_currency_service
+        self._buy_sell_signals_config_service = buy_sell_signals_config_service
+        self._crypto_analytics_service = crypto_analytics_service
+        self._orders_analytics_service = orders_analytics_service
         self._exchange = self._ccxt_remote_service.get_exchange()
         self._technical_indicators_by_symbol_cache: dict[str, TechnicalIndicatorsCacheItem] = {}
 

@@ -14,20 +14,21 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import B
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
-from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
-from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from crypto_trailing_stop.interfaces.telegram.services.telegram_service import TelegramService
 
 logger = logging.getLogger(__name__)
 
 
 class AbstractService(ABC):
-    def __init__(self) -> None:
-        self._bit2me_remote_service = Bit2MeRemoteService()
-        self._push_notification_service = PushNotificationService()
-        self._telegram_service = TelegramService(
-            session_storage_service=SessionStorageService(), keyboards_builder=KeyboardsBuilder()
-        )
+    def __init__(
+        self,
+        bit2me_remote_service: Bit2MeRemoteService,
+        push_notification_service: PushNotificationService,
+        telegram_service: TelegramService,
+    ) -> None:
+        self._bit2me_remote_service = bit2me_remote_service
+        self._push_notification_service = push_notification_service
+        self._telegram_service = telegram_service
 
     async def _fetch_tickers_for_open_sell_orders(
         self, open_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient

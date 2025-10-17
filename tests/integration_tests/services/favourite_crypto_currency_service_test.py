@@ -5,6 +5,7 @@ from faker import Faker
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
     FavouriteCryptoCurrencyService,
@@ -24,8 +25,13 @@ async def should_set_buy_sell_signals_config_properly(
 
     _prepare_httpserver_mock(httpserver, bit2me_api_key, bit2me_api_secret)
 
-    bit2me_remote_service = Bit2MeRemoteService()
-    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=bit2me_remote_service)
+    bit2me_remote_service: Bit2MeRemoteService = (
+        get_application_container().infrastructure_container().adapters_container().bit2me_remote_service()
+    )
+    favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
+        get_application_container().infrastructure_container().services_container().favourite_crypto_currency_service()
+    )
+
     async with await bit2me_remote_service.get_http_client() as client:
         returned_favourite_crypto_currencies = await favourite_crypto_currency_service.find_all()
         assert len(returned_favourite_crypto_currencies) <= 0

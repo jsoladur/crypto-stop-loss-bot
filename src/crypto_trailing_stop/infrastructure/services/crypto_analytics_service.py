@@ -10,7 +10,6 @@ from ta.trend import MACD, ADXIndicator, EMAIndicator
 from ta.volatility import AverageTrueRange, BollingerBands
 
 from crypto_trailing_stop.commons.constants import DEFAULT_DIVERGENCE_WINDOW
-from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
@@ -27,7 +26,7 @@ from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
 logger = logging.getLogger(__name__)
 
 
-class CryptoAnalyticsService(metaclass=SingletonMeta):
+class CryptoAnalyticsService:
     def __init__(
         self,
         bit2me_remote_service: Bit2MeRemoteService,

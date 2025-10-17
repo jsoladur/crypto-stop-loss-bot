@@ -5,11 +5,10 @@ from faker import Faker
 from pytest_httpserver import HTTPServer
 
 from crypto_trailing_stop.commons.constants import DEFAULT_TRAILING_STOP_LOSS_PERCENT
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
     FavouriteCryptoCurrencyService,
 )
-from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
 from tests.helpers.constants import MOCK_CRYPTO_CURRENCIES
@@ -23,9 +22,8 @@ async def should_set_stop_loss_percent_service_properly(
 ) -> None:
     _ = integration_test_jobs_disabled_env
 
-    stop_loss_percent_service = StopLossPercentService(
-        favourite_crypto_currency_service=FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService()),
-        global_flag_service=GlobalFlagService(),
+    stop_loss_percent_service: StopLossPercentService = (
+        get_application_container().infrastructure_container().services_container().stop_loss_percent_service()
     )
     favourite_crypto_currencies = await _prepare_favourite_crypto_currencies(faker)
     stop_loss_percent_item_list = await stop_loss_percent_service.find_all()
@@ -52,7 +50,9 @@ async def should_set_stop_loss_percent_service_properly(
 
 
 async def _prepare_favourite_crypto_currencies(faker: Faker) -> list[str]:
-    favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
+    favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
+        get_application_container().infrastructure_container().services_container().favourite_crypto_currency_service()
+    )
     favourite_crypto_currencies = set(faker.random_choices(MOCK_CRYPTO_CURRENCIES, length=3))
     for crypto_currency in favourite_crypto_currencies:
         await favourite_crypto_currency_service.add(crypto_currency)

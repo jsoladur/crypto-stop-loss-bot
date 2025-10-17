@@ -11,8 +11,7 @@ from crypto_trailing_stop.commons.constants import (
     SP_TP_PAIRS,
     STOP_LOSS_STEPS_VALUE_LIST,
 )
-from crypto_trailing_stop.commons.patterns import SingletonMeta
-from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
@@ -21,9 +20,9 @@ from crypto_trailing_stop.infrastructure.services.vo.push_notification_item impo
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
 
 
-class KeyboardsBuilder(metaclass=SingletonMeta):
-    def __init__(self):
-        self._configuration_properties = get_configuration_properties()
+class KeyboardsBuilder:
+    def __init__(self, configuration_properties: ConfigurationProperties):
+        self._configuration_properties = configuration_properties
 
     def get_login_keyboard(self, state: FSMContext) -> InlineKeyboardMarkup:
         """Builds the login keyboard with a button to log in."""

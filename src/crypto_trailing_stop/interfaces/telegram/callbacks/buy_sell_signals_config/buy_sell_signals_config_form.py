@@ -11,6 +11,7 @@ from crypto_trailing_stop.commons.constants import (
     SP_TP_PAIRS,
     YES_NO_VALUES,
 )
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
@@ -102,7 +103,9 @@ class BuySellSignalsConfigForm(Form):
         reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
     )
 
-    def to_persistable(self, symbol: str) -> BuySellSignalsConfigItem:
+    def to_persistable(
+        self, symbol: str, *, configuration_properties: ConfigurationProperties
+    ) -> BuySellSignalsConfigItem:
         ema_short_value, ema_mid_value = tuple(map(int, self.ema_short_and_mid.split("/")))
         stop_loss_atr_multiplier, take_profit_atr_multiplier = tuple(map(float, self.sp_tp_atr_factor_pair.split("/")))
         ret = BuySellSignalsConfigItem(
@@ -111,6 +114,7 @@ class BuySellSignalsConfigForm(Form):
             ema_mid_value=ema_mid_value,
             # NOTE: [JMSOLA] Currently not used in the strategy, but kept for future use
             # ema_long_value=int(self.ema_long),
+            ema_long_value=configuration_properties.buy_sell_signals_ema_long_value,
             stop_loss_atr_multiplier=stop_loss_atr_multiplier,
             take_profit_atr_multiplier=take_profit_atr_multiplier,
             enable_adx_filter=bool(self.enable_adx_filter.lower() == "yes"),

@@ -1,52 +1,34 @@
 import logging
 
-from aiogram import html
+from aiogram import Dispatcher, html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from crypto_trailing_stop.config import get_dispacher
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
-from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
-from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
-from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
-from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
-    FavouriteCryptoCurrencyService,
-)
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
-from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 from crypto_trailing_stop.interfaces.telegram.messages_formatter import MessagesFormatter
 
 logger = logging.getLogger(__name__)
 
-dp = get_dispacher()
-session_storage_service = SessionStorageService()
-keyboards_builder = KeyboardsBuilder()
-messages_formatter = MessagesFormatter()
-bit2me_remote_service = Bit2MeRemoteService()
-ccxt_remote_service = CcxtRemoteService()
-global_flag_service = GlobalFlagService()
-favourite_crypto_currency_service = FavouriteCryptoCurrencyService(bit2me_remote_service=Bit2MeRemoteService())
-buy_sell_signals_config_service = BuySellSignalsConfigService(
-    favourite_crypto_currency_service=favourite_crypto_currency_service
+application_container = get_application_container()
+dp: Dispatcher = application_container.dispatcher()
+session_storage_service: SessionStorageService = application_container.session_storage_service()
+keyboards_builder: KeyboardsBuilder = (
+    application_container.interfaces_container().telegram_container().keyboards_builder()
 )
-orders_analytics_service = OrdersAnalyticsService(
-    bit2me_remote_service=bit2me_remote_service,
-    ccxt_remote_service=ccxt_remote_service,
-    stop_loss_percent_service=StopLossPercentService(
-        favourite_crypto_currency_service=favourite_crypto_currency_service, global_flag_service=GlobalFlagService()
-    ),
-    buy_sell_signals_config_service=buy_sell_signals_config_service,
-    crypto_analytics_service=CryptoAnalyticsService(
-        bit2me_remote_service=bit2me_remote_service,
-        ccxt_remote_service=ccxt_remote_service,
-        favourite_crypto_currency_service=favourite_crypto_currency_service,
-        buy_sell_signals_config_service=buy_sell_signals_config_service,
-    ),
+messages_formatter: MessagesFormatter = (
+    application_container.interfaces_container().telegram_container().messages_formatter()
+)
+global_flag_service: GlobalFlagService = (
+    application_container.infrastructure_container().services_container().global_flag_service()
+)
+orders_analytics_service: OrdersAnalyticsService = (
+    application_container.infrastructure_container().services_container().orders_analytics_service()
 )
 
 
