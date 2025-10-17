@@ -3,16 +3,9 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
-from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram.fsm.storage.memory import MemoryStorage
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from authlib.integrations.starlette_client import OAuth
 from pydantic import AnyUrl, Field
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict
-from pyee.asyncio import AsyncIOEventEmitter
 
 from crypto_trailing_stop.commons.constants import (
     BIT2ME_API_BASE_URL,
@@ -21,12 +14,6 @@ from crypto_trailing_stop.commons.constants import (
     STOP_LOSS_STEPS_VALUE_LIST,
 )
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
-
-_configuration_properties: ConfigurationProperties | None = None
-_scheduler: AsyncIOScheduler | None = None
-_event_emitter: AsyncIOEventEmitter | None = None
-_telegram_bot: Bot | None = None
-_dispacher: Dispatcher | None = None
 
 
 class _CustomEnvSettingsSource(EnvSettingsSource):
@@ -104,54 +91,3 @@ class ConfigurationProperties(BaseSettings):
         cls, settings_cls: type[BaseSettings], *_, **__
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         return (_CustomEnvSettingsSource(settings_cls),)
-
-
-def get_configuration_properties() -> ConfigurationProperties:
-    global _configuration_properties
-    if _configuration_properties is None:
-        _configuration_properties = ConfigurationProperties()
-    return _configuration_properties
-
-
-def get_scheduler() -> AsyncIOScheduler:
-    global _scheduler
-    if _scheduler is None:
-        _scheduler = AsyncIOScheduler()
-    return _scheduler
-
-
-def get_event_emitter() -> AsyncIOEventEmitter:
-    global _event_emitter
-    if _event_emitter is None:
-        _event_emitter = AsyncIOEventEmitter()
-    return _event_emitter
-
-
-def get_telegram_bot() -> Bot:
-    global _telegram_bot
-    if _telegram_bot is None:
-        configuration_properties = get_configuration_properties()
-        bot = Bot(
-            token=configuration_properties.telegram_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-        )
-    return bot
-
-
-def get_dispacher() -> Dispatcher:
-    global _dispacher
-    if _dispacher is None:
-        _dispacher = Dispatcher(storage=MemoryStorage())
-    return _dispacher
-
-
-def get_oauth_context() -> OAuth:  # pragma: no cover
-    configuration_properties = get_configuration_properties()
-    oauth = OAuth()
-    oauth.register(
-        name="google",
-        client_id=configuration_properties.google_oauth_client_id,
-        client_secret=configuration_properties.google_oauth_client_secret,
-        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-        client_kwargs={"scope": "openid email profile"},
-    )
-    return oauth

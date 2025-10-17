@@ -1,17 +1,24 @@
 import logging
+from typing import TYPE_CHECKING
 
-from crypto_trailing_stop.commons.patterns import SingletonMeta
-from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.database.models.global_flag import GlobalFlag
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.vo.global_flag_item import GlobalFlagItem
 
+if TYPE_CHECKING:
+    from crypto_trailing_stop.infrastructure.tasks.task_manager import TaskManager
+
 logger = logging.getLogger(__name__)
 
 
-class GlobalFlagService(metaclass=SingletonMeta):
-    def __init__(self) -> None:
-        self._configuration_properties = get_configuration_properties()
+class GlobalFlagService:
+    def __init__(self, configuration_properties: ConfigurationProperties) -> None:
+        self._configuration_properties = configuration_properties
+        self._task_manager = None
+
+    def set_task_manager(self, task_manager: "TaskManager") -> None:
+        self._task_manager = task_manager
 
     async def find_all(self) -> list[GlobalFlagItem]:
         flags = await GlobalFlag.objects()
@@ -47,10 +54,7 @@ class GlobalFlagService(metaclass=SingletonMeta):
         return global_flag is None or global_flag.value is True
 
     async def _toggle_task(self, name: GlobalFlagTypeEnum, value: bool) -> None:
-        # Communicate to task manager to start/stop the task
-        from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
-
         if value:
-            await get_task_manager_instance().start(name)
+            await self._task_manager.start(name)
         else:
-            await get_task_manager_instance().stop(name)
+            await self._task_manager.stop(name)

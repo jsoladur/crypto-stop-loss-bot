@@ -10,13 +10,15 @@ from ta.trend import MACD, ADXIndicator, EMAIndicator
 from ta.volatility import AverageTrueRange, BollingerBands
 
 from crypto_trailing_stop.commons.constants import DEFAULT_DIVERGENCE_WINDOW
-from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
@@ -24,15 +26,17 @@ from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
 logger = logging.getLogger(__name__)
 
 
-class CryptoAnalyticsService(metaclass=SingletonMeta):
+class CryptoAnalyticsService:
     def __init__(
         self,
         bit2me_remote_service: Bit2MeRemoteService,
         ccxt_remote_service: CcxtRemoteService,
+        favourite_crypto_currency_service: FavouriteCryptoCurrencyService,
         buy_sell_signals_config_service: BuySellSignalsConfigService,
     ) -> None:
         self._bit2me_remote_service = bit2me_remote_service
         self._ccxt_remote_service = ccxt_remote_service
+        self._favourite_crypto_currency_service = favourite_crypto_currency_service
         self._buy_sell_signals_config_service = buy_sell_signals_config_service
         self._exchange = self._ccxt_remote_service.get_exchange()
 
@@ -107,7 +111,7 @@ class CryptoAnalyticsService(metaclass=SingletonMeta):
         return ret
 
     async def _internal_get_favourite_symbols(self, *, client: AsyncClient) -> list[str]:
-        favourite_crypto_currencies = await self._bit2me_remote_service.get_favourite_crypto_currencies(client=client)
+        favourite_crypto_currencies = await self._favourite_crypto_currency_service.find_all()
         bit2me_account_info = await self._bit2me_remote_service.get_account_info(client=client)
         symbols = {
             f"{crypto_currency}/{bit2me_account_info.profile.currency_code}"

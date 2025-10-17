@@ -8,17 +8,13 @@ from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 from werkzeug import Response
 
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
-from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
-from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
-from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
-from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
 from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, Bit2MeTickersDtoObjectMother
@@ -36,19 +32,11 @@ async def should_calculate_all_limit_sell_order_guard_metrics_properly(
     integration_test_jobs_disabled_env: tuple[HTTPServer, str],
 ) -> None:
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
-    bit2me_remote_service = Bit2MeRemoteService()
-    ccxt_remote_service = CcxtRemoteService()
-    buy_sell_signals_config_service = BuySellSignalsConfigService(bit2me_remote_service=bit2me_remote_service)
-    orders_analytics_service = OrdersAnalyticsService(
-        bit2me_remote_service=bit2me_remote_service,
-        ccxt_remote_service=ccxt_remote_service,
-        stop_loss_percent_service=StopLossPercentService(global_flag_service=GlobalFlagService()),
-        buy_sell_signals_config_service=buy_sell_signals_config_service,
-        crypto_analytics_service=CryptoAnalyticsService(
-            bit2me_remote_service=bit2me_remote_service,
-            ccxt_remote_service=ccxt_remote_service,
-            buy_sell_signals_config_service=buy_sell_signals_config_service,
-        ),
+    buy_sell_signals_config_service: BuySellSignalsConfigService = (
+        get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
+    )
+    orders_analytics_service: OrdersAnalyticsService = (
+        get_application_container().infrastructure_container().services_container().orders_analytics_service()
     )
     opened_sell_bit2me_orders, *_ = _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
     first_sell_order, *_ = opened_sell_bit2me_orders
@@ -63,6 +51,10 @@ async def should_calculate_all_limit_sell_order_guard_metrics_properly(
             enable_exit_on_take_profit=faker.pybool(),
             stop_loss_atr_multiplier=faker.pyfloat(min_value=2.5, max_value=6.5),
             take_profit_atr_multiplier=faker.pyfloat(min_value=2.5, max_value=6.5),
+            adx_threshold=faker.pyint(min_value=20, max_value=40),
+            buy_min_volume_threshold=faker.pyfloat(min_value=0.5, max_value=2.5),
+            buy_max_volume_threshold=faker.pyfloat(min_value=3.0, max_value=10.0),
+            sell_min_volume_threshold=faker.pyfloat(min_value=0.5, max_value=2.5),
         )
         await buy_sell_signals_config_service.save_or_update(expected_buy_sell_signals_config_item)
 
@@ -88,8 +80,6 @@ async def should_calculate_all_limit_sell_order_guard_metrics_properly(
         assert metrics.break_even_price is not None and metrics.break_even_price > metrics.avg_buy_price
         assert metrics.safeguard_stop_price > 0 and metrics.safeguard_stop_price < metrics.avg_buy_price
         assert metrics.stop_loss_percent_value > 0
-        assert metrics.breathe_stop_loss_percent_value > metrics.stop_loss_percent_value
-        assert metrics.breathe_safeguard_stop_price < metrics.safeguard_stop_price
         assert metrics.current_attr_value > 0.0
         assert (
             metrics.suggested_safeguard_stop_price > 0

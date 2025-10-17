@@ -3,21 +3,27 @@ from asyncio import Lock
 
 import pydash
 
-from crypto_trailing_stop.commons.patterns import SingletonMeta
-from crypto_trailing_stop.config import get_configuration_properties
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.database.models.stop_loss_percent import StopLossPercent
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
 
 logger = logging.getLogger(__name__)
 
 
-class StopLossPercentService(metaclass=SingletonMeta):
-    def __init__(self, bit2me_remote_service: Bit2MeRemoteService, global_flag_service: GlobalFlagService) -> None:
-        self._configuration_properties = get_configuration_properties()
-        self._bit2me_remote_service = bit2me_remote_service
+class StopLossPercentService:
+    def __init__(
+        self,
+        configuration_properties: ConfigurationProperties,
+        favourite_crypto_currency_service: FavouriteCryptoCurrencyService,
+        global_flag_service: GlobalFlagService,
+    ) -> None:
+        self._configuration_properties = configuration_properties
+        self._favourite_crypto_currency_service = favourite_crypto_currency_service
         self._global_flag_service = global_flag_service
         self._lock = Lock()
 
@@ -28,7 +34,7 @@ class StopLossPercentService(metaclass=SingletonMeta):
                 StopLossPercentItem(symbol=current.symbol, value=current.value)
                 for current in stored_stop_loss_percent_list
             ]
-            additional_crypto_currencies = await self._bit2me_remote_service.get_favourite_crypto_currencies()
+            additional_crypto_currencies = await self._favourite_crypto_currency_service.find_all()
             for additional_crypto_currency in additional_crypto_currencies:
                 if not any(current.symbol.lower() == additional_crypto_currency.lower() for current in ret):
                     ret.append(

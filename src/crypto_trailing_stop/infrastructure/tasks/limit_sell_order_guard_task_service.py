@@ -3,60 +3,66 @@ from datetime import UTC, datetime
 from typing import override
 
 from aiogram import html
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR
-from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
+from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
-from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.limit_sell_order_guard_cache_service import (
     LimitSellOrderGuardCacheService,
 )
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
-from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
+from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
 from crypto_trailing_stop.infrastructure.tasks.vo.auto_exit_reason import AutoExitReason
 from crypto_trailing_stop.infrastructure.tasks.vo.technical_indicators_cache_item import TechnicalIndicatorsCacheItem
+from crypto_trailing_stop.interfaces.telegram.services.telegram_service import TelegramService
 
 logger = logging.getLogger(__name__)
 
 
 class LimitSellOrderGuardTaskService(AbstractTaskService):
-    def __init__(self):
-        super().__init__()
-        self._configuration_properties = get_configuration_properties()
-        self._market_signal_service = MarketSignalService()
-        self._ccxt_remote_service = CcxtRemoteService()
-        self._limit_sell_order_guard_cache_service = LimitSellOrderGuardCacheService()
-        self._buy_sell_signals_config_service = BuySellSignalsConfigService(
-            bit2me_remote_service=self._bit2me_remote_service
-        )
-        self._crypto_analytics_service = CryptoAnalyticsService(
-            bit2me_remote_service=self._bit2me_remote_service,
-            ccxt_remote_service=self._ccxt_remote_service,
-            buy_sell_signals_config_service=self._buy_sell_signals_config_service,
-        )
-        self._orders_analytics_service = OrdersAnalyticsService(
-            bit2me_remote_service=self._bit2me_remote_service,
-            ccxt_remote_service=self._ccxt_remote_service,
-            stop_loss_percent_service=StopLossPercentService(
-                bit2me_remote_service=self._bit2me_remote_service, global_flag_service=GlobalFlagService()
-            ),
-            buy_sell_signals_config_service=self._buy_sell_signals_config_service,
-            crypto_analytics_service=self._crypto_analytics_service,
-        )
+    def __init__(
+        self,
+        configuration_properties: ConfigurationProperties,
+        bit2me_remote_service: Bit2MeRemoteService,
+        push_notification_service: PushNotificationService,
+        telegram_service: TelegramService,
+        scheduler: AsyncIOScheduler,
+        market_signal_service: MarketSignalService,
+        ccxt_remote_service: CcxtRemoteService,
+        limit_sell_order_guard_cache_service: LimitSellOrderGuardCacheService,
+        favourite_crypto_currency_service: FavouriteCryptoCurrencyService,
+        buy_sell_signals_config_service: BuySellSignalsConfigService,
+        crypto_analytics_service: CryptoAnalyticsService,
+        orders_analytics_service: OrdersAnalyticsService,
+    ):
+        super().__init__(bit2me_remote_service, push_notification_service, telegram_service, scheduler)
+        self._configuration_properties = configuration_properties
+        self._market_signal_service = market_signal_service
+        self._ccxt_remote_service = ccxt_remote_service
+        self._limit_sell_order_guard_cache_service = limit_sell_order_guard_cache_service
+        self._favourite_crypto_currency_service = favourite_crypto_currency_service
+        self._buy_sell_signals_config_service = buy_sell_signals_config_service
+        self._crypto_analytics_service = crypto_analytics_service
+        self._orders_analytics_service = orders_analytics_service
         self._exchange = self._ccxt_remote_service.get_exchange()
         self._technical_indicators_by_symbol_cache: dict[str, TechnicalIndicatorsCacheItem] = {}
 
@@ -146,9 +152,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             + f"Avg Buy Price = {guard_metrics.avg_buy_price} {fiat_currency} / "
             + f"Break-Even Price = {guard_metrics.break_even_price} {fiat_currency} / "
             + f"Stop Loss = {guard_metrics.stop_loss_percent_value}% / "
-            + f"Flex. Stop Loss = {guard_metrics.breathe_stop_loss_percent_value}% / "
             + f"Stop Price = {guard_metrics.safeguard_stop_price} {fiat_currency} / "
-            + f"Flex. Stop Price = {guard_metrics.breathe_safeguard_stop_price} {fiat_currency} / "
             + f"ATR Take Profit Limit price = {guard_metrics.suggested_take_profit_limit_price} {fiat_currency} / "
             + f"ATR value = {guard_metrics.current_attr_value} {fiat_currency} / "
             + f"Current Price = {tickers_close_formatted} {fiat_currency}"
@@ -251,19 +255,15 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         # Initialize variables
         is_marked_for_immediate_sell = immediate_sell_order_item is not None
         percent_to_sell = immediate_sell_order_item.percent_to_sell if is_marked_for_immediate_sell else 100.0
-        stop_loss_triggered, stop_loss_reached_at_closing_price, stop_loss_reached_at_current_price = (
+        stop_loss_triggered, take_profit_reached, exit_on_sell_signal, exit_on_bearish_divergence = (
+            False,
             False,
             False,
             False,
         )
-        take_profit_reached, exit_on_sell_signal, exit_on_bearish_divergence = (False, False, False)
         if not is_marked_for_immediate_sell:
             # Check if the safeguard stop price is reached
-            stop_loss_triggered, stop_loss_reached_at_closing_price, stop_loss_reached_at_current_price = (
-                self._is_stop_loss_triggered(
-                    tickers=tickers, guard_metrics=guard_metrics, last_candle_market_metrics=last_candle_market_metrics
-                )
-            )
+            stop_loss_triggered = self._is_stop_loss_triggered(tickers=tickers, guard_metrics=guard_metrics)
             if not stop_loss_triggered:
                 # Calculate exit_on_sell_signal
                 (
@@ -283,8 +283,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                     )
         return AutoExitReason(
             is_marked_for_immediate_sell=is_marked_for_immediate_sell,
-            stop_loss_reached_at_closing_price=stop_loss_reached_at_closing_price,
-            stop_loss_reached_at_current_price=stop_loss_reached_at_current_price,
+            stop_loss_triggered=stop_loss_triggered,
             exit_on_bearish_divergence=exit_on_bearish_divergence,
             exit_on_sell_signal=exit_on_sell_signal,
             take_profit_reached=take_profit_reached,
@@ -292,22 +291,12 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         )
 
     def _is_stop_loss_triggered(
-        self,
-        *,
-        tickers: Bit2MeTickersDto,
-        guard_metrics: LimitSellOrderGuardMetrics,
-        last_candle_market_metrics: CryptoMarketMetrics,
+        self, *, tickers: Bit2MeTickersDto, guard_metrics: LimitSellOrderGuardMetrics
     ) -> tuple[bool, bool, bool]:
         # XXX: [JMSOLA] Check if the safeguard stop price is reached
-        # If the latest candle's closing price is below the safeguard stop price,
-        # or the current sell price (bid) is below the breathe safeguard stop price
-        # We want to give breathe room to the price to fluctuate
-        stop_loss_reached_at_closing_price = bool(
-            last_candle_market_metrics.closing_price < guard_metrics.safeguard_stop_price
-        )
-        stop_loss_reached_at_current_price = bool(tickers.bid_or_close < guard_metrics.breathe_safeguard_stop_price)
-        stop_loss_triggered = stop_loss_reached_at_closing_price or stop_loss_reached_at_current_price
-        return stop_loss_triggered, stop_loss_reached_at_closing_price, stop_loss_reached_at_current_price
+        # or the current sell price (bid) is below the safeguard stop price
+        stop_loss_triggered = bool(tickers.bid_or_close < guard_metrics.safeguard_stop_price)
+        return stop_loss_triggered
 
     async def _should_auto_exit_on_sell_or_bearish_divergence_1h_signal(
         self,
@@ -388,16 +377,10 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                 + f"current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency})."
             )
         elif auto_exit_reason.stop_loss_triggered:
-            if auto_exit_reason.stop_loss_reached_at_closing_price:
-                price_message = (
-                    f"Closing {crypto_currency} price ({last_candle_market_metrics.closing_price} {fiat_currency})"
-                )
-                stop_price_message = (
-                    f"safeguard stop price calculated ({guard_metrics.safeguard_stop_price} {fiat_currency})"
-                )
-            else:
-                price_message = f"Current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency})"
-                stop_price_message = f"breathe safeguard stop price calculated ({guard_metrics.breathe_safeguard_stop_price} {fiat_currency})"  # noqa: E501
+            price_message = f"Current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency})"
+            stop_price_message = (
+                f"safeguard stop price calculated ({guard_metrics.safeguard_stop_price} {fiat_currency})"
+            )
             details = f"{price_message} is lower than the {stop_price_message}."
         elif auto_exit_reason.exit_on_bearish_divergence:
             details = (

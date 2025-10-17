@@ -4,6 +4,7 @@ import pytest
 from faker import Faker
 from pytest_httpserver import HTTPServer
 
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_enum import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 
@@ -15,7 +16,9 @@ async def should_save_or_update_push_notifications_properly(
     faker: Faker, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
 ) -> None:
     _ = integration_test_jobs_disabled_env
-    push_notification_service = PushNotificationService()
+    push_notification_service: PushNotificationService = (
+        get_application_container().infrastructure_container().services_container().push_notification_service()
+    )
 
     telegram_chat_id = faker.random_number(digits=9, fix_len=True)
     push_notification_items = await push_notification_service.find_push_notification_by_telegram_chat_id(

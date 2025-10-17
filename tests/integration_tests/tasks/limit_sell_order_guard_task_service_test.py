@@ -17,6 +17,7 @@ from crypto_trailing_stop.commons.constants import (
     BIT2ME_TAKER_FEES,
     PERCENT_TO_SELL_LIST,
 )
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -34,7 +35,6 @@ from crypto_trailing_stop.infrastructure.services.limit_sell_order_guard_cache_s
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.immediate_sell_order_item import ImmediateSellOrderItem
-from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.limit_sell_order_guard_task_service import LimitSellOrderGuardTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
@@ -74,19 +74,24 @@ async def should_create_market_sell_order_when_market_for_immediate_sell_order(
     first_order_and_price, *_ = buy_prices
     first_order, buy_price = first_order_and_price
     crypto_currency, *_ = first_order.symbol.split("/")
-    await BuySellSignalsConfigService().save_or_update(
-        BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
+
+    task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
+    buy_sell_signals_config_service: BuySellSignalsConfigService = (
+        get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
     )
-    task_manager = get_task_manager_instance()
+
+    buy_sell_signals_config_item: BuySellSignalsConfigItem = buy_sell_signals_config_service._get_defaults_by_symbol(
+        symbol=crypto_currency
+    )
+    buy_sell_signals_config_item.enable_exit_on_take_profit = False
+    await buy_sell_signals_config_service.save_or_update(buy_sell_signals_config_item)
 
     # Create fake market signals to simulate the sudden SELL 1H market signal
-
     await _create_fake_market_signals(first_order, closing_price_sell_1h_signal=buy_price)
     limit_sell_order_guard_cache_service = LimitSellOrderGuardCacheService()
     limit_sell_order_guard_cache_service.mark_immediate_sell_order(
         ImmediateSellOrderItem(sell_order_id=first_order.id, percent_to_sell=percent_to_sell)
     )
-
     # Provoke send a notification via Telegram
     telegram_chat_id = faker.random_number(digits=9, fix_len=True)
     for push_notification_type in PushNotificationTypeEnum:
@@ -122,11 +127,23 @@ async def should_create_market_sell_order_when_take_profit_reached(
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
 
-    _prepare_httpserver_mock(
+    *_, buy_prices = _prepare_httpserver_mock(
         faker, httpserver, bit2me_api_key, bit2me_api_secret, closing_crypto_currency_price_multipler=1.5
     )
+    first_order_and_price, *_ = buy_prices
+    first_order, buy_price = first_order_and_price
+    crypto_currency, *_ = first_order.symbol.split("/")
 
-    task_manager = get_task_manager_instance()
+    task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
+    buy_sell_signals_config_service: BuySellSignalsConfigService = (
+        get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
+    )
+
+    buy_sell_signals_config_item: BuySellSignalsConfigItem = buy_sell_signals_config_service._get_defaults_by_symbol(
+        symbol=crypto_currency
+    )
+    buy_sell_signals_config_item.enable_exit_on_take_profit = True
+    await buy_sell_signals_config_service.save_or_update(buy_sell_signals_config_item)
 
     # Provoke send a notification via Telegram
     telegram_chat_id = faker.random_number(digits=9, fix_len=True)
@@ -181,10 +198,16 @@ async def should_create_market_sell_order_when_auto_exit_sell_or_bearish_diverge
     )
     first_order, *_ = opened_sell_bit2me_orders
     crypto_currency, *_ = first_order.symbol.split("/")
-    await BuySellSignalsConfigService().save_or_update(
-        BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
+    task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
+    buy_sell_signals_config_service: BuySellSignalsConfigService = (
+        get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
     )
-    task_manager = get_task_manager_instance()
+
+    buy_sell_signals_config_item: BuySellSignalsConfigItem = buy_sell_signals_config_service._get_defaults_by_symbol(
+        symbol=crypto_currency
+    )
+    buy_sell_signals_config_item.enable_exit_on_take_profit = False
+    await buy_sell_signals_config_service.save_or_update(buy_sell_signals_config_item)
 
     # Create fake market signals to simulate the sudden SELL 1H market signal
     await _create_fake_market_signals(first_order, bearish_divergence=bearish_divergence)
@@ -236,10 +259,16 @@ async def should_ignore_sell_1h_signal_and_not_sell_when_price_is_lower_than_bre
     first_order_and_price, *_ = buy_prices
     first_order, buy_price = first_order_and_price
     crypto_currency, *_ = first_order.symbol.split("/")
-    await BuySellSignalsConfigService().save_or_update(
-        BuySellSignalsConfigItem(symbol=crypto_currency, enable_exit_on_take_profit=False)
+    task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
+    buy_sell_signals_config_service: BuySellSignalsConfigService = (
+        get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
     )
-    task_manager = get_task_manager_instance()
+
+    buy_sell_signals_config_item: BuySellSignalsConfigItem = buy_sell_signals_config_service._get_defaults_by_symbol(
+        symbol=crypto_currency
+    )
+    buy_sell_signals_config_item.enable_exit_on_take_profit = False
+    await buy_sell_signals_config_service.save_or_update(buy_sell_signals_config_item)
 
     # Create fake market signals to simulate the sudden SELL 1H market signal
 
@@ -288,15 +317,19 @@ async def should_create_market_sell_order_when_stop_loss_triggered(
         bit2me_error_status_code=bit2me_error_status_code,
         closing_crypto_currency_price_multipler=0.2,
     )
+    task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
+    buy_sell_signals_config_service: BuySellSignalsConfigService = (
+        get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
+    )
+
     for current_order in opened_sell_bit2me_orders:
         crypto_currency, *_ = current_order.symbol.split("/")
-        await BuySellSignalsConfigService().save_or_update(
-            BuySellSignalsConfigItem(
-                symbol=crypto_currency, enable_exit_on_sell_signal=False, enable_exit_on_take_profit=False
-            )
+        buy_sell_signals_config_item: BuySellSignalsConfigItem = (
+            buy_sell_signals_config_service._get_defaults_by_symbol(symbol=crypto_currency)
         )
-
-    task_manager = get_task_manager_instance()
+        buy_sell_signals_config_item.enable_exit_on_take_profit = False
+        buy_sell_signals_config_item.enable_exit_on_sell_signal = True
+        await buy_sell_signals_config_service.save_or_update(buy_sell_signals_config_item)
 
     # Provoke send a notification via Telegram
     telegram_chat_id = faker.random_number(digits=9, fix_len=True)
@@ -488,7 +521,9 @@ def _prepare_httpserver_mock(
 async def _create_fake_market_signals(
     first_order: Bit2MeOrderDto, *, closing_price_sell_1h_signal: float | None = None, bearish_divergence: bool = False
 ) -> None:
-    market_signal_service = MarketSignalService()
+    market_signal_service: MarketSignalService = (
+        get_application_container().infrastructure_container().services_container().market_signal_service()
+    )
 
     one_hour_last_signals = [
         SignalsEvaluationResultObjectMother.create(symbol=first_order.symbol, timeframe="1h", buy=True, sell=False),

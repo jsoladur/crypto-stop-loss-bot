@@ -4,6 +4,7 @@ import pytest
 from faker import Faker
 from pytest_httpserver import HTTPServer
 
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 
@@ -15,7 +16,10 @@ async def should_save_or_update_global_flag_properly(
     faker: Faker, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
 ) -> None:
     _ = integration_test_jobs_disabled_env
-    global_flag_service = GlobalFlagService()
+    application_container = get_application_container()
+    global_flag_service: GlobalFlagService = (
+        application_container.infrastructure_container().services_container().global_flag_service()
+    )
 
     global_flag_items = await global_flag_service.find_all()
     assert len(global_flag_items) == len(list(GlobalFlagTypeEnum))

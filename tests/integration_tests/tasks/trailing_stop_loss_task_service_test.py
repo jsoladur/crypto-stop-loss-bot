@@ -11,10 +11,10 @@ from pytest_httpserver.httpserver import HandlerType
 from werkzeug import Response
 
 from crypto_trailing_stop.commons.constants import DEFAULT_TRAILING_STOP_LOSS_PERCENT
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
-from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.trailing_stop_loss_task_service import TrailingStopLossTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
@@ -34,7 +34,7 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
 
-    task_manager = get_task_manager_instance()
+    task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
 
     _prepare_httpserver_mock(
         faker, simulate_pending_buy_orders_to_filled, httpserver, bit2me_api_key, bit2me_api_secret

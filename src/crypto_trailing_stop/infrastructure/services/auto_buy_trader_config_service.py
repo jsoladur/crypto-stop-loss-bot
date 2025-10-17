@@ -1,24 +1,28 @@
 import logging
 
 import pydash
-from httpx import AsyncClient
 
-from crypto_trailing_stop.commons.patterns import SingletonMeta
-from crypto_trailing_stop.config import get_configuration_properties
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.database.models.auto_buy_trader_config import AutoBuyTraderConfig
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
 
 logger = logging.getLogger(__name__)
 
 
-class AutoBuyTraderConfigService(metaclass=SingletonMeta):
-    def __init__(self, bit2me_remote_service: Bit2MeRemoteService) -> None:
-        self._configuration_properties = get_configuration_properties()
-        self._bit2me_remote_service = bit2me_remote_service
+class AutoBuyTraderConfigService:
+    def __init__(
+        self,
+        configuration_properties: ConfigurationProperties,
+        favourite_crypto_currency_service: FavouriteCryptoCurrencyService,
+    ) -> None:
+        self._configuration_properties = configuration_properties
+        self._favourite_crypto_currency_service = favourite_crypto_currency_service
 
     async def find_all(
-        self, *, include_favourite_cryptos: bool = True, order_by_symbol: bool = True, client: AsyncClient | None = None
+        self, *, include_favourite_cryptos: bool = True, order_by_symbol: bool = True
     ) -> list[AutoBuyTraderConfigItem]:
         stored_config_list = await AutoBuyTraderConfig.objects()
         ret = [
@@ -28,9 +32,7 @@ class AutoBuyTraderConfigService(metaclass=SingletonMeta):
             for current in stored_config_list
         ]
         if include_favourite_cryptos:
-            additional_crypto_currencies = await self._bit2me_remote_service.get_favourite_crypto_currencies(
-                client=client
-            )
+            additional_crypto_currencies = await self._favourite_crypto_currency_service.find_all()
             for additional_crypto_currency in additional_crypto_currencies:
                 if not any(current.symbol.lower() == additional_crypto_currency.lower() for current in ret):
                     ret.append(AutoBuyTraderConfigItem(symbol=additional_crypto_currency.upper()))

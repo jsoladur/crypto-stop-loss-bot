@@ -7,7 +7,7 @@ from faker import Faker
 from pytest_httpserver import HTTPServer
 
 from crypto_trailing_stop.commons.constants import SIGNALS_EVALUATION_RESULT_EVENT_NAME
-from crypto_trailing_stop.config import get_event_emitter
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import SignalsEvaluationResult
@@ -22,7 +22,9 @@ async def should_save_market_signals_properly_when_invoke_to_service(
     faker: Faker, use_event_emitter: bool, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
 ) -> None:
     _ = integration_test_jobs_disabled_env
-    market_signal_service = MarketSignalService()
+    market_signal_service: MarketSignalService = (
+        get_application_container().infrastructure_container().services_container().market_signal_service()
+    )
 
     symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
     one_hour_signals = SignalsEvaluationResultObjectMother.list(timeframe="1h", symbol=symbol)
@@ -129,7 +131,8 @@ async def _invoke_on_signals_evaluation_result(
     market_signal_service: MarketSignalService, signals: SignalsEvaluationResult, *, use_event_emitter: bool
 ) -> None:
     if use_event_emitter:
-        event_emitter = get_event_emitter()
+        application_container = get_application_container()
+        event_emitter = application_container.infrastructure_container().event_emitter()
         event_emitter.emit(SIGNALS_EVALUATION_RESULT_EVENT_NAME, signals)
         await asyncio.sleep(delay=1.0)
     else:

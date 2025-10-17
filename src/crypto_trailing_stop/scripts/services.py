@@ -52,6 +52,7 @@ class BacktestingCliService:
         self._analytics_service = CryptoAnalyticsService(
             bit2me_remote_service=self._bit2me_remote_service,
             ccxt_remote_service=CcxtRemoteService(),
+            favourite_crypto_currency_service=None,
             buy_sell_signals_config_service=None,
         )
         self._signal_service = BuySellSignalsTaskService()

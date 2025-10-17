@@ -1,12 +1,11 @@
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 
-class HomeHandler(metaclass=SingletonMeta):
+class HomeHandler:
     def __init__(self, session_storage_service: SessionStorageService, keyboards_builder: KeyboardsBuilder) -> None:
         self._session_storage_service = session_storage_service
         self._keyboards_builder = keyboards_builder

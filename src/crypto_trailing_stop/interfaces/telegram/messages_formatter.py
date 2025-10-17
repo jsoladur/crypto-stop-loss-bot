@@ -4,7 +4,6 @@ from zoneinfo import ZoneInfo
 import pydash
 from aiogram import html
 
-from crypto_trailing_stop.commons.patterns import SingletonMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -19,7 +18,7 @@ from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metr
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 
 
-class MessagesFormatter(metaclass=SingletonMeta):
+class MessagesFormatter:
     def format_global_summary(self, global_summary: GlobalSummary) -> str:
         message_lines = [
             "=============================",
@@ -196,9 +195,6 @@ class MessagesFormatter(metaclass=SingletonMeta):
             + "   ---------------------------------------------------- \n"
             + f"   🚏 {html.bold('Stop Loss')} = {metrics.stop_loss_percent_value}%\n"
             + f"   🛡️ {html.bold('Stop Price = ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
-            + "   ---------------------------------------------------- \n"
-            + f"   🫁🚏 {html.bold('Flex. Stop Loss')} = {metrics.breathe_stop_loss_percent_value}%\n"
-            + f"   🫁🛡️ {html.bold('Flex. Stop Price = ' + str(metrics.breathe_safeguard_stop_price) + ' ' + fiat_currency)}"  # noqa: E501
         )
         answer_text += (
             "\n  ---------------------------------------------------- \n"

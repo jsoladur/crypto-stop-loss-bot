@@ -11,8 +11,7 @@ from crypto_trailing_stop.commons.constants import (
     SP_TP_PAIRS,
     STOP_LOSS_STEPS_VALUE_LIST,
 )
-from crypto_trailing_stop.commons.patterns import SingletonMeta
-from crypto_trailing_stop.config import get_configuration_properties
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
@@ -21,9 +20,9 @@ from crypto_trailing_stop.infrastructure.services.vo.push_notification_item impo
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
 
 
-class KeyboardsBuilder(metaclass=SingletonMeta):
-    def __init__(self):
-        self._configuration_properties = get_configuration_properties()
+class KeyboardsBuilder:
+    def __init__(self, configuration_properties: ConfigurationProperties):
+        self._configuration_properties = configuration_properties
 
     def get_login_keyboard(self, state: FSMContext) -> InlineKeyboardMarkup:
         """Builds the login keyboard with a button to log in."""
@@ -47,6 +46,7 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
     def get_home_keyboard(self) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
         builder.row(InlineKeyboardButton(text="🪙 ₿alances", callback_data="get_pro_wallet_balances"))
+        builder.row(InlineKeyboardButton(text="🌟 Favourites", callback_data="favourite_crypto_currencies_home"))
         builder.row(
             InlineKeyboardButton(text="📈 Summary", callback_data="get_global_summary"),
             InlineKeyboardButton(text="📤 Sell Orders", callback_data="get_sell_orders_info"),
@@ -69,6 +69,18 @@ class KeyboardsBuilder(metaclass=SingletonMeta):
         if self._configuration_properties.gemini_pro_api_enabled:
             builder.row(InlineKeyboardButton(text="🪄 Gemini Generative AI", callback_data="gemini_generative_ai_home"))
         builder.row(InlineKeyboardButton(text="📴 Logout", callback_data="logout"))
+        return builder.as_markup()
+
+    def get_favourite_crypto_currencies_keyboard(self, favourite_crypto_currencies: list[str]) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        for crypto_currency in favourite_crypto_currencies:
+            builder.row(
+                InlineKeyboardButton(
+                    text=f"🌟 {crypto_currency}", callback_data=f"remove_favourite_crypto_currency$${crypto_currency}"
+                )
+            )
+        builder.row(InlineKeyboardButton(text="➕ Add New", callback_data="add_favourite_crypto_currency"))
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 
     def get_stop_loss_percent_items_keyboard(

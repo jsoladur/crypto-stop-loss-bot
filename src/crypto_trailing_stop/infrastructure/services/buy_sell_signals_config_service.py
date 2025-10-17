@@ -2,27 +2,32 @@ import logging
 
 import pydash
 
-from crypto_trailing_stop.commons.patterns import SingletonMeta
-from crypto_trailing_stop.config import get_configuration_properties
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.database.models.buy_sell_signals_config import BuySellSignalsConfig
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 
 logger = logging.getLogger(__name__)
 
 
-class BuySellSignalsConfigService(metaclass=SingletonMeta):
-    def __init__(self, bit2me_remote_service: Bit2MeRemoteService) -> None:
-        self._configuration_properties = get_configuration_properties()
-        self._bit2me_remote_service = bit2me_remote_service
+class BuySellSignalsConfigService:
+    def __init__(
+        self,
+        configuration_properties: ConfigurationProperties,
+        favourite_crypto_currency_service: FavouriteCryptoCurrencyService,
+    ) -> None:
+        self._configuration_properties = configuration_properties
+        self._favourite_crypto_currency_service = favourite_crypto_currency_service
 
     async def find_all(self) -> list[BuySellSignalsConfigItem]:
         stored_config_list = await BuySellSignalsConfig.objects()
         ret = [self._convert_to_value_object(current) for current in stored_config_list]
-        additional_crypto_currencies = await self._bit2me_remote_service.get_favourite_crypto_currencies()
+        additional_crypto_currencies = await self._favourite_crypto_currency_service.find_all()
         for additional_crypto_currency in additional_crypto_currencies:
             if not any(current.symbol.lower() == additional_crypto_currency.lower() for current in ret):
-                ret.append(BuySellSignalsConfigItem(symbol=additional_crypto_currency.upper()))
+                ret.append(self._get_defaults_by_symbol(symbol=additional_crypto_currency))
         ret = pydash.order_by(ret, ["symbol"])
         return ret
 
@@ -34,7 +39,7 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
         ret = [self._convert_to_value_object(current) for current in stored_config_list]
         for symbol in symbols:
             if not any(current.symbol.upper() == symbol.upper() for current in ret):
-                ret.append(BuySellSignalsConfigItem(symbol=symbol.upper()))
+                ret.append(self._get_defaults_by_symbol(symbol=symbol))
         ret = pydash.order_by(ret, ["symbol"])
         return ret
 
@@ -43,7 +48,7 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
         if config:
             ret = self._convert_to_value_object(config)
         else:
-            ret = BuySellSignalsConfigItem(symbol=symbol.upper())
+            ret = self._get_defaults_by_symbol(symbol=symbol)
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Using {repr(ret)} for {symbol}...")
         return ret
@@ -113,4 +118,18 @@ class BuySellSignalsConfigService(metaclass=SingletonMeta):
             sell_min_volume_threshold=buy_sell_signals_config.sell_min_volume_threshold,
             enable_exit_on_sell_signal=buy_sell_signals_config.enable_exit_on_sell_signal,
             enable_exit_on_take_profit=buy_sell_signals_config.enable_exit_on_take_profit,
+        )
+
+    def _get_defaults_by_symbol(self, symbol: str) -> BuySellSignalsConfigItem:
+        return BuySellSignalsConfigItem(
+            symbol=symbol.upper(),
+            ema_short_value=self._configuration_properties.buy_sell_signals_ema_short_value,
+            ema_mid_value=self._configuration_properties.buy_sell_signals_ema_mid_value,
+            ema_long_value=self._configuration_properties.buy_sell_signals_ema_long_value,
+            stop_loss_atr_multiplier=self._configuration_properties.suggested_stop_loss_atr_multiplier,
+            take_profit_atr_multiplier=self._configuration_properties.suggested_take_profit_atr_multiplier,
+            adx_threshold=self._configuration_properties.buy_sell_signals_adx_threshold,
+            buy_min_volume_threshold=self._configuration_properties.buy_sell_signals_min_volume_threshold,
+            buy_max_volume_threshold=self._configuration_properties.buy_sell_signals_max_volume_threshold,
+            sell_min_volume_threshold=self._configuration_properties.buy_sell_signals_min_volume_threshold,
         )

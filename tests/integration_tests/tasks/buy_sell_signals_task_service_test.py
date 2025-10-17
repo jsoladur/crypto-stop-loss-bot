@@ -10,6 +10,7 @@ from pydantic import RootModel
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto, Profile
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
@@ -19,8 +20,10 @@ from crypto_trailing_stop.infrastructure.database.models.push_notification impor
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_enum import PushNotificationTypeEnum
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
-from crypto_trailing_stop.infrastructure.tasks import get_task_manager_instance
 from crypto_trailing_stop.infrastructure.tasks.buy_sell_signals_task_service import BuySellSignalsTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.constants import BUY_SELL_SIGNALS_MOCK_FILES_PATH, MOCK_CRYPTO_CURRENCIES
@@ -52,24 +55,31 @@ async def should_send_via_telegram_notifications_after_detecting_buy_sell_signal
     """
     # Mock the Bit2Me API
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+
+    application_container = get_application_container()
+    task_manager = application_container.infrastructure_container().tasks_container().task_manager()
+
     await disable_all_background_jobs_except(exclusion=GlobalFlagTypeEnum.BUY_SELL_SIGNALS)
 
-    crypto_currency = _prepare_httpserver_mock(
+    crypto_currency = await _prepare_httpserver_mock(
         faker, httpserver, bit2me_api_key, bit2me_api_secret, fetch_ohlcv_return_value_filename
     )
-
-    task_manager = get_task_manager_instance()
 
     buy_sell_signals_task_service: BuySellSignalsTaskService = task_manager.get_tasks()[
         GlobalFlagTypeEnum.BUY_SELL_SIGNALS
     ]
+    buy_sell_signals_config_service: BuySellSignalsConfigService = (
+        get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
+    )
     # Pause job since won't be paused via start(..), stop(..)
     buy_sell_signals_task_service._job.pause()
 
     if enable_adx_filter:
-        await BuySellSignalsConfigService().save_or_update(
-            BuySellSignalsConfigItem(symbol=crypto_currency, enable_adx_filter=True)
+        buy_sell_signals_config_item: BuySellSignalsConfigItem = (
+            buy_sell_signals_config_service._get_defaults_by_symbol(symbol=crypto_currency)
         )
+        buy_sell_signals_config_item.enable_adx_filter = True
+        await buy_sell_signals_config_service.save_or_update(buy_sell_signals_config_item)
 
     # Provoke send a notification via Telegram
     push_notification = PushNotification(
@@ -101,14 +111,15 @@ async def _run_task_service(buy_sell_signals_task_service: BuySellSignalsTaskSer
         await buy_sell_signals_task_service.run()
 
 
-def _prepare_httpserver_mock(
+async def _prepare_httpserver_mock(
     faker: Faker,
     httpserver: HTTPServer,
     bit2me_api_key: str,
     bik2me_api_secret: str,
     fetch_ohlcv_return_value_filename: str,
 ) -> None:
-    favourite_crypto_currency = faker.random_element(MOCK_CRYPTO_CURRENCIES)
+    favourite_crypto_currency = await _prepare_favourite_crypto_currency(faker)
+
     registration_year = datetime.now(UTC).year - 1
     account_info = Bit2MeAccountInfoDto(
         registrationDate=faker.date_time_between_dates(
@@ -131,14 +142,6 @@ def _prepare_httpserver_mock(
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.PERMANENT,
     ).respond_with_json(fetch_ohlcv_return_value)
-
-    # Mock call /v1/currency-favorites/favorites
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/currency-favorites/favorites", method="GET"
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json([{"currency": favourite_crypto_currency}])
     # Trading Wallet Balances
     httpserver.expect(
         Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/wallet/balance", method="GET").set_bit2me_api_key_and_secret(
@@ -170,4 +173,13 @@ def _prepare_httpserver_mock(
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
 
+    return favourite_crypto_currency
+
+
+async def _prepare_favourite_crypto_currency(faker: Faker) -> str:
+    favourite_crypto_currency = faker.random_element(MOCK_CRYPTO_CURRENCIES)
+    favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
+        get_application_container().infrastructure_container().services_container().favourite_crypto_currency_service()
+    )
+    await favourite_crypto_currency_service.add(favourite_crypto_currency)
     return favourite_crypto_currency

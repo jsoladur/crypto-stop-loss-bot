@@ -3,13 +3,14 @@ import logging
 import pytest
 from faker import Faker
 from pytest_httpserver import HTTPServer
-from pytest_httpserver.httpserver import HandlerType
 
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
 from tests.helpers.constants import MOCK_CRYPTO_CURRENCIES
-from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +19,12 @@ logger = logging.getLogger(__name__)
 async def should_set_auto_buy_trader_config_properly(
     faker: Faker, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
 ) -> None:
-    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
+    _ = integration_test_jobs_disabled_env
 
-    auto_buy_trader_config_service = AutoBuyTraderConfigService(bit2me_remote_service=Bit2MeRemoteService())
-    favourite_crypto_currencies = _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
+    auto_buy_trader_config_service: AutoBuyTraderConfigService = (
+        get_application_container().infrastructure_container().services_container().auto_buy_trader_config_service()
+    )
+    favourite_crypto_currencies = await _prepare_favourite_crypto_currencies(faker)
     auto_buy_trader_config_list = await auto_buy_trader_config_service.find_all()
     assert len(auto_buy_trader_config_list) == len(favourite_crypto_currencies)
 
@@ -47,21 +50,12 @@ async def should_set_auto_buy_trader_config_properly(
         == expected_auto_buy_trader_config_item.fiat_wallet_percent_assigned
     )
 
-    httpserver.check_assertions()
 
-
-def _prepare_httpserver_mock(
-    faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str
-) -> list[str]:
-    # Mock call /v1/currency-favorites/favorites
-    favourite_crypto_currencies = set(faker.random_choices(MOCK_CRYPTO_CURRENCIES, length=3))
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/currency-favorites/favorites", method="GET"
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.PERMANENT,
-    ).respond_with_json(
-        [{"currency": favourite_crypto_currency} for favourite_crypto_currency in favourite_crypto_currencies]
+async def _prepare_favourite_crypto_currencies(faker: Faker) -> list[str]:
+    favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
+        get_application_container().infrastructure_container().services_container().favourite_crypto_currency_service()
     )
-
+    favourite_crypto_currencies = set(faker.random_choices(MOCK_CRYPTO_CURRENCIES, length=3))
+    for crypto_currency in favourite_crypto_currencies:
+        await favourite_crypto_currency_service.add(crypto_currency)
     return favourite_crypto_currencies

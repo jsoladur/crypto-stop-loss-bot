@@ -1,6 +1,6 @@
 [project]
 name = "crypto-trailing-stop"
-version = "0.44.0"
+version = "0.46.0"
 description = "A Python-based bot for automated cryptocurrency trading"
 readme = "README.md"
 authors = [
@@ -9,12 +9,14 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "aiogram>=3.20.0.post0",
+    "aiogram-dialog>=2.4.0",
     "aiogram3-form>=2.0.5",
     "apscheduler>=3.11.0",
     "authlib>=1.6.0",
     "backoff>=2.2.1",
     "cachebox>=5.0.1",
     "ccxt>=4.4.94",
+    "dependency-injector>=4.48.2",
     "fastapi>=0.115.12",
     "fastapi-cli>=0.0.7",
     "google-genai>=1.30.0",

@@ -1,12 +1,12 @@
 import logging
 import re
 
-from aiogram import F, html
+from aiogram import Bot, Dispatcher, F, html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from crypto_trailing_stop.config import get_dispacher, get_telegram_bot
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
+from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.callbacks.buy_sell_signals_config.buy_sell_signals_config_form import (
@@ -18,19 +18,27 @@ from crypto_trailing_stop.interfaces.telegram.messages_formatter import Messages
 
 logger = logging.getLogger(__name__)
 
-dp = get_dispacher()
-bot = get_telegram_bot()
-session_storage_service = SessionStorageService()
-keyboards_builder = KeyboardsBuilder()
-messages_formatter = MessagesFormatter()
-buy_sell_signals_config_service = BuySellSignalsConfigService(bit2me_remote_service=Bit2MeRemoteService())
+application_container = get_application_container()
+dp: Dispatcher = application_container.dispatcher()
+configuration_properties: ConfigurationProperties = application_container.configuration_properties()
+session_storage_service: SessionStorageService = application_container.session_storage_service()
+keyboards_builder: KeyboardsBuilder = (
+    application_container.interfaces_container().telegram_container().keyboards_builder()
+)
+bot: Bot = application_container.interfaces_container().telegram_container().telegram_bot()
+messages_formatter: MessagesFormatter = (
+    application_container.interfaces_container().telegram_container().messages_formatter()
+)
+buy_sell_signals_config_service: BuySellSignalsConfigService = (
+    application_container.infrastructure_container().services_container().buy_sell_signals_config_service()
+)
 
 
 @BuySellSignalsConfigForm.submit(router=dp)
 async def buy_sell_signals_config_form_submit_handler(form: BuySellSignalsConfigForm):
     try:
         symbol = await session_storage_service.get_buy_sell_signals_symbol_form(form.chat_id)
-        item = form.to_persistable(symbol)
+        item = form.to_persistable(symbol, configuration_properties=configuration_properties)
         await buy_sell_signals_config_service.save_or_update(item)
         message = f"✅ Buy/Sell signals for {html.bold(symbol)} configuration successfully persisted.\n\n"
         message += messages_formatter.format_buy_sell_signals_config_message(item)

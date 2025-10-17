@@ -5,24 +5,28 @@ import ccxt.async_support as ccxt
 import pandas as pd
 import pydash
 from aiogram import html
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from httpx import AsyncClient
+from pyee.asyncio import AsyncIOEventEmitter
 
 from crypto_trailing_stop.commons.constants import (
     BUY_SELL_MINUTES_PAST_HOUR_EXECUTION_CRON_PATTERN,
     SIGNALS_EVALUATION_RESULT_EVENT_NAME,
 )
-from crypto_trailing_stop.config import get_configuration_properties, get_event_emitter
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
-from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
+from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
+    FavouriteCryptoCurrencyService,
+)
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
@@ -30,29 +34,34 @@ from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics impor
 from crypto_trailing_stop.infrastructure.tasks.base import AbstractTaskService
 from crypto_trailing_stop.infrastructure.tasks.vo.signals_evaluation_result import SignalsEvaluationResult
 from crypto_trailing_stop.infrastructure.tasks.vo.types import RSIState, Timeframe
+from crypto_trailing_stop.interfaces.telegram.services.telegram_service import TelegramService
 
 logger = logging.getLogger(__name__)
 
 
 class BuySellSignalsTaskService(AbstractTaskService):
-    def __init__(self):
-        super().__init__()
-        self._configuration_properties = get_configuration_properties()
-        self._event_emitter = get_event_emitter()
-        self._bit2me_remote_service = Bit2MeRemoteService()
-        self._ccxt_remote_service = CcxtRemoteService()
-        self._global_flag_service = GlobalFlagService()
-        self._push_notification_service = PushNotificationService()
-        self._crypto_analytics_service = CryptoAnalyticsService(
-            bit2me_remote_service=self._bit2me_remote_service,
-            ccxt_remote_service=self._ccxt_remote_service,
-            buy_sell_signals_config_service=BuySellSignalsConfigService(
-                bit2me_remote_service=self._bit2me_remote_service
-            ),
-        )
-        self._auto_buy_trader_config_service = AutoBuyTraderConfigService(
-            bit2me_remote_service=self._bit2me_remote_service
-        )
+    def __init__(
+        self,
+        configuration_properties: ConfigurationProperties,
+        bit2me_remote_service: Bit2MeRemoteService,
+        push_notification_service: PushNotificationService,
+        telegram_service: TelegramService,
+        event_emitter: AsyncIOEventEmitter,
+        scheduler: AsyncIOScheduler,
+        ccxt_remote_service: CcxtRemoteService,
+        global_flag_service: GlobalFlagService,
+        favourite_crypto_currency_service: FavouriteCryptoCurrencyService,
+        crypto_analytics_service: CryptoAnalyticsService,
+        auto_buy_trader_config_service: AutoBuyTraderConfigService,
+    ):
+        super().__init__(bit2me_remote_service, push_notification_service, telegram_service, scheduler)
+        self._configuration_properties = configuration_properties
+        self._event_emitter = event_emitter
+        self._ccxt_remote_service = ccxt_remote_service
+        self._global_flag_service = global_flag_service
+        self._favourite_crypto_currency_service = favourite_crypto_currency_service
+        self._crypto_analytics_service = crypto_analytics_service
+        self._auto_buy_trader_config_service = auto_buy_trader_config_service
         self._exchange = self._ccxt_remote_service.get_exchange()
         self._last_signal_evalutation_result_cache: dict[str, SignalsEvaluationResult] = {}
         self._job = self._create_job()
@@ -113,7 +122,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
 
     async def _get_prioritised_favourite_tickers(self, *, client: AsyncClient) -> list[Bit2MeTickersDto]:
         auto_buy_trader_config_list = await self._auto_buy_trader_config_service.find_all(
-            include_favourite_cryptos=False, order_by_symbol=False, client=client
+            include_favourite_cryptos=False, order_by_symbol=False
         )
         auto_buy_trader_config_dict: dict[str, float] = {
             config.symbol: config.fiat_wallet_percent_assigned for config in auto_buy_trader_config_list
