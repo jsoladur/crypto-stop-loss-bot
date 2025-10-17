@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import (
+    OperatingExchangeEnum,
     OrderSideEnum,
     OrderStatusEnum,
     OrderTypeEnum,
@@ -243,4 +244,12 @@ class AbstractOperatingExchangeService(ABC):
 
         Returns:
             Any: A client object for the exchange.
+        """
+
+    @abstractmethod
+    def get_operating_exchange(self) -> OperatingExchangeEnum:
+        """Returns the operating exchange enum value.
+
+        Returns:
+            OperatingExchangeEnum: The operating exchange enum.
         """

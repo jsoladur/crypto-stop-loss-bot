@@ -8,6 +8,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import B
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.base import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import (
+    OperatingExchangeEnum,
     OrderSideEnum,
     OrderStatusEnum,
     OrderTypeEnum,
@@ -183,6 +184,10 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
     @override
     async def get_client(self) -> Any:
         return await self._bit2me_remote_service.get_http_client()
+
+    @override
+    def get_operating_exchange(self) -> OperatingExchangeEnum:
+        return OperatingExchangeEnum.BIT2ME
 
     def _map_bit2me_order(self, bit2me_order: Bit2MeOrderDto) -> Order:
         return Order(

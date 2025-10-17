@@ -1,29 +1,25 @@
-from crypto_trailing_stop.config import get_configuration_properties
+from dependency_injector import providers
+
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.base import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
 
 
 class OperatingExchangeServiceFactory:
-    _service: AbstractOperatingExchangeService = None
+    def __init__(
+        self, configuration_properties: ConfigurationProperties, adapters_container: providers.Container
+    ) -> None:
+        self._configuration_properties = configuration_properties
+        self._adapters_container = adapters_container
+        self._services_by_exchange: dict[OperatingExchangeEnum, AbstractOperatingExchangeService] = {}
+        self._load_services(adapters_container)
 
-    @classmethod
-    def get_service(cls) -> AbstractOperatingExchangeService:
-        if cls._service is None:
-            configuration_properties = get_configuration_properties()
-            cls._service = cls._create(configuration_properties.operating_exchange)
-        return cls._service
+    def get_service(self) -> AbstractOperatingExchangeService:
+        self._configuration_properties.operating_exchange
 
-    @staticmethod
-    def _create(exchange_name: OperatingExchangeEnum) -> AbstractOperatingExchangeService:
-        match exchange_name:
-            case OperatingExchangeEnum.BIT2ME:
-                from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import (
-                    Bit2MeRemoteService,
-                )
-                from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.impl.bit2me_operating_exchange_service import (  # noqa: E501
-                    Bit2MeOperatingExchangeService,
-                )
-
-                return Bit2MeOperatingExchangeService(bit2me_remote_service=Bit2MeRemoteService())
-            case _:
-                raise ValueError(f"Unsupported exchange: {exchange_name}")
+    def _load_services(self) -> None:
+        for provider in self._adapters_container.traverse(types=[providers.Singleton]):
+            dependency_object = provider()
+            if isinstance(dependency_object, AbstractOperatingExchangeService):
+                exchange_name = dependency_object.get_exchange_name()
+                self._services_by_exchange[exchange_name] = dependency_object
