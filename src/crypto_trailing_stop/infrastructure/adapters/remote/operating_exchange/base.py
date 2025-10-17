@@ -60,17 +60,6 @@ class AbstractOperatingExchangeService(ABC):
         )
 
     @abstractmethod
-    async def get_favourite_crypto_currencies(self, *, client: Any | None = None) -> list[str]:
-        """Fetches a list of favourite cryptocurrencies from the exchange.
-
-        Args:
-            client (Any | None, optional): Client to connect with the exchange. Defaults to None.
-
-        Returns:
-            list[str]: A list of favourite cryptocurrency symbols.
-        """
-
-    @abstractmethod
     async def get_account_info(self, *, client: Any | None = None) -> AccountInfo:
         """Fetches account information from the exchange.
 

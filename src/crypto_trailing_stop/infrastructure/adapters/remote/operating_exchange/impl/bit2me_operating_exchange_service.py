@@ -32,9 +32,6 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService, metaclass
         super().__init__()
         self._bit2me_remote_service = bit2me_remote_service
 
-    async def get_favourite_crypto_currencies(self, *, client: Any | None = None) -> list[str]:
-        return await self._bit2me_remote_service.get_favourite_crypto_currencies(client=client)
-
     async def get_account_info(self, *, client: Any | None = None) -> AccountInfo:
         bit2me_account_info = await self._bit2me_remote_service.get_account_info(client=client)
         return AccountInfo(
