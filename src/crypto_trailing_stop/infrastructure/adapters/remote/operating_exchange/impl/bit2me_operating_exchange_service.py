@@ -1,9 +1,8 @@
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, override
 
 import pydash
 
-from crypto_trailing_stop.commons.patterns import SingletonABCMeta
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
@@ -27,11 +26,12 @@ if TYPE_CHECKING:
     from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
 
 
-class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService, metaclass=SingletonABCMeta):
+class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
     def __init__(self, bit2me_remote_service: Bit2MeRemoteService) -> None:
         super().__init__()
         self._bit2me_remote_service = bit2me_remote_service
 
+    @override
     async def get_account_info(self, *, client: Any | None = None) -> AccountInfo:
         bit2me_account_info = await self._bit2me_remote_service.get_account_info(client=client)
         return AccountInfo(
@@ -39,6 +39,7 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService, metaclass
             currency_code=bit2me_account_info.profile.currency_code,
         )
 
+    @override
     async def get_trading_wallet_balances(
         self, symbols: list[str] | str | None = None, *, client: Any | None = None
     ) -> list[TradingWalletBalance]:
@@ -54,6 +55,7 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService, metaclass
             for wallet_balance in bit2me_wallet_balances
         ]
 
+    @override
     async def retrieve_porfolio_balance(self, user_currency: str, *, client: Any | None = None) -> PortfolioBalance:
         bit2me_portfolio_balances = await self._bit2me_remote_service.retrieve_porfolio_balance(
             user_currency=user_currency.lower(), client=client
@@ -70,6 +72,7 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService, metaclass
         )
         return PortfolioBalance(total_balance=total_balance)
 
+    @override
     async def get_single_tickers_by_symbol(self, symbol: str, *, client: Any | None = None) -> SymbolTickers:
         bit2me_tickers = await self._bit2me_remote_service.get_single_tickers_by_symbol(symbol=symbol, client=client)
         ret = SymbolTickers(
@@ -81,6 +84,7 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService, metaclass
         )
         return ret
 
+    @override
     async def get_tickers_by_symbols(
         self, symbols: list[str] | str = [], *, client: Any | None = None
     ) -> list[SymbolTickers]:
@@ -96,6 +100,7 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService, metaclass
             for tickers in bit2me_tickers_list
         ]
 
+    @override
     async def get_orders(
         self,
         *,
@@ -110,10 +115,12 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService, metaclass
         )
         return [self._map_bit2me_order(bit2me_order) for bit2me_order in bit2me_orders]
 
+    @override
     async def get_order_by_id(self, id: str, *, client: Any | None = None) -> Order | None:
         bit2me_order = await self._bit2me_remote_service.get_order_by_id(id=id, client=client)
         return self._map_bit2me_order(bit2me_order) if bit2me_order else None
 
+    @override
     async def get_trades(
         self, *, side: OrderSideEnum | None = None, symbol: str | None = None, client: Any | None = None
     ) -> list[Trade]:
@@ -131,6 +138,7 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService, metaclass
             for trade in bit2me_trades
         ]
 
+    @override
     async def fetch_ohlcv(
         self, symbol: str, timeframe: "Timeframe", limit: int = 251, *, client: Any | None = None
     ) -> list[list[Any]]:
@@ -138,6 +146,7 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService, metaclass
             symbol=symbol, timeframe=timeframe, limit=limit, client=client
         )
 
+    @override
     async def get_trading_market_config_by_symbol(
         self, symbol: str, *, client: Any | None = None
     ) -> SymbolMarketConfig:
@@ -146,12 +155,14 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService, metaclass
         )
         return self._map_market_config(bit2me_market_config)
 
+    @override
     async def get_trading_market_config_list(self, *, client: Any | None = None) -> dict[str, SymbolMarketConfig]:
         bit2me_market_config_list = await self._bit2me_remote_service.get_trading_market_config_list(client=client)
         return {
             market_config.symbol: self._map_market_config(market_config) for market_config in bit2me_market_config_list
         }
 
+    @override
     async def create_order(self, order: Order, *, client: Any | None = None) -> Order:
         create_new_bit2me_order = CreateNewBit2MeOrderDto(
             order_type=order.order_type.value if isinstance(order.order_type, Enum) else str(order.order_type),
@@ -165,9 +176,11 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService, metaclass
         ret = self._map_bit2me_order(bit2me_order)
         return ret
 
+    @override
     async def cancel_order_by_id(self, id: str, *, client: Any | None = None) -> None:
         await self._bit2me_remote_service.cancel_order_by_id(id=id, client=client)
 
+    @override
     async def get_client(self) -> Any:
         return await self._bit2me_remote_service.get_http_client()
 
