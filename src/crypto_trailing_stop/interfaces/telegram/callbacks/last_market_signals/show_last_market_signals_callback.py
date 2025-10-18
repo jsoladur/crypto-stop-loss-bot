@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from crypto_trailing_stop.config.dependencies import get_application_container
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.session_storage_service import SessionStorageService
 from crypto_trailing_stop.interfaces.telegram.exception_utils import format_exception
@@ -24,7 +24,7 @@ keyboards_builder: KeyboardsBuilder = (
 messages_formatter: MessagesFormatter = (
     application_container.interfaces_container().telegram_container().messages_formatter()
 )
-bit2me_remote_service: Bit2MeRemoteService = (
+operating_exchange_service: AbstractOperatingExchangeService = (
     application_container.infrastructure_container().adapters_container().bit2me_remote_service()
 )
 market_signal_service: MarketSignalService = (
@@ -40,7 +40,7 @@ async def show_last_market_signals_callback_handler(callback_query: CallbackQuer
             match = re.match(r"^show_last_market_signals\$\$(.+)$", callback_query.data)
             symbol = match.group(1)
             market_signals = await market_signal_service.find_by_symbol(symbol)
-            trading_market_config = await bit2me_remote_service.get_trading_market_config_by_symbol(symbol)
+            trading_market_config = await operating_exchange_service.get_trading_market_config_by_symbol(symbol)
             message = messages_formatter.format_market_signals_message(symbol, trading_market_config, market_signals)
             await callback_query.message.answer(message, reply_markup=keyboards_builder.get_go_back_home_keyboard())
         except Exception as e:

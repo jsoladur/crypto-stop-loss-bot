@@ -9,10 +9,10 @@ from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.order import Order
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_tickers import SymbolTickers
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
@@ -27,14 +27,14 @@ class TrailingStopLossTaskService(AbstractTaskService):
     def __init__(
         self,
         configuration_properties: ConfigurationProperties,
-        bit2me_remote_service: Bit2MeRemoteService,
+        operating_exchange_service: AbstractOperatingExchangeService,
         push_notification_service: PushNotificationService,
         telegram_service: TelegramService,
         scheduler: AsyncIOScheduler,
         ccxt_remote_service: CcxtRemoteService,
         orders_analytics_service: OrdersAnalyticsService,
     ):
-        super().__init__(bit2me_remote_service, push_notification_service, telegram_service, scheduler)
+        super().__init__(operating_exchange_service, push_notification_service, telegram_service, scheduler)
         self._configuration_properties = configuration_properties
         self._ccxt_remote_service = ccxt_remote_service
         self._orders_analytics_service = orders_analytics_service
@@ -46,8 +46,8 @@ class TrailingStopLossTaskService(AbstractTaskService):
 
     @override
     async def _run(self) -> None:
-        async with await self._bit2me_remote_service.get_http_client() as client:
-            opened_stop_limit_sell_orders = await self._bit2me_remote_service.get_pending_sell_orders(
+        async with await self._operating_exchange_service.get_client() as client:
+            opened_stop_limit_sell_orders = await self._operating_exchange_service.get_pending_sell_orders(
                 order_type="stop-limit", client=client
             )
             if opened_stop_limit_sell_orders:
@@ -62,9 +62,9 @@ class TrailingStopLossTaskService(AbstractTaskService):
         return IntervalTrigger(seconds=self._configuration_properties.job_interval_seconds)
 
     async def _handle_opened_stop_limit_sell_orders(
-        self, opened_stop_limit_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
+        self, opened_stop_limit_sell_orders: list[Order], *, client: AsyncClient
     ) -> None:
-        current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = await self._fetch_tickers_for_open_sell_orders(
+        current_tickers_by_symbol: dict[str, Order] = await self._fetch_tickers_for_open_sell_orders(
             opened_stop_limit_sell_orders, client=client
         )
         max_and_min_buy_order_amount_by_symbol = await self._calculate_max_and_min_buy_order_amount_by_symbol(
@@ -81,13 +81,13 @@ class TrailingStopLossTaskService(AbstractTaskService):
 
     async def _handle_single_sell_order(
         self,
-        sell_order: Bit2MeOrderDto,
-        current_tickers_by_symbol: dict[str, Bit2MeTickersDto],
+        sell_order: Order,
+        current_tickers_by_symbol: dict[str, SymbolTickers],
         max_and_min_buy_order_amount_by_symbol: dict[str, tuple[float, float]],
         *,
         client: AsyncClient,
     ) -> None:
-        trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
+        trading_market_config = await self._operating_exchange_service.get_trading_market_config_by_symbol(
             sell_order.symbol, client=client
         )
         (
@@ -115,20 +115,18 @@ class TrailingStopLossTaskService(AbstractTaskService):
         )
         if sell_order.stop_price < new_stop_price:
             logger.info(f"Updating order {repr(sell_order)} to new stop price {new_stop_price} {sell_order.symbol}.")
-            await self._bit2me_remote_service.cancel_order_by_id(sell_order.id, client=client)
-            new_order = await self._bit2me_remote_service.create_order(
-                order=CreateNewBit2MeOrderDto(
+            await self._operating_exchange_service.cancel_order_by_id(sell_order.id, client=client)
+            new_order = await self._operating_exchange_service.create_order(
+                order=Order(
                     order_type=sell_order.order_type,
                     side=sell_order.side,
                     symbol=sell_order.symbol,
-                    price=str(
-                        round(
-                            new_stop_price * self._trailing_stop_loss_price_decrease_threshold,
-                            ndigits=trading_market_config.price_precision,
-                        )
+                    price=round(
+                        new_stop_price * self._trailing_stop_loss_price_decrease_threshold,
+                        ndigits=trading_market_config.price_precision,
                     ),
-                    amount=str(sell_order.order_amount),
-                    stop_price=str(new_stop_price),
+                    amount=sell_order.order_amount,
+                    stop_price=new_stop_price,
                 ),
                 client=client,
             )
@@ -158,13 +156,13 @@ class TrailingStopLossTaskService(AbstractTaskService):
 
     async def _calculate_max_and_min_buy_order_amount_by_symbol(
         self,
-        opened_stop_limit_sell_orders: list[Bit2MeOrderDto],
-        current_tickers_by_symbol: dict[str, Bit2MeTickersDto],
+        opened_stop_limit_sell_orders: list[Order],
+        current_tickers_by_symbol: dict[str, SymbolTickers],
         *,
         client: AsyncClient,
     ) -> dict[str, tuple[float, float]]:
         sell_order_symbols = set([sell_order.symbol for sell_order in opened_stop_limit_sell_orders])
-        opened_buy_orders = await self._bit2me_remote_service.get_pending_buy_orders(client=client)
+        opened_buy_orders = await self._operating_exchange_service.get_pending_buy_orders(client=client)
         # XXX: Discard all buy orders that have higher price than the current corresponding symbol one
         opened_buy_orders = [
             order

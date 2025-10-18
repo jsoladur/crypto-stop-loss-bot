@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Any, override
 
 import pydash
 
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.base import AbstractOperatingExchangeService
@@ -72,6 +71,10 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
             ndigits=2,
         )
         return PortfolioBalance(total_balance=total_balance)
+
+    @override
+    async def get_accounting_summary_by_year(self, year: str, *, client: Any | None = None) -> bytes:
+        return await self._bit2me_remote_service.get_accounting_summary_by_year(year=year, client=client)
 
     @override
     async def get_single_tickers_by_symbol(self, symbol: str, *, client: Any | None = None) -> SymbolTickers:
@@ -148,19 +151,31 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
         )
 
     @override
+    async def get_trading_crypto_currencies(self, *, client: Any | None = None) -> list[str]:
+        market_config_list = await self.get_trading_market_config_list(client=client)
+        ret = list({symbol.split("/")[0].strip().upper() for symbol in market_config_list.keys()})
+        return ret
+
+    @override
     async def get_trading_market_config_by_symbol(
         self, symbol: str, *, client: Any | None = None
     ) -> SymbolMarketConfig:
-        bit2me_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
-            symbol=symbol, client=client
-        )
-        return self._map_market_config(bit2me_market_config)
+        market_config_list = await self.get_trading_market_config_list(client=client)
+        if symbol not in market_config_list:
+            raise ValueError(f"Market config for symbol '{symbol}' not found in Bit2Me API.")
+        ret = market_config_list[symbol]
+        return ret
 
     @override
     async def get_trading_market_config_list(self, *, client: Any | None = None) -> dict[str, SymbolMarketConfig]:
         bit2me_market_config_list = await self._bit2me_remote_service.get_trading_market_config_list(client=client)
         return {
-            market_config.symbol: self._map_market_config(market_config) for market_config in bit2me_market_config_list
+            bit2me_market_config.symbol: SymbolMarketConfig(
+                symbol=bit2me_market_config.symbol,
+                price_precision=bit2me_market_config.price_precision,
+                amount_precision=bit2me_market_config.amount_precision,
+            )
+            for bit2me_market_config in bit2me_market_config_list
         }
 
     @override
@@ -208,11 +223,4 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
             amount=bit2me_order.order_amount,
             stop_price=bit2me_order.stop_price,
             price=bit2me_order.price,
-        )
-
-    def _map_market_config(self, bit2me_market_config: Bit2MeMarketConfigDto) -> SymbolMarketConfig:
-        return SymbolMarketConfig(
-            symbol=bit2me_market_config.symbol,
-            price_precision=bit2me_market_config.price_precision,
-            amount_precision=bit2me_market_config.amount_precision,
         )

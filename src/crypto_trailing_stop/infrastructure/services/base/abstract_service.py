@@ -8,10 +8,11 @@ from aiogram import html
 from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import TELEGRAM_REPLY_EXCEPTION_MESSAGE_MAX_LENGTH
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.order_side_enum import OrderSideEnum
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.order import Order
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_tickers import SymbolTickers
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.trade import Trade
 from crypto_trailing_stop.infrastructure.services.enums import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.interfaces.telegram.services.telegram_service import TelegramService
@@ -22,30 +23,32 @@ logger = logging.getLogger(__name__)
 class AbstractService(ABC):
     def __init__(
         self,
-        bit2me_remote_service: Bit2MeRemoteService,
+        operating_exchange_service: AbstractOperatingExchangeService,
         push_notification_service: PushNotificationService,
         telegram_service: TelegramService,
     ) -> None:
-        self._bit2me_remote_service = bit2me_remote_service
+        self._operating_exchange_service = operating_exchange_service
         self._push_notification_service = push_notification_service
         self._telegram_service = telegram_service
 
     async def _fetch_tickers_for_open_sell_orders(
-        self, open_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
-    ) -> dict[str, Bit2MeTickersDto]:
+        self, open_sell_orders: list[Order], *, client: AsyncClient
+    ) -> dict[str, SymbolTickers]:
         open_sell_order_symbols = set([open_sell_order.symbol for open_sell_order in open_sell_orders])
-        tickers_list = await self._bit2me_remote_service.get_tickers_by_symbols(
+        tickers_list = await self._operating_exchange_service.get_tickers_by_symbols(
             symbols=open_sell_order_symbols, client=client
         )
         ret = {tickers.symbol: tickers for tickers in tickers_list}
         return ret
 
     async def _get_last_buy_trades_by_opened_sell_orders(
-        self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
-    ) -> dict[str, list[Bit2MeTradeDto]]:
+        self, opened_sell_orders: list[Order], *, client: AsyncClient
+    ) -> dict[str, list[Trade]]:
         opened_sell_order_symbols = set([sell_order.symbol for sell_order in opened_sell_orders])
         last_buy_trades_by_symbol = {
-            symbol: await self._bit2me_remote_service.get_trades(side="buy", symbol=symbol, client=client)
+            symbol: await self._operating_exchange_service.get_trades(
+                side=OrderSideEnum.BUY, symbol=symbol, client=client
+            )
             for symbol in opened_sell_order_symbols
         }
         return last_buy_trades_by_symbol

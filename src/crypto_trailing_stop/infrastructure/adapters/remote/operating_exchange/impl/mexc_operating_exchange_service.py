@@ -37,6 +37,10 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
         raise NotImplementedError("To be implemented")
 
     @override
+    async def get_accounting_summary_by_year(self, year: str, *, client: Any | None = None) -> bytes:
+        raise NotImplementedError("To be implemented")
+
+    @override
     async def get_single_tickers_by_symbol(self, symbol: str, *, client: Any | None = None) -> SymbolTickers:
         raise NotImplementedError("To be implemented")
 
@@ -72,6 +76,10 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
     async def fetch_ohlcv(
         self, symbol: str, timeframe: "Timeframe", limit: int = 251, *, client: Any | None = None
     ) -> list[list[Any]]:
+        raise NotImplementedError("To be implemented")
+
+    @override
+    async def get_trading_crypto_currencies(self, *, client: Any | None = None) -> list[str]:
         raise NotImplementedError("To be implemented")
 
     @override

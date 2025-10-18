@@ -8,7 +8,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from crypto_trailing_stop.config.dependencies import get_application_container
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.gemini_generative_ai_service import GeminiGenerativeAiService
@@ -28,8 +28,8 @@ keyboards_builder: KeyboardsBuilder = (
 messages_formatter: MessagesFormatter = (
     application_container.interfaces_container().telegram_container().messages_formatter()
 )
-bit2me_remote_service: Bit2MeRemoteService = (
-    application_container.infrastructure_container().adapters_container().bit2me_remote_service()
+operating_exchange_service: AbstractOperatingExchangeService = (
+    application_container.infrastructure_container().adapters_container().operating_exchange_service()
 )
 crypto_analytics_service: CryptoAnalyticsService = (
     application_container.infrastructure_container().services_container().crypto_analytics_service()
@@ -50,7 +50,7 @@ async def get_generative_ai_market_analysis_for_symbol_callback_handler(
         try:
             match = re.match(REGEX, callback_query.data)
             symbol = match.group(1)
-            tickers = await bit2me_remote_service.get_single_tickers_by_symbol(symbol)
+            tickers = await operating_exchange_service.get_single_tickers_by_symbol(symbol)
             technical_indicators, *_ = await crypto_analytics_service.calculate_technical_indicators(symbol)
             formatted_metrics_list = []
             for over_candlestick in CandleStickEnum:

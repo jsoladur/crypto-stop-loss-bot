@@ -26,9 +26,10 @@ class ServicesContainer(containers.DeclarativeContainer):
     event_emitter = providers.Dependency()
     telegram_service = providers.Dependency()
 
-    bit2me_remote_service = providers.Dependency()
     ccxt_remote_service = providers.Dependency()
     gemini_remote_service = providers.Dependency()
+
+    operating_exchange_service = providers.Dependency()
 
     global_flag_service = providers.Singleton(GlobalFlagService, configuration_properties=configuration_properties)
 
@@ -37,7 +38,7 @@ class ServicesContainer(containers.DeclarativeContainer):
     )
 
     favourite_crypto_currency_service = providers.Singleton(
-        FavouriteCryptoCurrencyService, bit2me_remote_service=bit2me_remote_service
+        FavouriteCryptoCurrencyService, operating_exchange_service=operating_exchange_service
     )
 
     buy_sell_signals_config_service = providers.Singleton(
@@ -53,7 +54,9 @@ class ServicesContainer(containers.DeclarativeContainer):
         global_flag_service=global_flag_service,
     )
 
-    global_summary_service = providers.Singleton(GlobalSummaryService, bit2me_remote_service=bit2me_remote_service)
+    global_summary_service = providers.Singleton(
+        GlobalSummaryService, operating_exchange_service=operating_exchange_service
+    )
 
     auto_buy_trader_config_service = providers.Singleton(
         AutoBuyTraderConfigService,
@@ -63,7 +66,7 @@ class ServicesContainer(containers.DeclarativeContainer):
 
     crypto_analytics_service = providers.Singleton(
         CryptoAnalyticsService,
-        bit2me_remote_service=bit2me_remote_service,
+        operating_exchange_service=operating_exchange_service,
         ccxt_remote_service=ccxt_remote_service,
         favourite_crypto_currency_service=favourite_crypto_currency_service,
         buy_sell_signals_config_service=buy_sell_signals_config_service,
@@ -71,7 +74,7 @@ class ServicesContainer(containers.DeclarativeContainer):
 
     orders_analytics_service = providers.Singleton(
         OrdersAnalyticsService,
-        bit2me_remote_service=bit2me_remote_service,
+        operating_exchange_service=operating_exchange_service,
         ccxt_remote_service=ccxt_remote_service,
         stop_loss_percent_service=stop_loss_percent_service,
         buy_sell_signals_config_service=buy_sell_signals_config_service,
@@ -82,7 +85,7 @@ class ServicesContainer(containers.DeclarativeContainer):
         AutoEntryTraderEventHandlerService,
         configuration_properties=configuration_properties,
         event_emitter=event_emitter,
-        bit2me_remote_service=bit2me_remote_service,
+        operating_exchange_service=operating_exchange_service,
         push_notification_service=push_notification_service,
         telegram_service=telegram_service,
         ccxt_remote_service=ccxt_remote_service,
@@ -106,7 +109,7 @@ class ServicesContainer(containers.DeclarativeContainer):
         MarketSignalService,
         configuration_properties=configuration_properties,
         event_emitter=event_emitter,
-        bit2me_remote_service=bit2me_remote_service,
+        operating_exchange_service=operating_exchange_service,
         push_notification_service=push_notification_service,
         telegram_service=telegram_service,
     )

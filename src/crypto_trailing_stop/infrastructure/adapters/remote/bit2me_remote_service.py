@@ -137,16 +137,6 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             ret = [tickers for tickers in ret if tickers.symbol in symbols]
         return ret
 
-    async def get_pending_sell_orders(
-        self, *, order_type: Bit2MeOrderType | None = None, client: AsyncClient | None = None
-    ) -> list[Bit2MeOrderDto]:
-        return await self.get_orders(side="sell", status=["open", "inactive"], order_type=order_type, client=client)
-
-    async def get_pending_buy_orders(
-        self, *, order_type: Bit2MeOrderType | None = None, client: AsyncClient | None = None
-    ) -> list[Bit2MeOrderDto]:
-        return await self.get_orders(side="buy", order_type=order_type, status=["open", "inactive"], client=client)
-
     async def get_orders(
         self,
         *,
@@ -222,20 +212,6 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         )
         ohlcv = response.json()
         return ohlcv
-
-    async def get_trading_crypto_currencies(self, *, client: AsyncClient | None = None) -> list[str]:
-        market_config_list = await self.get_trading_market_config_list(client=client)
-        ret = list({symbol.split("/")[0].strip().upper() for symbol in market_config_list.keys()})
-        return ret
-
-    async def get_trading_market_config_by_symbol(
-        self, symbol: str, *, client: AsyncClient | None = None
-    ) -> Bit2MeMarketConfigDto:
-        market_config_list = await self.get_trading_market_config_list(client=client)
-        if symbol not in market_config_list:
-            raise ValueError(f"Market config for symbol '{symbol}' not found in Bit2Me API.")
-        ret = market_config_list[symbol]
-        return ret
 
     @cachebox.cachedmethod(
         cachebox.TTLCache(0, ttl=DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS),

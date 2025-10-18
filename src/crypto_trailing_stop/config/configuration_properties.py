@@ -42,10 +42,10 @@ class ConfigurationProperties(BaseSettings):
     database_path: str = "./crypto_stop_loss.sqlite"
     # Operating exchange
     operating_exchange: OperatingExchangeEnum = OperatingExchangeEnum.BIT2ME
-    # MECX API configuration
-    mecx_api_base_url: AnyUrl = "https://api.mexc.com"
-    mecx_api_key: str = ""
-    mecx_api_secret: str = ""
+    # MEXC API configuration
+    mexc_api_base_url: AnyUrl = "https://api.mexc.com"
+    mexc_api_key: str = ""
+    mexc_api_secret: str = ""
     # Bit2Me API configuration
     bit2me_api_base_url: AnyUrl = BIT2ME_API_BASE_URL
     bit2me_api_key: str = ""

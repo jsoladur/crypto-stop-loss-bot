@@ -98,6 +98,18 @@ class AbstractOperatingExchangeService(ABC):
         """
 
     @abstractmethod
+    async def get_accounting_summary_by_year(self, year: str, *, client: Any | None = None) -> bytes:
+        """Fetches the accounting summary for a given year from the exchange.
+
+        Args:
+            year (str): The year to fetch the accounting summary for.
+            client (AsyncClient | None, optional): Client to connect with the exchange. Defaults to None.
+
+        Returns:
+            bytes: The accounting summary as bytes.
+        """
+
+    @abstractmethod
     async def get_single_tickers_by_symbol(self, symbol: str, *, client: Any | None = None) -> SymbolTickers:
         """Fetches ticker information for a single symbol from the exchange.
 
@@ -187,6 +199,17 @@ class AbstractOperatingExchangeService(ABC):
 
         Returns:
             list[list[Any]]: A list of OHLCV data points.
+        """
+
+    @abstractmethod
+    async def get_trading_crypto_currencies(self, *, client: Any | None = None) -> list[str]:
+        """Fetches a list of trading cryptocurrencies available on the exchange.
+
+        Args:
+            client (Any | None, optional): Client to connect with the exchange. Defaults to None.
+
+        Returns:
+            list[str]: A list of trading cryptocurrency symbols.
         """
 
     @abstractmethod
