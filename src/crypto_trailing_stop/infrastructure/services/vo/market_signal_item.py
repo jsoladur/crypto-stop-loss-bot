@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_market_config import (
+    SymbolMarketConfig,
+)
 from crypto_trailing_stop.infrastructure.tasks.vo.types import MarketSignalType, RSIState, Timeframe
 
 
@@ -28,5 +30,5 @@ class MarketSignalItem:
     def is_candidate_to_trigger_buy_action(self) -> bool:
         return self.timeframe == "1h" and self.signal_type == "buy"
 
-    def get_atr_percent(self, trading_market_config: Bit2MeMarketConfigDto) -> float:
+    def get_atr_percent(self, trading_market_config: SymbolMarketConfig) -> float:
         return round((self.atr / self.closing_price) * 100, ndigits=trading_market_config.price_precision)

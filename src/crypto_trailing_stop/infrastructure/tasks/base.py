@@ -5,7 +5,7 @@ from apscheduler.job import Job
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.base import BaseTrigger
 
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.services.base import AbstractService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
@@ -17,12 +17,12 @@ logger = logging.getLogger(__name__)
 class AbstractTaskService(AbstractService, metaclass=ABCMeta):
     def __init__(
         self,
-        bit2me_remote_service: Bit2MeRemoteService,
+        operating_exchange_service: AbstractOperatingExchangeService,
         push_notification_service: PushNotificationService,
         telegram_service: TelegramService,
         scheduler: AsyncIOScheduler,
     ) -> None:
-        super().__init__(bit2me_remote_service, push_notification_service, telegram_service)
+        super().__init__(operating_exchange_service, push_notification_service, telegram_service)
         self._scheduler = scheduler
         self._job: Job | None = None
 

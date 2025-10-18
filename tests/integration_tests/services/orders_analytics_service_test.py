@@ -66,7 +66,7 @@ async def should_calculate_all_limit_sell_order_guard_metrics_properly(
         metrics = limit_sell_order_guard_metrics[idx]
         assert metrics.sell_order.id == sell_order.id
         assert metrics.sell_order.status == sell_order.status
-        assert metrics.sell_order.order_amount == sell_order.order_amount
+        assert metrics.sell_order.amount == sell_order.order_amount
         assert metrics.sell_order.stop_price == sell_order.stop_price
         assert metrics.sell_order.price == sell_order.price
         assert metrics.sell_order.side == sell_order.side

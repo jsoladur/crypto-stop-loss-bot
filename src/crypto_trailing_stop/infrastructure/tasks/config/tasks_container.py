@@ -13,8 +13,9 @@ class TasksContainer(containers.DeclarativeContainer):
     configuration_properties = providers.Dependency()
     event_emitter = providers.Dependency()
 
-    bit2me_remote_service = providers.Dependency()
     ccxt_remote_service = providers.Dependency()
+
+    operating_exchange_service = providers.Dependency()
 
     global_flag_service = providers.Dependency()
     market_signal_service = providers.Dependency()
@@ -32,7 +33,7 @@ class TasksContainer(containers.DeclarativeContainer):
     buy_sell_signals_task_service = providers.Singleton(
         BuySellSignalsTaskService,
         configuration_properties=configuration_properties,
-        bit2me_remote_service=bit2me_remote_service,
+        operating_exchange_service=operating_exchange_service,
         push_notification_service=push_notification_service,
         telegram_service=telegram_service,
         event_emitter=event_emitter,
@@ -47,7 +48,7 @@ class TasksContainer(containers.DeclarativeContainer):
     limit_sell_order_guard_task_service = providers.Singleton(
         LimitSellOrderGuardTaskService,
         configuration_properties=configuration_properties,
-        bit2me_remote_service=bit2me_remote_service,
+        operating_exchange_service=operating_exchange_service,
         push_notification_service=push_notification_service,
         telegram_service=telegram_service,
         scheduler=scheduler,
@@ -63,7 +64,7 @@ class TasksContainer(containers.DeclarativeContainer):
     trailing_stop_loss_task_service = providers.Singleton(
         TrailingStopLossTaskService,
         configuration_properties=configuration_properties,
-        bit2me_remote_service=bit2me_remote_service,
+        operating_exchange_service=operating_exchange_service,
         push_notification_service=push_notification_service,
         telegram_service=telegram_service,
         scheduler=scheduler,

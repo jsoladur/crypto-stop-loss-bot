@@ -1,19 +1,19 @@
 import logging
+from typing import Any
 
 import backoff
 import ccxt.async_support as ccxt
 import pandas as pd
 import pydash
-from httpx import AsyncClient
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, ADXIndicator, EMAIndicator
 from ta.volatility import AverageTrueRange, BollingerBands
 
 from crypto_trailing_stop.commons.constants import DEFAULT_DIVERGENCE_WINDOW
 from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_tickers import SymbolTickers
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
@@ -29,12 +29,12 @@ logger = logging.getLogger(__name__)
 class CryptoAnalyticsService:
     def __init__(
         self,
-        bit2me_remote_service: Bit2MeRemoteService,
+        operating_exchange_service: AbstractOperatingExchangeService,
         ccxt_remote_service: CcxtRemoteService,
         favourite_crypto_currency_service: FavouriteCryptoCurrencyService,
         buy_sell_signals_config_service: BuySellSignalsConfigService,
     ) -> None:
-        self._bit2me_remote_service = bit2me_remote_service
+        self._operating_exchange_service = operating_exchange_service
         self._ccxt_remote_service = ccxt_remote_service
         self._favourite_crypto_currency_service = favourite_crypto_currency_service
         self._buy_sell_signals_config_service = buy_sell_signals_config_service
@@ -47,14 +47,14 @@ class CryptoAnalyticsService:
         timeframe: Timeframe = "1h",
         over_candlestick: CandleStickEnum = CandleStickEnum.LAST,
         technical_indicators: pd.DataFrame | None = None,
-        client: AsyncClient | None = None,
+        client: Any | None = None,
         exchange: ccxt.Exchange | None = None,
     ) -> CryptoMarketMetrics:
         if technical_indicators is None:
             technical_indicators, *_ = await self.calculate_technical_indicators(
                 symbol, timeframe=timeframe, client=client, exchange=exchange
             )
-        trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
+        trading_market_config = await self._operating_exchange_service.get_trading_market_config_by_symbol(
             symbol, client=client
         )
         selected_candlestick = technical_indicators.iloc[over_candlestick.value]
@@ -77,7 +77,7 @@ class CryptoAnalyticsService:
         symbol: str,
         *,
         timeframe: Timeframe = "1h",
-        client: AsyncClient | None = None,
+        client: Any | None = None,
         exchange: ccxt.Exchange | None = None,
     ) -> tuple[pd.DataFrame, BuySellSignalsConfigItem]:
         exchange = exchange or self._exchange
@@ -87,43 +87,40 @@ class CryptoAnalyticsService:
         if symbol in exchange_symbols:
             ohlcv = await self._ccxt_remote_service.fetch_ohlcv(symbol, timeframe, exchange=exchange)
         else:
-            ohlcv = await self._bit2me_remote_service.fetch_ohlcv(symbol, timeframe, client=client)
+            ohlcv = await self._operating_exchange_service.fetch_ohlcv(symbol, timeframe, client=client)
         df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         df_with_indicators, buy_sell_signals_config = await self._calculate_indicators(symbol, df)
         return df_with_indicators, buy_sell_signals_config
 
     async def get_favourite_tickers(
-        self, *, order_by_symbol: bool = False, client: AsyncClient | None = None
-    ) -> list[Bit2MeTickersDto]:
+        self, *, order_by_symbol: bool = False, client: Any | None = None
+    ) -> list[SymbolTickers]:
         favourite_symbols = await self.get_favourite_symbols(client=client)
-        ret = await self._bit2me_remote_service.get_tickers_by_symbols(symbols=favourite_symbols, client=client)
+        ret = await self._operating_exchange_service.get_tickers_by_symbols(symbols=favourite_symbols, client=client)
         if order_by_symbol:
             ret = pydash.order_by(ret, ["symbol"])
         return ret
 
-    async def get_favourite_symbols(self, *, client: AsyncClient | None = None) -> list[str]:
+    async def get_favourite_symbols(self, *, client: Any | None = None) -> list[str]:
         if client:
             ret = await self._internal_get_favourite_symbols(client=client)
         else:
-            async with await self._bit2me_remote_service.get_http_client() as client:
+            async with await self._operating_exchange_service.get_client() as client:
                 ret = await self._internal_get_favourite_symbols(client=client)
         return ret
 
-    async def _internal_get_favourite_symbols(self, *, client: AsyncClient) -> list[str]:
+    async def _internal_get_favourite_symbols(self, *, client: Any) -> list[str]:
         favourite_crypto_currencies = await self._favourite_crypto_currency_service.find_all()
-        bit2me_account_info = await self._bit2me_remote_service.get_account_info(client=client)
-        symbols = {
-            f"{crypto_currency}/{bit2me_account_info.profile.currency_code}"
-            for crypto_currency in favourite_crypto_currencies
-        }
+        account_info = await self._operating_exchange_service.get_account_info(client=client)
+        symbols = {f"{crypto_currency}/{account_info.currency_code}" for crypto_currency in favourite_crypto_currencies}
         # XXX: [JMSOLA] Include also as temporal favourite symbols those symbols we have positive balance
-        trading_wallet_balances = await self._bit2me_remote_service.get_trading_wallet_balances(client=client)
+        trading_wallet_balances = await self._operating_exchange_service.get_trading_wallet_balances(client=client)
         symbols.update(
             {
-                f"{trading_wallet_balance.currency}/{bit2me_account_info.profile.currency_code}"
+                f"{trading_wallet_balance.currency}/{account_info.currency_code}"
                 for trading_wallet_balance in trading_wallet_balances
-                if trading_wallet_balance.currency.lower() != bit2me_account_info.profile.currency_code.lower()
+                if trading_wallet_balance.currency.lower() != account_info.currency_code.lower()
                 and trading_wallet_balance.is_effective
             }
         )
