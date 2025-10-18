@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 @dataclass
 class GlobalSummary:
     """
-    Represents a global summary of Bit2Me cryptocurrency data.
+    Represents a global summary of Operating Exchange cryptocurrency portfolio.
     """
 
     total_deposits: float = field(default=0.0)

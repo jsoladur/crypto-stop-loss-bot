@@ -1,22 +1,20 @@
 import logging
 import math
+from typing import Any
 
 import ccxt.async_support as ccxt
 import numpy as np
 import pandas as pd
-from httpx import AsyncClient
 
-from crypto_trailing_stop.commons.constants import (
-    BIT2ME_TAKER_FEES,
-    STOP_LOSS_PERCENT_BUFFER,
-    STOP_LOSS_STEPS_VALUE_LIST,
-)
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.commons.constants import STOP_LOSS_PERCENT_BUFFER, STOP_LOSS_STEPS_VALUE_LIST
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.order import Order
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_market_config import (
+    SymbolMarketConfig,
+)
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_tickers import SymbolTickers
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.trade import Trade
 from crypto_trailing_stop.infrastructure.services.base import AbstractService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
@@ -33,13 +31,13 @@ logger = logging.getLogger(__name__)
 class OrdersAnalyticsService(AbstractService):
     def __init__(
         self,
-        bit2me_remote_service: Bit2MeRemoteService,
+        operating_exchange_service: AbstractOperatingExchangeService,
         ccxt_remote_service: CcxtRemoteService,
         stop_loss_percent_service: StopLossPercentService,
         buy_sell_signals_config_service: BuySellSignalsConfigService,
         crypto_analytics_service: CryptoAnalyticsService,
     ) -> None:
-        self._bit2me_remote_service = bit2me_remote_service
+        self._operating_exchange_service = operating_exchange_service
         self._ccxt_remote_service = ccxt_remote_service
         self._stop_loss_percent_service = stop_loss_percent_service
         self._buy_sell_signals_config_service = buy_sell_signals_config_service
@@ -49,8 +47,8 @@ class OrdersAnalyticsService(AbstractService):
     async def calculate_all_limit_sell_order_guard_metrics(
         self, *, symbol: str | None = None
     ) -> list[LimitSellOrderGuardMetrics]:
-        async with await self._bit2me_remote_service.get_http_client() as client:
-            opened_sell_orders = await self._bit2me_remote_service.get_pending_sell_orders(client=client)
+        async with await self._operating_exchange_service.get_client() as client:
+            opened_sell_orders = await self._operating_exchange_service.get_pending_sell_orders(client=client)
             opened_sell_orders = [
                 sell_order
                 for sell_order in opened_sell_orders
@@ -58,7 +56,7 @@ class OrdersAnalyticsService(AbstractService):
             ]
             ret = []
             if opened_sell_orders is not None and len(opened_sell_orders) > 0:
-                current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = await self._fetch_tickers_for_open_sell_orders(
+                current_tickers_by_symbol: dict[str, SymbolTickers] = await self._fetch_tickers_for_open_sell_orders(
                     opened_sell_orders, client=client
                 )
                 buy_sell_signals_config_by_symbol = await self._calculate_buy_sell_signals_config_by_opened_sell_orders(
@@ -88,21 +86,23 @@ class OrdersAnalyticsService(AbstractService):
 
     async def calculate_guard_metrics_by_sell_order(
         self,
-        sell_order: Bit2MeOrderDto,
+        sell_order: Order,
         *,
-        tickers: Bit2MeTickersDto | None = None,
+        tickers: SymbolTickers | None = None,
         buy_sell_signals_config: BuySellSignalsConfigItem | None = None,
         technical_indicators: pd.DataFrame | None = None,
-        last_buy_trades: list[Bit2MeTradeDto] | None = None,
+        last_buy_trades: list[Trade] | None = None,
         previous_used_buy_trades: dict[str, float] = {},
-        client: AsyncClient | None = None,
+        client: Any | None = None,
         exchange: ccxt.Exchange | None = None,
     ) -> tuple[LimitSellOrderGuardMetrics, set[str]]:
-        trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
+        trading_market_config = await self._operating_exchange_service.get_trading_market_config_by_symbol(
             sell_order.symbol, client=client
         )
         if tickers is None:
-            tickers = await self._bit2me_remote_service.get_single_tickers_by_symbol(sell_order.symbol, client=client)
+            tickers = await self._operating_exchange_service.get_single_tickers_by_symbol(
+                sell_order.symbol, client=client
+            )
         if buy_sell_signals_config is None:
             crypto_currency, *_ = sell_order.symbol.split("/")
             buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
@@ -166,9 +166,7 @@ class OrdersAnalyticsService(AbstractService):
         )
         return (guard_metrics, previous_used_buy_trades)
 
-    async def find_stop_loss_percent_by_sell_order(
-        self, sell_order: Bit2MeOrderDto
-    ) -> tuple[StopLossPercentItem, float]:
+    async def find_stop_loss_percent_by_sell_order(self, sell_order: Order) -> tuple[StopLossPercentItem, float]:
         crypto_currency_symbol = sell_order.symbol.split("/")[0].strip().upper()
         stop_loss_percent_item = await self._stop_loss_percent_service.find_symbol(symbol=crypto_currency_symbol)
         stop_loss_percent_decimal_value = stop_loss_percent_item.value / 100
@@ -176,15 +174,15 @@ class OrdersAnalyticsService(AbstractService):
 
     async def _calculate_correlated_avg_buy_price(
         self,
-        sell_order: Bit2MeOrderDto,
+        sell_order: Order,
         previous_used_buy_trades: dict[str, float] = {},
         *,
-        trading_market_config: Bit2MeMarketConfigDto,
-        last_buy_trades: list[Bit2MeTradeDto] | None = None,
-        client: AsyncClient | None = None,
+        trading_market_config: SymbolMarketConfig,
+        last_buy_trades: list[Trade] | None = None,
+        client: Any | None = None,
     ) -> tuple[float, set[str]]:
         if last_buy_trades is None or len(last_buy_trades) <= 0:
-            last_buy_trades = await self._bit2me_remote_service.get_trades(
+            last_buy_trades = await self._operating_exchange_service.get_trades(
                 side="buy", symbol=sell_order.symbol, client=client
             )
         correlated_filled_buy_trades = self._get_correlated_filled_buy_trades(
@@ -199,69 +197,61 @@ class OrdersAnalyticsService(AbstractService):
         avg_buy_price = round(numerator / denominator, ndigits=trading_market_config.price_precision)
         return avg_buy_price, previous_used_buy_trades
 
-    def _calculate_break_even_price(
-        self, avg_buy_price: float, *, trading_market_config: Bit2MeMarketConfigDto
-    ) -> float:
+    def _calculate_break_even_price(self, avg_buy_price: float, *, trading_market_config: SymbolMarketConfig) -> float:
+        taker_fees = self._operating_exchange_service.get_taker_fee()
         break_even_price = round(
-            avg_buy_price * ((1.0 + BIT2ME_TAKER_FEES) / (1.0 - BIT2ME_TAKER_FEES)),
-            ndigits=trading_market_config.price_precision,
+            avg_buy_price * ((1.0 + taker_fees) / (1.0 - taker_fees)), ndigits=trading_market_config.price_precision
         )
         return break_even_price
 
     def _calculate_current_profit(
         self,
-        sell_order: Bit2MeOrderDto,
+        sell_order: Order,
         avg_buy_price: float,
-        tickers: Bit2MeTickersDto,
+        tickers: SymbolTickers,
         *,
-        trading_market_config: Bit2MeMarketConfigDto,
+        trading_market_config: SymbolMarketConfig,
     ) -> float:
         ret = round(
-            (tickers.bid_or_close - avg_buy_price) * sell_order.order_amount,
-            ndigits=trading_market_config.price_precision,
+            (tickers.bid_or_close - avg_buy_price) * sell_order.amount, ndigits=trading_market_config.price_precision
         )
         return ret
 
     def _calculate_net_revenue(
         self,
-        sell_order: Bit2MeOrderDto,
+        sell_order: Order,
         break_even_price: float,
-        tickers: Bit2MeTickersDto,
+        tickers: SymbolTickers,
         *,
-        trading_market_config: Bit2MeMarketConfigDto,
+        trading_market_config: SymbolMarketConfig,
     ) -> float:
         ret = round(
-            (tickers.bid_or_close - break_even_price) * sell_order.order_amount,
-            ndigits=trading_market_config.price_precision,
+            (tickers.bid_or_close - break_even_price) * sell_order.amount, ndigits=trading_market_config.price_precision
         )
         return ret
 
     def _get_correlated_filled_buy_trades(
-        self,
-        sell_order: Bit2MeOrderDto,
-        buy_trades: list[Bit2MeTradeDto],
-        *,
-        previous_used_buy_trades: dict[str, float] = {},
-    ) -> list[tuple[Bit2MeTradeDto, float]]:
+        self, sell_order: Order, buy_trades: list[Trade], *, previous_used_buy_trades: dict[str, float] = {}
+    ) -> list[tuple[Trade, float]]:
         """Calculate the correlated buy trades related to the sell order passed as argument.
 
         Args:
-            sell_order (Bit2MeOrderDto): Sell order
-            buy_trades (list[Bit2MeTradeDto]): Buy trades
+            sell_order (Order): Sell order
+            buy_trades (list[Trade]): Buy trades
             previous_used_buy_trades (dict[str, float]): Previous used buy trades
 
         Returns:
-            list[tuple[Bit2MeTradeDto, float]]: Each trade used alongside with the used amount
+            list[tuple[Trade, float]]: Each trade used alongside with the used amount
         """
         idx, filled_sell_amount = 0, 0.0
         correlated_filled_buy_trades = []
-        while filled_sell_amount < sell_order.order_amount and idx < len(buy_trades):
+        while filled_sell_amount < sell_order.amount and idx < len(buy_trades):
             current_buy_trade = buy_trades[idx]
             # Calculate how much we can get from this trade
             previous_used_trade_amount = previous_used_buy_trades.setdefault(current_buy_trade.id, 0.0)
             remaining_trade_amount = current_buy_trade.amount_after_fee - previous_used_trade_amount
             if remaining_trade_amount > 0:
-                remaining_sell_amount = sell_order.order_amount - filled_sell_amount
+                remaining_sell_amount = sell_order.amount - filled_sell_amount
                 if remaining_sell_amount >= remaining_trade_amount:
                     filled_sell_amount += remaining_trade_amount
                     correlated_filled_buy_trades.append((current_buy_trade, remaining_trade_amount))
@@ -274,7 +264,7 @@ class OrdersAnalyticsService(AbstractService):
         return correlated_filled_buy_trades
 
     async def _calculate_safeguard_stop_price(
-        self, sell_order: Bit2MeOrderDto, avg_buy_price: float, *, trading_market_config: Bit2MeMarketConfigDto
+        self, sell_order: Order, avg_buy_price: float, *, trading_market_config: SymbolMarketConfig
     ) -> tuple[float, float]:
         (stop_loss_percent_item, stop_loss_percent_decimal_value) = await self.find_stop_loss_percent_by_sell_order(
             sell_order
@@ -290,7 +280,7 @@ class OrdersAnalyticsService(AbstractService):
         buy_sell_signals_config: BuySellSignalsConfigItem,
         *,
         last_candle_market_metrics: CryptoMarketMetrics,
-        trading_market_config: Bit2MeMarketConfigDto,
+        trading_market_config: SymbolMarketConfig,
     ) -> float:
         first_suggested_safeguard_stop_price = round(
             avg_buy_price - (last_candle_market_metrics.atr * buy_sell_signals_config.stop_loss_atr_multiplier),
@@ -313,7 +303,7 @@ class OrdersAnalyticsService(AbstractService):
         avg_buy_price: float,
         suggested_stop_loss_percent_value: float,
         *,
-        trading_market_config: Bit2MeMarketConfigDto,
+        trading_market_config: SymbolMarketConfig,
     ) -> float:
         suggested_stop_loss_decimal_value = suggested_stop_loss_percent_value / 100
         suggested_safeguard_stop_price = round(
@@ -327,7 +317,7 @@ class OrdersAnalyticsService(AbstractService):
         buy_sell_signals_config: BuySellSignalsConfigItem,
         *,
         last_candle_market_metrics: CryptoMarketMetrics,
-        trading_market_config: Bit2MeMarketConfigDto,
+        trading_market_config: SymbolMarketConfig,
     ) -> float:
         suggested_safeguard_stop_price = round(
             avg_buy_price + (last_candle_market_metrics.atr * buy_sell_signals_config.take_profit_atr_multiplier),
@@ -336,7 +326,7 @@ class OrdersAnalyticsService(AbstractService):
         return suggested_safeguard_stop_price
 
     async def _calculate_buy_sell_signals_config_by_opened_sell_orders(
-        self, opened_sell_orders: list[Bit2MeOrderDto]
+        self, opened_sell_orders: list[Order]
     ) -> dict[str, pd.DataFrame]:
         opened_sell_order_crypto_currencies = set(
             [sell_order.symbol.split("/")[0] for sell_order in opened_sell_orders]
@@ -351,7 +341,7 @@ class OrdersAnalyticsService(AbstractService):
         return buy_sell_signals_config_by_symbol
 
     async def _calculate_technical_indicators_by_opened_sell_orders(
-        self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient, exchange: ccxt.Exchange
+        self, opened_sell_orders: list[Order], *, client: Any, exchange: ccxt.Exchange
     ) -> dict[str, pd.DataFrame]:
         opened_sell_order_symbols = set([sell_order.symbol for sell_order in opened_sell_orders])
         technical_indicators_by_symbol = {}

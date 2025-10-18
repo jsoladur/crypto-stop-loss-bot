@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from crypto_trailing_stop.config.dependencies import get_application_container
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
@@ -28,8 +28,8 @@ keyboards_builder: KeyboardsBuilder = (
 messages_formatter: MessagesFormatter = (
     application_container.interfaces_container().telegram_container().messages_formatter()
 )
-bit2me_remote_service: Bit2MeRemoteService = (
-    application_container.infrastructure_container().adapters_container().bit2me_remote_service()
+operating_exchange_service: AbstractOperatingExchangeService = (
+    application_container.infrastructure_container().adapters_container().operating_exchange_service()
 )
 global_flag_service: GlobalFlagService = (
     application_container.infrastructure_container().services_container().global_flag_service()
@@ -50,7 +50,7 @@ async def get_current_metrics_for_symbol_callback_handler(callback_query: Callba
             match = re.match(r"^get_current_metrics_for_symbol\$\$(.+)\$\$(.+)$", callback_query.data)
             symbol = match.group(1)
             over_candlestick = CandleStickEnum(int(match.group(2)))
-            tickers = await bit2me_remote_service.get_single_tickers_by_symbol(symbol)
+            tickers = await operating_exchange_service.get_single_tickers_by_symbol(symbol)
             current_crypto_metrics = await crypto_analytics_service.get_crypto_market_metrics(
                 symbol, over_candlestick=over_candlestick
             )

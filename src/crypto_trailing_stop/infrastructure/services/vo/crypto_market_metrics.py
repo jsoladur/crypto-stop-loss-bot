@@ -3,7 +3,9 @@ from datetime import datetime
 
 import pandas as pd
 
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_market_config import (
+    SymbolMarketConfig,
+)
 from crypto_trailing_stop.infrastructure.tasks.vo.types import RSIState
 
 
@@ -50,7 +52,7 @@ class CryptoMarketMetrics:
             rsi_state = "neutral"
         return rsi_state
 
-    def rounded(self, trading_market_config: Bit2MeMarketConfigDto) -> "CryptoMarketMetrics":
+    def rounded(self, trading_market_config: SymbolMarketConfig) -> "CryptoMarketMetrics":
         ret = self
         if not self.is_rounded:
             ndigits = trading_market_config.price_precision
@@ -85,7 +87,7 @@ class CryptoMarketMetrics:
 
     @staticmethod
     def from_candlestick(
-        symbol: str, candlestick: pd.Series, *, trading_market_config: Bit2MeMarketConfigDto, apply_round: bool = False
+        symbol: str, candlestick: pd.Series, *, trading_market_config: SymbolMarketConfig, apply_round: bool = False
     ) -> "CryptoMarketMetrics":
         ndigits = trading_market_config.price_precision
         atr_percent = (candlestick["atr"] / candlestick["close"]) * 100
