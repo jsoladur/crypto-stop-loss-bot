@@ -94,7 +94,6 @@ class ServicesContainer(containers.DeclarativeContainer):
         buy_sell_signals_config_service=buy_sell_signals_config_service,
         auto_buy_trader_config_service=auto_buy_trader_config_service,
         stop_loss_percent_service=stop_loss_percent_service,
-        global_summary_service=global_summary_service,
         crypto_analytics_service=crypto_analytics_service,
         orders_analytics_service=orders_analytics_service,
     )

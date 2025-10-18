@@ -42,7 +42,7 @@ class AdaptersContainer(containers.DeclarativeContainer):
         configuration_properties.provided.operating_exchange,
         **{
             # TODO: Enable when MEXC implementation is ready
-            # OperatingExchangeEnum.MEXC.name: _mexc_operating_exchange_service,
-            OperatingExchangeEnum.BIT2ME.name: _bit2me_operating_exchange_service
+            # OperatingExchangeEnum.MEXC: _mexc_operating_exchange_service,
+            OperatingExchangeEnum.BIT2ME: _bit2me_operating_exchange_service
         },
     )

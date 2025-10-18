@@ -50,7 +50,7 @@ class MessagesFormatter:
                 trading_wallet_balance
                 for trading_wallet_balance in trading_wallet_balances
                 if trading_wallet_balance.is_effective
-                or trading_wallet_balance.currency.lower() == account_info.profile.currency_code.lower()
+                or trading_wallet_balance.currency.lower() == account_info.currency_code.lower()
             ],
             "currency",
         )
@@ -70,13 +70,11 @@ class MessagesFormatter:
             message_lines.append("✳️ No trading wallet balances found.")
         message_lines.append(
             html.italic(
-                f"📊  {html.bold('Total Portfolio')}: {total_portfolio_fiat_amount} {account_info.profile.currency_code}"  # noqa: E501
+                f"📊  {html.bold('Total Portfolio')}: {total_portfolio_fiat_amount} {account_info.currency_code}"  # noqa: E501
             )
         )
         fiat_currency_wallet_balance = next(
-            filter(
-                lambda twb: twb.currency.lower() == account_info.profile.currency_code.lower(), trading_wallet_balances
-            ),
+            filter(lambda twb: twb.currency.lower() == account_info.currency_code.lower(), trading_wallet_balances),
             None,
         )
         if fiat_currency_wallet_balance and total_portfolio_fiat_amount > 0:

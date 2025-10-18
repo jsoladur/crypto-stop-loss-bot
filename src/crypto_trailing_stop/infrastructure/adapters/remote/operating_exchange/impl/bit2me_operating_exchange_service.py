@@ -171,12 +171,12 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
     async def get_trading_market_config_list(self, *, client: Any | None = None) -> dict[str, SymbolMarketConfig]:
         bit2me_market_config_list = await self._bit2me_remote_service.get_trading_market_config_list(client=client)
         return {
-            bit2me_market_config.symbol: SymbolMarketConfig(
+            symbol: SymbolMarketConfig(
                 symbol=bit2me_market_config.symbol,
                 price_precision=bit2me_market_config.price_precision,
                 amount_precision=bit2me_market_config.amount_precision,
             )
-            for bit2me_market_config in bit2me_market_config_list
+            for symbol, bit2me_market_config in bit2me_market_config_list.items()
         }
 
     @override
