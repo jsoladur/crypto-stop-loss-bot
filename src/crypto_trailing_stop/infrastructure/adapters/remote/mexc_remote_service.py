@@ -51,8 +51,8 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
         *,
         method: str = "GET",
         url: URL | str = "/",
-        params: dict[str, Any] | None = {},
-        headers: dict[str, Any] | None = {},
+        params: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
         body: Any | None = None,
         client: AsyncClient = None,
         **kwargs,
@@ -67,8 +67,8 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
         *,
         method: str = "GET",
         url: str = "/",
-        params: dict[str, Any] | None = {},
-        headers: dict[str, Any] | None = {},
+        params: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
         body: Any | None = None,
     ) -> tuple[str, str, dict[str, Any] | None, dict[str, Any] | None]:
         params, headers = await super()._apply_request_interceptor(
@@ -83,11 +83,13 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
         *,
         method: str = "GET",
         url: str = "/",
-        params: dict[str, Any] | None = {},
-        headers: dict[str, Any] | None = {},
+        params: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
         body: Any | None = None,
         response: Response,
     ) -> Response:
+        params = params or {}
+        headers = headers or {}
         try:
             response.raise_for_status()
             return await super()._apply_response_interceptor(
