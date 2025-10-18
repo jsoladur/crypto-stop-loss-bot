@@ -6,11 +6,7 @@ import ccxt.async_support as ccxt
 import numpy as np
 import pandas as pd
 
-from crypto_trailing_stop.commons.constants import (
-    BIT2ME_TAKER_FEES,
-    STOP_LOSS_PERCENT_BUFFER,
-    STOP_LOSS_STEPS_VALUE_LIST,
-)
+from crypto_trailing_stop.commons.constants import STOP_LOSS_PERCENT_BUFFER, STOP_LOSS_STEPS_VALUE_LIST
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.order import Order
@@ -202,9 +198,9 @@ class OrdersAnalyticsService(AbstractService):
         return avg_buy_price, previous_used_buy_trades
 
     def _calculate_break_even_price(self, avg_buy_price: float, *, trading_market_config: SymbolMarketConfig) -> float:
+        taker_fees = self._operating_exchange_service.get_taker_fee()
         break_even_price = round(
-            avg_buy_price * ((1.0 + BIT2ME_TAKER_FEES) / (1.0 - BIT2ME_TAKER_FEES)),
-            ndigits=trading_market_config.price_precision,
+            avg_buy_price * ((1.0 + taker_fees) / (1.0 - taker_fees)), ndigits=trading_market_config.price_precision
         )
         return break_even_price
 

@@ -105,5 +105,9 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
         raise NotImplementedError("To be implemented")
 
     @override
+    def get_taker_fee(self) -> float:
+        raise NotImplementedError("To be implemented")
+
+    @override
     def get_operating_exchange(self) -> OperatingExchangeEnum:
         return OperatingExchangeEnum.MEXC

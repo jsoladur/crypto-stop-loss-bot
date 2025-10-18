@@ -270,6 +270,14 @@ class AbstractOperatingExchangeService(ABC):
         """
 
     @abstractmethod
+    def get_taker_fee(self) -> float:
+        """Returns the taker fee percentage for the exchange.
+
+        Returns:
+            float: The taker fee percentage.
+        """
+
+    @abstractmethod
     def get_operating_exchange(self) -> OperatingExchangeEnum:
         """Returns the operating exchange enum value.
 

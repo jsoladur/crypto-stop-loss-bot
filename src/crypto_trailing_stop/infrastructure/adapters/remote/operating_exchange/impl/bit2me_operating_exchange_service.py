@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, override
 
 import pydash
 
+from crypto_trailing_stop.commons.constants import BIT2ME_TAKER_FEES
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.base import AbstractOperatingExchangeService
@@ -199,6 +200,10 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
     @override
     async def get_client(self) -> Any:
         return await self._bit2me_remote_service.get_http_client()
+
+    @override
+    def get_taker_fee(self) -> float:
+        return BIT2ME_TAKER_FEES
 
     @override
     def get_operating_exchange(self) -> OperatingExchangeEnum:
