@@ -142,7 +142,7 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         *,
         side: Bit2MeOrderSide | None = None,
         order_type: Bit2MeOrderType | None = None,
-        status: list[Bit2MeOrderStatus] | Bit2MeOrderStatus | None = None,
+        status: list[Bit2MeOrderStatus] | None = None,
         symbol: str | None = None,
         client: AsyncClient | None = None,
     ) -> list[Bit2MeOrderDto]:

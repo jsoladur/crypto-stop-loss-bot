@@ -213,8 +213,7 @@ class OrdersAnalyticsService(AbstractService):
         trading_market_config: SymbolMarketConfig,
     ) -> float:
         ret = round(
-            (tickers.bid_or_close - avg_buy_price) * sell_order.order_amount,
-            ndigits=trading_market_config.price_precision,
+            (tickers.bid_or_close - avg_buy_price) * sell_order.amount, ndigits=trading_market_config.price_precision
         )
         return ret
 
@@ -227,8 +226,7 @@ class OrdersAnalyticsService(AbstractService):
         trading_market_config: SymbolMarketConfig,
     ) -> float:
         ret = round(
-            (tickers.bid_or_close - break_even_price) * sell_order.order_amount,
-            ndigits=trading_market_config.price_precision,
+            (tickers.bid_or_close - break_even_price) * sell_order.amount, ndigits=trading_market_config.price_precision
         )
         return ret
 
@@ -247,13 +245,13 @@ class OrdersAnalyticsService(AbstractService):
         """
         idx, filled_sell_amount = 0, 0.0
         correlated_filled_buy_trades = []
-        while filled_sell_amount < sell_order.order_amount and idx < len(buy_trades):
+        while filled_sell_amount < sell_order.amount and idx < len(buy_trades):
             current_buy_trade = buy_trades[idx]
             # Calculate how much we can get from this trade
             previous_used_trade_amount = previous_used_buy_trades.setdefault(current_buy_trade.id, 0.0)
             remaining_trade_amount = current_buy_trade.amount_after_fee - previous_used_trade_amount
             if remaining_trade_amount > 0:
-                remaining_sell_amount = sell_order.order_amount - filled_sell_amount
+                remaining_sell_amount = sell_order.amount - filled_sell_amount
                 if remaining_sell_amount >= remaining_trade_amount:
                     filled_sell_amount += remaining_trade_amount
                     correlated_filled_buy_trades.append((current_buy_trade, remaining_trade_amount))

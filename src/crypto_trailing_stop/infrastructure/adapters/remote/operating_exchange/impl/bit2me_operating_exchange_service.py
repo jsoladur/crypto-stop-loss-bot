@@ -115,6 +115,13 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
         symbol: str | None = None,
         client: Any | None = None,
     ) -> list[Order]:
+        status = status or []
+        status = status if isinstance(status, (list, set, tuple, frozenset)) else [status]
+        status = [s.value if isinstance(s, Enum) else str(s) for s in status]
+        if side:
+            side = side.value if isinstance(side, Enum) else str(side)
+        if order_type:
+            order_type = order_type.value if isinstance(order_type, Enum) else str(order_type)
         bit2me_orders = await self._bit2me_remote_service.get_orders(
             side=side, order_type=order_type, status=status, symbol=symbol, client=client
         )
@@ -129,6 +136,8 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
     async def get_trades(
         self, *, side: OrderSideEnum | None = None, symbol: str | None = None, client: Any | None = None
     ) -> list[Trade]:
+        if side:
+            side = side.value if isinstance(side, Enum) else str(side)
         bit2me_trades = await self._bit2me_remote_service.get_trades(side=side, symbol=symbol, client=client)
         return [
             Trade(

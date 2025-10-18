@@ -125,7 +125,7 @@ class TrailingStopLossTaskService(AbstractTaskService):
                         new_stop_price * self._trailing_stop_loss_price_decrease_threshold,
                         ndigits=trading_market_config.price_precision,
                     ),
-                    amount=sell_order.order_amount,
+                    amount=sell_order.amount,
                     stop_price=new_stop_price,
                 ),
                 client=client,

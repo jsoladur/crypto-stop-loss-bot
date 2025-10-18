@@ -34,7 +34,7 @@ async def immediate_sell_order_confirmation_callback_handler(callback_query: Cal
         sell_percent = float(match.group(2))
         sell_order = await operating_exchange_service.get_order_by_id(sell_order_id)
         crypto_currency, *_ = sell_order.symbol.split("/")
-        formatted_order_ammount = html.bold(f"{sell_order.order_amount} {crypto_currency}")
+        formatted_order_ammount = html.bold(f"{sell_order.amount} {crypto_currency}")
         await callback_query.message.answer(
             f"🛑 CONFIRM ACTION: IMMEDIATE SELL LIMIT ORDER OF {sell_percent}% FOR {formatted_order_ammount}. "
             + "This operation CANNOT be undone."

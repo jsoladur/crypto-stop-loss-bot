@@ -12,11 +12,11 @@ from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enum
 class Order:
     id: str | None = None
     symbol: str
-    created_at: datetime
     order_type: OrderTypeEnum
-    status: OrderStatusEnum
     side: OrderSideEnum
     amount: float
+    created_at: datetime | None = None
+    status: OrderStatusEnum | None = None
     price: float | None = None
     stop_price: float | None = None
 

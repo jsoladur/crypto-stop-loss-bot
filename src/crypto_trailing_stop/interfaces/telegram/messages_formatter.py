@@ -176,7 +176,7 @@ class MessagesFormatter:
         crypto_currency, fiat_currency = metrics.sell_order.symbol.split("/")
         answer_text = (
             f"🚀 {html.bold(metrics.sell_order.order_type.upper() + ' Sell Order')} :: "
-            + f"💰 {metrics.sell_order.order_amount} {crypto_currency}, "  # noqa: E501
+            + f"💰 {metrics.sell_order.amount} {crypto_currency}, "  # noqa: E501
             + f"further sell at {html.bold(str(metrics.sell_order.price) + ' ' + fiat_currency)}"
         )
         if metrics.sell_order.order_type == "stop-limit":

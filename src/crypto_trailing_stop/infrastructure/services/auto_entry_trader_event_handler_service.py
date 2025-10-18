@@ -224,7 +224,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         already_invested_amount = math.ceil(
             sum(
                 [
-                    (guard_metrics.sell_order.order_amount * guard_metrics.avg_buy_price)
+                    (guard_metrics.sell_order.amount * guard_metrics.avg_buy_price)
                     for guard_metrics in current_guard_metrics_list
                 ]
             )
@@ -327,7 +327,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             symbols=crypto_currency, client=client
         )
         new_limit_sell_order_amount = self._floor_round(
-            min(crypto_currency_wallet.balance, new_buy_market_order.order_amount),
+            min(crypto_currency_wallet.balance, new_buy_market_order.amount),
             ndigits=trading_market_config.amount_precision,
         )
         new_limit_sell_order = await self._operating_exchange_service.create_order(
@@ -377,14 +377,12 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
     ) -> None:
         crypto_currency, fiat_currency = tickers.symbol.split("/")
         message = f"✅ {html.bold('MARKET BUY ORDER FILLED')} ✅\n\n"
-        message += (
-            f"🔥 {new_buy_market_order.order_amount} {crypto_currency} purchased at {tickers.ask} {fiat_currency}"
-        )
+        message += f"🔥 {new_buy_market_order.amount} {crypto_currency} purchased at {tickers.ask} {fiat_currency}"
         message += html.bold("\n\n⚠️ IMPORTANT CONSIDERATIONS ⚠️\n\n")
         new_limit_sell_order_price_formatted = f"{new_limit_sell_order.price} {fiat_currency}"
         message += (
             f"* 🚀 A new {html.bold(new_limit_sell_order.order_type.upper() + ' Sell Order')} ("
-            + f"{new_limit_sell_order.order_amount} {crypto_currency}), "
+            + f"{new_limit_sell_order.amount} {crypto_currency}), "
             + f"further sell at {html.bold(new_limit_sell_order_price_formatted)}"
             + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
         )

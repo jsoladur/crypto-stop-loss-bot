@@ -46,7 +46,7 @@ async def trigger_sell_now_callback_handler(callback_query: CallbackQuery, state
             limit_sell_order_guard_cache_service.mark_immediate_sell_order(
                 ImmediateSellOrderItem(sell_order_id=sell_order_id, percent_to_sell=sell_percent)
             )
-            formatted_order_ammount = html.bold(f"{sell_order.order_amount} {crypto_currency}")
+            formatted_order_ammount = html.bold(f"{sell_order.amount} {crypto_currency}")
             await callback_query.message.answer(
                 f"ℹ️ {html.bold(sell_percent)}% OF {formatted_order_ammount} MARKED TO IMMEDIATE SELL. "
                 + "You will receive a push notification once the Limit Sell Guard has completed the trade.",

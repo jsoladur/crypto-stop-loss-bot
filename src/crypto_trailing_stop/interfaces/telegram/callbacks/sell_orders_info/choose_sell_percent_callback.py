@@ -33,7 +33,7 @@ async def choose_sell_percent_callback_handler(callback_query: CallbackQuery, st
             sell_order_id = match.group(1)
             sell_order = await operating_exchange_service.get_order_by_id(sell_order_id)
             crypto_currency, *_ = sell_order.symbol.split("/")
-            formatted_order_ammount = html.bold(f"{sell_order.order_amount} {crypto_currency}")
+            formatted_order_ammount = html.bold(f"{sell_order.amount} {crypto_currency}")
             await callback_query.message.answer(
                 f"ℹ️ Choose from {formatted_order_ammount} the percent amount of {crypto_currency} you want to sell. ",
                 reply_markup=keyboards_builder.get_choose_sell_percent_keyboard(sell_order_id),

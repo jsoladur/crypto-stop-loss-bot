@@ -32,7 +32,7 @@ async def should_set_buy_sell_signals_config_properly(
         get_application_container().infrastructure_container().services_container().favourite_crypto_currency_service()
     )
 
-    async with await operating_exchange_service.get_client as client:
+    async with await operating_exchange_service.get_client() as client:
         returned_favourite_crypto_currencies = await favourite_crypto_currency_service.find_all()
         assert len(returned_favourite_crypto_currencies) <= 0
         selected_crypto_currency_to_add = faker.random_element(MOCK_CRYPTO_CURRENCIES)

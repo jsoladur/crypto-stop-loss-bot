@@ -170,11 +170,11 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             await self._operating_exchange_service.cancel_order_by_id(sell_order.id, client=client)
             if auto_exit_reason.percent_to_sell < 100:
                 final_amount_to_sell = self._floor_round(
-                    sell_order.order_amount * (auto_exit_reason.percent_to_sell / 100),
+                    sell_order.amount * (auto_exit_reason.percent_to_sell / 100),
                     ndigits=trading_market_config.price_precision,
                 )
             else:
-                final_amount_to_sell = sell_order.order_amount
+                final_amount_to_sell = sell_order.amount
             # Create new market order
             new_market_order = await self._operating_exchange_service.create_order(
                 order=Order(
@@ -194,9 +194,9 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             logger.info(
                 f"[LIMIT SELL ORDER GUARD] NEW MARKET ORDER Id: '{new_market_order.id}', "
                 + f"for selling {auto_exit_reason.percent_to_sell}% "
-                + f"of {sell_order.order_amount} {crypto_currency} immediately!"  # noqa: E501
+                + f"of {sell_order.amount} {crypto_currency} immediately!"  # noqa: E501
             )
-            if (remaining_amount := sell_order.order_amount - final_amount_to_sell) > 0:
+            if (remaining_amount := sell_order.amount - final_amount_to_sell) > 0:
                 # NOTE: If we sold a percent less than 100.0%,
                 #  we have to create again the sell order with the remaining order amount
                 crypto_currency_wallet, *_ = await self._operating_exchange_service.get_trading_wallet_balances(
@@ -349,7 +349,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         crypto_currency, fiat_currency = new_market_order.symbol.split("/")
         icon = "🚨" if auto_exit_reason.stop_loss_triggered else "🟢"
         text_message = f"{icon} {html.bold('MARKET SELL ORDER FILLED')} {icon}\n\n"
-        text_message += f"{new_market_order.order_amount} {crypto_currency} (Buy Price: {guard_metrics.avg_buy_price} {fiat_currency}) HAS BEEN SOLD due to:\n"  # noqa: E501
+        text_message += f"{new_market_order.amount} {crypto_currency} (Buy Price: {guard_metrics.avg_buy_price} {fiat_currency}) HAS BEEN SOLD due to:\n"  # noqa: E501
         details = self._get_notification_message_details(
             tickers, last_candle_market_metrics, guard_metrics, auto_exit_reason, crypto_currency, fiat_currency
         )
