@@ -10,8 +10,8 @@ class AbstractHttpRemoteAsyncService(ABC):
         *,
         method: str = "GET",
         url: URL | str = "/",
-        params: dict[str, Any] | None = {},
-        headers: dict[str, Any] | None = {},
+        params: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
         body: Any | None = None,
         client: AsyncClient = None,
         **kwargs,
@@ -28,6 +28,8 @@ class AbstractHttpRemoteAsyncService(ABC):
         Returns:
             Response: httpx.Response instance
         """
+        params = params or {}
+        headers = headers or {}
         params, headers = await self._apply_request_interceptor(
             method=method, url=url, params=params, headers=headers, body=body
         )
@@ -48,8 +50,8 @@ class AbstractHttpRemoteAsyncService(ABC):
         *,
         method: str = "GET",
         url: URL | str = "/",
-        params: dict[str, Any] | None = {},
-        headers: dict[str, Any] | None = {},
+        params: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
         body: Any | None = None,
     ) -> tuple[str, URL | str, dict[str, Any] | None, dict[str, Any] | None]:
         """
@@ -65,6 +67,8 @@ class AbstractHttpRemoteAsyncService(ABC):
             tuple[str, URL | str, dict[str, Any] | None, dict[str, Any] | None]:
                 tuple of params and headers
         """
+        params = params or {}
+        headers = headers or {}
         return params, headers
 
     async def _apply_response_interceptor(
@@ -72,8 +76,8 @@ class AbstractHttpRemoteAsyncService(ABC):
         *,
         method: str = "GET",
         url: URL | str = "/",
-        params: dict[str, Any] | None = {},
-        headers: dict[str, Any] | None = {},
+        params: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
         body: Any | None = None,
         response: Response,
     ) -> Response:
