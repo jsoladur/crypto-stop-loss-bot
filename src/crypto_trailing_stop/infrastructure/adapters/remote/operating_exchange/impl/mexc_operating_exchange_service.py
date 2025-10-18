@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any, override
 
 from crypto_trailing_stop.commons.constants import MEXC_TAKER_FEES
+from crypto_trailing_stop.infrastructure.adapters.remote.mexc_remote_service import MEXCRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.base import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import (
     OperatingExchangeEnum,
@@ -23,19 +24,31 @@ if TYPE_CHECKING:
 
 
 class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
+    def __init__(self, mexc_remote_service: MEXCRemoteService) -> None:
+        super().__init__()
+        self._mexc_remote_service = mexc_remote_service
+
     @override
     async def get_account_info(self, *, client: Any | None = None) -> AccountInfo:
-        raise NotImplementedError("To be implemented")
+        return AccountInfo(currency_code="USDT")
 
     @override
     async def get_trading_wallet_balances(
         self, symbols: list[str] | str | None = None, *, client: Any | None = None
     ) -> list[TradingWalletBalance]:
-        raise NotImplementedError("To be implemented")
+        account_info = await self._mexc_remote_service.get_account_info(client=client)
+        return [
+            TradingWalletBalance(
+                currency=balance.asset.upper().strip(), balance=balance.free, blocked_balance=balance.locked
+            )
+            for balance in account_info.balances
+            if symbols is None or balance.asset.upper().strip() in [s.upper().strip() for s in symbols]
+        ]
 
     @override
     async def retrieve_porfolio_balance(self, user_currency: str, *, client: Any | None = None) -> PortfolioBalance:
-        raise NotImplementedError("To be implemented")
+        # FIXME: To be implemented properly
+        return PortfolioBalance(total_balance=0.0)
 
     @override
     async def get_accounting_summary_by_year(self, year: str, *, client: Any | None = None) -> bytes:
@@ -103,7 +116,7 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
 
     @override
     async def get_client(self) -> Any:
-        raise NotImplementedError("To be implemented")
+        return await self._mexc_remote_service.get_http_client()
 
     @override
     def get_taker_fee(self) -> float:

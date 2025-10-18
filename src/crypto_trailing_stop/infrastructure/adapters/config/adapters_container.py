@@ -3,6 +3,7 @@ from dependency_injector import containers, providers
 from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.gemini_remote_service import GeminiRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.mexc_remote_service import MEXCRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.operating_exchange_enum import (
     OperatingExchangeEnum,
 )
@@ -28,7 +29,10 @@ class AdaptersContainer(containers.DeclarativeContainer):
         Bit2MeOperatingExchangeService, bit2me_remote_service=_bit2me_remote_service
     )
 
-    _mexc_operating_exchange_service = providers.Singleton(MEXCOperatingExchangeService)
+    _mexc_remote_service = providers.Singleton(MEXCRemoteService, configuration_properties=configuration_properties)
+    _mexc_operating_exchange_service = providers.Singleton(
+        MEXCOperatingExchangeService, mexc_remote_service=_mexc_remote_service
+    )
 
     ccxt_remote_service = providers.Singleton(CcxtRemoteService)
     gemini_remote_service = providers.Singleton(GeminiRemoteService, configuration_properties=configuration_properties)

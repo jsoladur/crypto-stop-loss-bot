@@ -7,7 +7,6 @@ import time
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlencode
 
 import backoff
 import cachebox
@@ -281,10 +280,3 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         td = Timedelta(timeframe)
         ret = int(td.total_seconds() // 60)
         return ret
-
-    def _build_full_url(self, path: str, query_params: dict[str, any]) -> str:
-        full_url = path
-        if query_params:
-            query_string = urlencode(query_params, doseq=True)
-            full_url += "?" + query_string
-        return full_url
