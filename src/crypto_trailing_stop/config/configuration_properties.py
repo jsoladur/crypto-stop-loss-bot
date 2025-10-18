@@ -11,6 +11,7 @@ from crypto_trailing_stop.commons.constants import (
     BIT2ME_API_BASE_URL,
     DEFAULT_JOB_INTERVAL_SECONDS,
     DEFAULT_TRAILING_STOP_LOSS_PERCENT,
+    MEXC_API_BASE_URL,
     STOP_LOSS_STEPS_VALUE_LIST,
 )
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
@@ -43,7 +44,7 @@ class ConfigurationProperties(BaseSettings):
     # Operating exchange
     operating_exchange: OperatingExchangeEnum = OperatingExchangeEnum.BIT2ME
     # MEXC API configuration
-    mexc_api_base_url: AnyUrl = "https://api.mexc.com"
+    mexc_api_base_url: AnyUrl = MEXC_API_BASE_URL
     mexc_api_key: str = ""
     mexc_api_secret: str = ""
     # Bit2Me API configuration

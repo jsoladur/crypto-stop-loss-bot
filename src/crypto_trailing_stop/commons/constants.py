@@ -1,6 +1,7 @@
 import numpy as np
 
 BIT2ME_API_BASE_URL = "https://gateway.bit2me.com"
+MEXC_API_BASE_URL = "https://api.mexc.com"
 
 TELEGRAM_REPLY_EXCEPTION_MESSAGE_MAX_LENGTH = 3_000
 IDEMPOTENT_HTTP_METHODS = ["GET", "HEAD", "OPTIONS", "TRACE"]
