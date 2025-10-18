@@ -16,7 +16,7 @@ class GlobalSummaryService:
 
     async def get_global_summary(self) -> GlobalSummary:
         """
-        Retrieves the global summary of Bit2Me transactions.
+        Retrieves the global summary of the Exchange account.
         This method currently processes local Excel files to calculate total deposits,
         withdrawals, and current value.
         """

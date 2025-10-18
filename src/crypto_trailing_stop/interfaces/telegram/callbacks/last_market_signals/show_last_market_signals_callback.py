@@ -25,7 +25,7 @@ messages_formatter: MessagesFormatter = (
     application_container.interfaces_container().telegram_container().messages_formatter()
 )
 operating_exchange_service: AbstractOperatingExchangeService = (
-    application_container.infrastructure_container().adapters_container().bit2me_remote_service()
+    application_container.infrastructure_container().adapters_container().operating_exchange_service()
 )
 market_signal_service: MarketSignalService = (
     application_container.infrastructure_container().services_container().market_signal_service()

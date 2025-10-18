@@ -4,11 +4,13 @@ from zoneinfo import ZoneInfo
 import pydash
 from aiogram import html
 
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
-    Bit2MeTradingWalletBalanceDto,
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.account_info import AccountInfo
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_market_config import (
+    SymbolMarketConfig,
+)
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_tickers import SymbolTickers
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.trading_wallet_balance import (
+    TradingWalletBalance,
 )
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
@@ -22,7 +24,7 @@ class MessagesFormatter:
     def format_global_summary(self, global_summary: GlobalSummary) -> str:
         message_lines = [
             "=============================",
-            "📊 BIT2ME GLOBAL SUMMARY 📊",
+            "📊 GLOBAL SUMMARY 📊",
             "=============================",
             f"🏦 DEPOSITS: {global_summary.total_deposits:.2f}€",
             f"🏧 WITHDRAWALS: {global_summary.withdrawls:.2f}€",
@@ -38,8 +40,8 @@ class MessagesFormatter:
 
     def format_trading_wallet_balances(
         self,
-        account_info: Bit2MeAccountInfoDto,
-        trading_wallet_balances: list[Bit2MeTradingWalletBalanceDto],
+        account_info: AccountInfo,
+        trading_wallet_balances: list[TradingWalletBalance],
         total_portfolio_fiat_amount: float,
     ) -> str:
         # Filter no effective wallet balances
@@ -91,7 +93,7 @@ class MessagesFormatter:
         ret = "\n".join(message_lines)
         return ret
 
-    def format_current_prices_message(self, tickers_list: Bit2MeTickersDto) -> str:
+    def format_current_prices_message(self, tickers_list: SymbolTickers) -> str:
         message_lines = ["===========================", "💵 CURRENT PRICES 💵", "==========================="]
         for tickers in tickers_list:
             crypto_currency, fiat_currency = tickers.symbol.split("/")
@@ -102,7 +104,7 @@ class MessagesFormatter:
         return ret
 
     def format_current_crypto_metrics_message(
-        self, over_candlestick: CandleStickEnum, tickers: Bit2MeTickersDto, metrics: CryptoMarketMetrics
+        self, over_candlestick: CandleStickEnum, tickers: SymbolTickers, metrics: CryptoMarketMetrics
     ) -> str:
         *_, fiat_currency = metrics.symbol.split("/")
         message_lines = [
@@ -208,7 +210,7 @@ class MessagesFormatter:
         return answer_text
 
     def format_market_signals_message(
-        self, symbol: str, trading_market_config: Bit2MeMarketConfigDto, market_signals: list[MarketSignalItem]
+        self, symbol: str, trading_market_config: SymbolMarketConfig, market_signals: list[MarketSignalItem]
     ) -> str:
         header = f"🚥 {html.bold('LAST MARKET SIGNALS')} for {html.bold(symbol)} 🚥\n\n"
         message_lines = []

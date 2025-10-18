@@ -24,7 +24,7 @@ keyboards_builder: KeyboardsBuilder = (
     application_container.interfaces_container().telegram_container().keyboards_builder()
 )
 operating_exchange_service: AbstractOperatingExchangeService = (
-    application_container.infrastructure_container().adapters_container().bit2me_remote_service()
+    application_container.infrastructure_container().adapters_container().operating_exchange_service()
 )
 limit_sell_order_guard_cache_service: LimitSellOrderGuardCacheService = (
     application_container.infrastructure_container().services_container().limit_sell_order_guard_cache_service()

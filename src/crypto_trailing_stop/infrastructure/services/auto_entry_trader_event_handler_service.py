@@ -17,6 +17,9 @@ from crypto_trailing_stop.config.configuration_properties import ConfigurationPr
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.order_side_enum import OrderSideEnum
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.order_status_enum import (
+    OrderStatusEnum,
+)
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.order_type_enum import OrderTypeEnum
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.order import Order
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_market_config import (
@@ -294,7 +297,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             ),
             client=client,
         )
-        while new_buy_market_order.status not in ["filled", "cancelled"]:
+        while new_buy_market_order.status not in [OrderStatusEnum.FILLED, OrderStatusEnum.CANCELLED]:
             logger.info(
                 f"[Auto-Entry Trader] NEW MARKET ORDER Id: '{new_buy_market_order.id}'. "
                 + "Waiting 2 seconds to watch the new buy market order is already filled..."
@@ -303,8 +306,8 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             new_buy_market_order = await self._operating_exchange_service.get_order_by_id(
                 new_buy_market_order.id, client=client
             )
-        if new_buy_market_order.status == "cancelled":
-            raise ValueError("Bit2Me recent BUY MARKET order was cancelled by the exchange!")
+        if new_buy_market_order.status == OrderStatusEnum.CANCELLED:
+            raise ValueError("The recent BUY MARKET order was cancelled by the exchange!")
         return new_buy_market_order
 
     async def _create_new_sell_limit_order(
