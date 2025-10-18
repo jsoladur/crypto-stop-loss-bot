@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Any, override
 
+from crypto_trailing_stop.commons.constants import MEXC_TAKER_FEES
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.base import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import (
     OperatingExchangeEnum,
@@ -106,7 +107,7 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
 
     @override
     def get_taker_fee(self) -> float:
-        raise NotImplementedError("To be implemented")
+        return MEXC_TAKER_FEES
 
     @override
     def get_operating_exchange(self) -> OperatingExchangeEnum:

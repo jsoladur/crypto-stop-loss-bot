@@ -12,10 +12,9 @@ from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.fact
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.impl.bit2me_operating_exchange_service import (  # noqa: E501
     Bit2MeOperatingExchangeService,
 )
-
-# from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.impl.mexc_operating_exchange_service import (  # noqa: E501
-#     MEXCOperatingExchangeService,
-# )
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.impl.mexc_operating_exchange_service import (  # noqa: E501
+    MEXCOperatingExchangeService,
+)
 
 
 class AdaptersContainer(containers.DeclarativeContainer):
@@ -29,7 +28,7 @@ class AdaptersContainer(containers.DeclarativeContainer):
         Bit2MeOperatingExchangeService, bit2me_remote_service=_bit2me_remote_service
     )
 
-    # _mexc_operating_exchange_service = providers.Singleton(MEXCOperatingExchangeService)
+    _mexc_operating_exchange_service = providers.Singleton(MEXCOperatingExchangeService)
 
     ccxt_remote_service = providers.Singleton(CcxtRemoteService)
     gemini_remote_service = providers.Singleton(GeminiRemoteService, configuration_properties=configuration_properties)
@@ -41,8 +40,7 @@ class AdaptersContainer(containers.DeclarativeContainer):
     operating_exchange_service = providers.Selector(
         configuration_properties.provided.operating_exchange,
         **{
-            # TODO: Enable when MEXC implementation is ready
-            # OperatingExchangeEnum.MEXC: _mexc_operating_exchange_service,
-            OperatingExchangeEnum.BIT2ME: _bit2me_operating_exchange_service
+            OperatingExchangeEnum.MEXC: _mexc_operating_exchange_service,
+            OperatingExchangeEnum.BIT2ME: _bit2me_operating_exchange_service,
         },
     )
