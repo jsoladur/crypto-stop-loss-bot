@@ -276,35 +276,34 @@ class BuySellSignalsTaskService(AbstractTaskService):
         buy_sell_signals_config: BuySellSignalsConfigItem,
     ) -> bool:
         """
-        Calculates the buy signal with safety checks for recent bearish divergences
-        and volume climaxes on ALL signal types.
+        Calculates the buy signal, handling the simple (non-ADX) and complex (ADX-delayed)
+        logic paths separately, ensuring a single exit point.
         """
+        # --- Pre-calculate states common to both paths ---
         is_trend_momentum_confirmed_on_last = self._is_trend_momentum_confirmed(
             candle=last_candle_market_metrics, buy_sell_signals_config=buy_sell_signals_config
         )
-        # --- DEFINE THE VETOES FOR THE IMMEDIATE SIGNAL ---
-        # Veto 1: Recent bearish divergence
-        recent_divergence_warning = (
-            prev_candle_market_metrics.bearish_divergence or prior_candle_market_metrics.bearish_divergence
-        )
-        # Veto 2: Recent volume climax
-        recent_climax_warning = buy_sell_signals_config.enable_buy_volume_filter and (
-            prev_candle_market_metrics.relative_vol > buy_sell_signals_config.buy_max_volume_threshold
-            or prior_candle_market_metrics.relative_vol > buy_sell_signals_config.buy_max_volume_threshold
-        )
-        # 1. Check for the "Immediate Signal" with all vetoes applied
         ema_bullish_cross_on_last = self._is_ema_bullish_crossover(
             earlier_candle=prev_candle_market_metrics, later_candle=last_candle_market_metrics
         )
-        buy_signal = (
-            ema_bullish_cross_on_last
-            and is_trend_momentum_confirmed_on_last
-            and not recent_divergence_warning
-            and not recent_climax_warning
-        )
-
+        # --- PATH 1: Simple Logic (ADX Filter is DISABLED) ---
+        # The signal is simple: did the crossover and all confirmations
+        # (including volume) happen on this last candle?
+        buy_signal = ema_bullish_cross_on_last and is_trend_momentum_confirmed_on_last
         if buy_sell_signals_config.enable_adx_filter:
-            # 2. Check for a "Delayed Signal" from 1 candle ago
+            # --- PATH 2: Complex Delayed Logic (ADX Filter is ENABLED) ---
+            # --- DEFINE THE VETOES FOR THE IMMEDIATE SIGNAL ---
+            # Veto 1: Recent bearish divergence
+            recent_divergence_warning = (
+                prev_candle_market_metrics.bearish_divergence or prior_candle_market_metrics.bearish_divergence
+            )
+            # Veto 2: Recent volume climax
+            recent_climax_warning = buy_sell_signals_config.enable_buy_volume_filter and (
+                prev_candle_market_metrics.relative_vol > buy_sell_signals_config.buy_max_volume_threshold
+                or prior_candle_market_metrics.relative_vol > buy_sell_signals_config.buy_max_volume_threshold
+            )
+            buy_signal = buy_signal and not recent_divergence_warning and not recent_climax_warning
+            # 2. Check for "Delayed Signals"
             ema_bullish_cross_on_prev = self._is_ema_bullish_crossover(
                 earlier_candle=prior_candle_market_metrics, later_candle=prev_candle_market_metrics
             )
