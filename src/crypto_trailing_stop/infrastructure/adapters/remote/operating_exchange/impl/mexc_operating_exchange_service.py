@@ -1,7 +1,11 @@
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, override
 
 from crypto_trailing_stop.commons.constants import MEXC_TAKER_FEES
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_exchange_info_dto import MEXCExchangeSymbolConfigDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_book_dto import MEXCTickerBookDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_price_dto import MEXCTickerPriceDto
 from crypto_trailing_stop.infrastructure.adapters.remote.mexc_remote_service import MEXCRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.base import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import (
@@ -37,7 +41,14 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
     async def get_trading_wallet_balances(
         self, symbols: list[str] | str | None = None, *, client: Any | None = None
     ) -> list[TradingWalletBalance]:
-        raise NotImplementedError("To be implemented")
+        account_info = await self._mexc_remote_service.get_account_info(client=client)
+        return [
+            TradingWalletBalance(
+                currency=balance.asset.upper().strip(), balance=balance.free, blocked_balance=balance.locked
+            )
+            for balance in account_info.balances
+            if symbols is None or balance.asset.upper().strip() in [s.upper().strip() for s in symbols]
+        ]
 
     @override
     async def retrieve_porfolio_balance(self, user_currency: str, *, client: Any | None = None) -> PortfolioBalance:
@@ -45,13 +56,30 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
 
     @override
     async def get_single_tickers_by_symbol(self, symbol: str, *, client: Any | None = None) -> SymbolTickers:
-        raise NotImplementedError("To be implemented")
+        mexc_symbol = self._to_mexc_symbol_repr(symbol)
+        ticker_price = await self._mexc_remote_service.get_ticker_price(symbol=mexc_symbol, client=client)
+        ticker_book = await self._mexc_remote_service.get_ticker_book(symbol=mexc_symbol, client=client)
+        ret = self._map_symbol_tickers(symbol, ticker_price, ticker_book)
+        return ret
 
     @override
     async def get_tickers_by_symbols(
         self, symbols: list[str] | str = [], *, client: Any | None = None
     ) -> list[SymbolTickers]:
-        raise NotImplementedError("To be implemented")
+        mexc_exchange_symbol_config_dict = await self._get_mexc_exchange_symbol_config(client=client)
+        ticker_prices = await self._mexc_remote_service.get_ticker_price_list(client=client)
+        ticker_books = await self._mexc_remote_service.get_ticker_book_list(client=client)
+        ret = []
+        for ticker_price in ticker_prices:
+            symbol_config = mexc_exchange_symbol_config_dict.get(ticker_price.symbol, None)
+            if symbol_config:
+                symbol = f"{symbol_config.base_asset}/{symbol_config.quote_asset}"
+                ticker_book = next((book for book in ticker_books if book.symbol == ticker_price.symbol), None)
+                ret.append(self._map_symbol_tickers(symbol, ticker_price, ticker_book))
+        symbols = list(symbols) if isinstance(symbols, (list, set, tuple, frozenset)) else [symbols]
+        if symbols:
+            ret = [tickers for tickers in ret if tickers.symbol in symbols]
+        return ret
 
     @override
     async def get_orders(
@@ -82,17 +110,11 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
         raise NotImplementedError("To be implemented")
 
     @override
-    async def get_trading_market_config_by_symbol(
-        self, symbol: str, *, client: Any | None = None
-    ) -> SymbolMarketConfig:
-        raise NotImplementedError("To be implemented")
-
-    @override
     async def get_trading_market_config_list(self, *, client: Any | None = None) -> dict[str, SymbolMarketConfig]:
-        exchange_info = await self._mexc_remote_service.get_exchange_info(client=client)
+        mexc_exchange_symbol_config_dict = await self._get_mexc_exchange_symbol_config(client=client)
         spot_trading_usdt_symbols = [
             symbol_info
-            for symbol_info in exchange_info.symbols
+            for symbol_info in mexc_exchange_symbol_config_dict.values()
             if symbol_info.is_spot_trading_allowed and symbol_info.quote_asset == "USDT"
         ]
         ret: dict[str, SymbolMarketConfig] = {}
@@ -104,6 +126,12 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
                 amount_precision=abs(Decimal(symbol_info.base_size_precision).as_tuple().exponent),
             )
         return ret
+
+    async def _get_mexc_exchange_symbol_config(
+        self, *, client: Any | None = None
+    ) -> dict[str, MEXCExchangeSymbolConfigDto]:
+        exchange_info = await self._mexc_remote_service.get_exchange_info(client=client)
+        return {symbol_info.symbol: symbol_info for symbol_info in exchange_info.symbols}
 
     @override
     async def create_order(self, order: Order, *, client: Any | None = None) -> Order:
@@ -132,3 +160,19 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
     @override
     def get_operating_exchange(self) -> OperatingExchangeEnum:
         return OperatingExchangeEnum.MEXC
+
+    def _map_symbol_tickers(
+        self, symbol: str, ticker_price: MEXCTickerPriceDto, ticker_book: MEXCTickerBookDto | None = None
+    ) -> SymbolTickers:
+        ret = SymbolTickers(
+            timestamp=int(datetime.now(UTC).timestamp()),
+            symbol=symbol,
+            close=ticker_price.price,
+            bid=ticker_book.bid_price if ticker_book else None,
+            ask=ticker_book.ask_price if ticker_book else None,
+        )
+        return ret
+
+    def _to_mexc_symbol_repr(self, symbol: str) -> str:
+        ret = "".join(symbol.split("/"))
+        return ret

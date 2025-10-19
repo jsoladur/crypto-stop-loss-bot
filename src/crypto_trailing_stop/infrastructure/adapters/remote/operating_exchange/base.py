@@ -35,6 +35,24 @@ class AbstractOperatingExchangeService(ABC):
         ret = list({symbol.split("/")[0].strip().upper() for symbol in market_config_list.keys()})
         return ret
 
+    async def get_trading_market_config_by_symbol(
+        self, symbol: str, *, client: Any | None = None
+    ) -> SymbolMarketConfig | None:
+        """Fetches trading market configuration for a given symbol.
+
+        Args:
+            symbol (str): The trading pair symbol (e.g., 'BTC/USD').
+            client (Any | None, optional): Client to connect with the exchange. Defaults to None.
+
+        Returns:
+            SymbolMarketConfig | None: A SymbolMarketConfig object if found, otherwise None.
+        """
+        market_config_list = await self.get_trading_market_config_list(client=client)
+        if symbol not in market_config_list:
+            raise ValueError(f"Market config for symbol '{symbol}' not found in {type(self).__name__}.")
+        ret = market_config_list[symbol]
+        return ret
+
     async def get_pending_sell_orders(
         self, *, order_type: OrderTypeEnum | None = None, client: Any | None = None
     ) -> list[Order]:
@@ -212,20 +230,6 @@ class AbstractOperatingExchangeService(ABC):
 
         Returns:
             list[list[Any]]: A list of OHLCV data points.
-        """
-
-    @abstractmethod
-    async def get_trading_market_config_by_symbol(
-        self, symbol: str, *, client: Any | None = None
-    ) -> SymbolMarketConfig | None:
-        """Fetches trading market configuration for a given symbol.
-
-        Args:
-            symbol (str): The trading pair symbol (e.g., 'BTC/USD').
-            client (Any | None, optional): Client to connect with the exchange. Defaults to None.
-
-        Returns:
-            SymbolMarketConfig | None: A SymbolMarketConfig object if found, otherwise None.
         """
 
     @abstractmethod

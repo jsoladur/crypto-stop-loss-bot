@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 import backoff
 import cachebox
 from httpx import URL, AsyncClient, HTTPStatusError, NetworkError, Response, Timeout, TimeoutException
+from pydantic import RootModel
 
 from crypto_trailing_stop.commons.constants import (
     DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS,
@@ -18,6 +19,8 @@ from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler, prepa
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_account_info_dto import MEXCAccountInfoDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_exchange_info_dto import MEXCExchangeInfoDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_book_dto import MEXCTickerBookDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_price_dto import MEXCTickerPriceDto
 from crypto_trailing_stop.infrastructure.adapters.remote.base import AbstractHttpRemoteAsyncService
 
 logger = logging.getLogger(__name__)
@@ -35,6 +38,30 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
     async def get_account_info(self, *, client: AsyncClient | None = None) -> MEXCAccountInfoDto:
         response = await self._perform_http_request(url="/api/v3/account", client=client)
         ret = MEXCAccountInfoDto.model_validate_json(response.content)
+        return ret
+
+    async def get_ticker_price(self, symbol: str, *, client: AsyncClient | None = None) -> MEXCTickerPriceDto:
+        response = await self._perform_http_request(
+            url="/api/v3/ticker/price", params={"symbol": symbol}, client=client
+        )
+        ret = MEXCTickerPriceDto.model_validate_json(response.content)
+        return ret
+
+    async def get_ticker_book(self, symbol: str, *, client: AsyncClient | None = None) -> MEXCTickerBookDto:
+        response = await self._perform_http_request(
+            url="/api/v3/ticker/bookTicker", params={"symbol": symbol}, client=client
+        )
+        ret = MEXCTickerBookDto.model_validate_json(response.content)
+        return ret
+
+    async def get_ticker_book_list(self, client: AsyncClient | None = None) -> list[MEXCTickerBookDto]:
+        response = await self._perform_http_request(url="/api/v3/ticker/bookTicker", client=client)
+        ret = RootModel[list[MEXCTickerBookDto]].model_validate_json(response.content).root
+        return ret
+
+    async def get_ticker_price_list(self, client: AsyncClient | None = None) -> list[MEXCTickerPriceDto]:
+        response = await self._perform_http_request(url="/api/v3/ticker/price", client=client)
+        ret = RootModel[list[MEXCTickerPriceDto]].model_validate_json(response.content).root
         return ret
 
     @cachebox.cachedmethod(
