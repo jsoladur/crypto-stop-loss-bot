@@ -91,23 +91,17 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
         symbol: str | None = None,
         client: Any | None = None,
     ) -> list[Order]:
-        raise NotImplementedError("To be implemented")
+        raise NotImplementedError("FIXME: To be implemented")
 
     @override
     async def get_order_by_id(self, id: str, *, client: Any | None = None) -> Order | None:
-        raise NotImplementedError("To be implemented")
+        raise NotImplementedError("FIXME: To be implemented")
 
     @override
     async def get_trades(
         self, *, side: OrderSideEnum | None = None, symbol: str | None = None, client: Any | None = None
     ) -> list[Trade]:
-        raise NotImplementedError("To be implemented")
-
-    @override
-    async def fetch_ohlcv(
-        self, symbol: str, timeframe: "Timeframe", limit: int = 251, *, client: Any | None = None
-    ) -> list[list[Any]]:
-        raise NotImplementedError("To be implemented")
+        raise NotImplementedError("FIXME: To be implemented")
 
     @override
     async def get_trading_market_config_list(self, *, client: Any | None = None) -> dict[str, SymbolMarketConfig]:
@@ -127,19 +121,19 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
             )
         return ret
 
-    async def _get_mexc_exchange_symbol_config(
-        self, *, client: Any | None = None
-    ) -> dict[str, MEXCExchangeSymbolConfigDto]:
-        exchange_info = await self._mexc_remote_service.get_exchange_info(client=client)
-        return {symbol_info.symbol: symbol_info for symbol_info in exchange_info.symbols}
-
     @override
     async def create_order(self, order: Order, *, client: Any | None = None) -> Order:
-        raise NotImplementedError("To be implemented")
+        raise NotImplementedError("FIXME: To be implemented")
 
     @override
     async def cancel_order_by_id(self, id: str, *, client: Any | None = None) -> None:
-        raise NotImplementedError("To be implemented")
+        raise NotImplementedError("FIXME: To be implemented")
+
+    @override
+    async def fetch_ohlcv(
+        self, symbol: str, timeframe: "Timeframe", limit: int = 251, *, client: Any | None = None
+    ) -> list[list[Any]]:
+        raise NotImplementedError("This method is not needed since OHLCV is got via ccxt library!")
 
     @override
     async def get_accounting_summary_by_year(self, year: str, *, client: Any | None = None) -> bytes:
@@ -160,6 +154,12 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
     @override
     def get_operating_exchange(self) -> OperatingExchangeEnum:
         return OperatingExchangeEnum.MEXC
+
+    async def _get_mexc_exchange_symbol_config(
+        self, *, client: Any | None = None
+    ) -> dict[str, MEXCExchangeSymbolConfigDto]:
+        exchange_info = await self._mexc_remote_service.get_exchange_info(client=client)
+        return {symbol_info.symbol: symbol_info for symbol_info in exchange_info.symbols}
 
     def _map_symbol_tickers(
         self, symbol: str, ticker_price: MEXCTickerPriceDto, ticker_book: MEXCTickerBookDto | None = None

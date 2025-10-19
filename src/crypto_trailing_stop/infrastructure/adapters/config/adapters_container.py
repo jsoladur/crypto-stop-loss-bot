@@ -29,7 +29,7 @@ class AdaptersContainer(containers.DeclarativeContainer):
         MEXCOperatingExchangeService, mexc_remote_service=_mexc_remote_service
     )
 
-    ccxt_remote_service = providers.Singleton(CcxtRemoteService)
+    ccxt_remote_service = providers.Singleton(CcxtRemoteService, configuration_properties=configuration_properties)
     gemini_remote_service = providers.Singleton(GeminiRemoteService, configuration_properties=configuration_properties)
 
     operating_exchange_service = providers.Selector(
