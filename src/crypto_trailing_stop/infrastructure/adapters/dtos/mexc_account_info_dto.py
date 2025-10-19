@@ -10,7 +10,7 @@ class MEXCAccountBalanceDto(BaseModel):
     available: float | int | None = 0.0
 
 
-class MEXCAccountDto(BaseModel):
+class MEXCAccountInfoDto(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     maker_commission: float | None = Field(alias="makerCommission", default=None)

@@ -12,7 +12,8 @@ from httpx import URL, AsyncClient, HTTPStatusError, NetworkError, Response, Tim
 from crypto_trailing_stop.commons.constants import MEXC_RETRYABLE_HTTP_STATUS_CODES
 from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler, prepare_backoff_giveup_handler_fn
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
-from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_account_info_dto import MEXCAccountDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_account_info_dto import MEXCAccountInfoDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_exchange_info_dto import MEXCExchangeInfoDto
 from crypto_trailing_stop.infrastructure.adapters.remote.base import AbstractHttpRemoteAsyncService
 
 logger = logging.getLogger(__name__)
@@ -27,9 +28,14 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
         if not self._base_url or not self._api_key or not self._api_secret:
             raise ValueError("MEXC API configuration is missing or incomplete.")
 
-    async def get_account_info(self, *, client: AsyncClient | None = None) -> MEXCAccountDto:
+    async def get_account_info(self, *, client: AsyncClient | None = None) -> MEXCAccountInfoDto:
         response = await self._perform_http_request(url="/api/v3/account", client=client)
-        ret = MEXCAccountDto.model_validate_json(response.content)
+        ret = MEXCAccountInfoDto.model_validate_json(response.content)
+        return ret
+
+    async def get_exchange_info(self, *, client: AsyncClient | None = None) -> MEXCExchangeInfoDto:
+        response = await self._perform_http_request(url="/api/v3/exchangeInfo", client=client)
+        ret = MEXCExchangeInfoDto.model_validate_json(response.content)
         return ret
 
     async def get_http_client(self) -> AsyncClient:
