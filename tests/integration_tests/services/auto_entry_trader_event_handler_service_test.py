@@ -40,8 +40,8 @@ from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import M
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.constants import MOCK_SYMBOLS
 from tests.helpers.enums import AutoEntryTraderUnexpectedErrorBuyMarketOrder, AutoEntryTraderWarningTypeEnum
-from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
-from tests.helpers.market_config_utils import get_market_config_by_symbol
+from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMatcher
+from tests.helpers.market_config_utils import get_bit2me_market_config_by_symbol
 from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
     Bit2MeTickersDtoObjectMother,
@@ -185,11 +185,11 @@ def _prepare_httpserver_mock(
     unexpected_error_buy_market_order: AutoEntryTraderUnexpectedErrorBuyMarketOrder,
 ) -> tuple[str, str, str]:
     symbol = faker.random_element(MOCK_SYMBOLS)
-    trading_market_config = get_market_config_by_symbol(symbol=symbol)
+    trading_market_config = get_bit2me_market_config_by_symbol(symbol=symbol)
     # Mock OHLCV /v1/trading/candle
     fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
     httpserver.expect(
-        Bit2MeAPIRequestMacher(
+        Bit2MeAPIRequestMatcher(
             "/bit2me-api/v1/trading/candle",
             method="GET",
             query_string=Bit2MeAPIQueryMatcher(
@@ -223,7 +223,7 @@ def _prepare_httpserver_mock(
         )
         # Global portfolio
         httpserver.expect(
-            Bit2MeAPIRequestMacher(
+            Bit2MeAPIRequestMatcher(
                 "/bit2me-api/v1/portfolio/balance",
                 query_string=urlencode({"userCurrency": fiat_currency.upper()}, doseq=False),
                 method="GET",
@@ -277,7 +277,7 @@ def _prepare_httpserver_mock(
         ]
         # Mock call to /v1/trading/order to get opened sell orders
         httpserver.expect(
-            Bit2MeAPIRequestMacher(
+            Bit2MeAPIRequestMatcher(
                 "/bit2me-api/v1/trading/order",
                 method="GET",
                 query_string=urlencode(
@@ -293,7 +293,7 @@ def _prepare_httpserver_mock(
         for _ in range(len(opened_sell_bit2me_orders)):
             # Mock trades /v1/trading/trade
             httpserver.expect(
-                Bit2MeAPIRequestMacher(
+                Bit2MeAPIRequestMatcher(
                     "/bit2me-api/v1/trading/trade",
                     method="GET",
                     query_string=urlencode({"direction": "desc", "side": "buy", "symbol": symbol}, doseq=False),
@@ -310,7 +310,7 @@ def _prepare_httpserver_mock(
         )
         # Trading Wallet Balance for FIAT currency
         httpserver.expect(
-            Bit2MeAPIRequestMacher(
+            Bit2MeAPIRequestMatcher(
                 "/bit2me-api/v1/trading/wallet/balance",
                 query_string=urlencode({"symbols": fiat_currency.upper()}, doseq=False),
                 method="GET",
@@ -320,13 +320,13 @@ def _prepare_httpserver_mock(
             RootModel[list[Bit2MeTradingWalletBalanceDto]]([eur_wallet_balance]).model_dump(mode="json", by_alias=True)
         )
         httpserver.expect(
-            Bit2MeAPIRequestMacher(
+            Bit2MeAPIRequestMatcher(
                 "/bit2me-api/v2/trading/tickers", method="GET", query_string={"symbol": symbol}
             ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
             handler_type=HandlerType.ONESHOT,
         ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
         httpserver.expect(
-            Bit2MeAPIRequestMacher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
+            Bit2MeAPIRequestMatcher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
                 bit2me_api_key, bik2me_api_secret
             ),
             handler_type=HandlerType.PERMANENT,
@@ -356,7 +356,7 @@ def _prepare_httpserver_mock(
                             httpserver, bit2me_api_key, bik2me_api_secret, buy_order_created
                         )
                         httpserver.expect(
-                            Bit2MeAPIRequestMacher(
+                            Bit2MeAPIRequestMatcher(
                                 f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
                             ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
                             handler_type=HandlerType.ONESHOT,
@@ -375,7 +375,7 @@ def _prepare_httpserver_mock(
             # Trading Wallet Balance for CRYPTO currency
             buy_order_amount_after_feeds = buy_order_amount * (1 - BIT2ME_TAKER_FEES)
             httpserver.expect(
-                Bit2MeAPIRequestMacher(
+                Bit2MeAPIRequestMatcher(
                     "/bit2me-api/v1/trading/wallet/balance",
                     query_string=urlencode({"symbols": crypto_currency.upper()}, doseq=False),
                     method="GET",
@@ -392,7 +392,7 @@ def _prepare_httpserver_mock(
             )
             # Mock Limit Sell order created
             httpserver.expect(
-                Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
+                Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
                     bit2me_api_key, bik2me_api_secret
                 ),
                 handler_type=HandlerType.ONESHOT,
@@ -408,7 +408,7 @@ def _prepare_httpserver_mock(
             )
             # Mock trades /v1/trading/trade
             httpserver.expect(
-                Bit2MeAPIRequestMacher(
+                Bit2MeAPIRequestMatcher(
                     "/bit2me-api/v1/trading/trade",
                     method="GET",
                     query_string=urlencode({"direction": "desc", "side": "buy", "symbol": symbol}, doseq=False),
@@ -435,7 +435,7 @@ def _prepare_httpserver_mock_order_created_successfully(
     httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str, buy_order_created: Bit2MeOrderDto
 ) -> None:
     httpserver.expect(
-        Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
+        Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
             bit2me_api_key, bik2me_api_secret
         ),
         handler_type=HandlerType.ONESHOT,
@@ -448,7 +448,7 @@ def _prepare_httpserver_mock_for_simulate_not_enough_balance(
     # Simulation of NOT_ENOUGH_BALANCE error the first time we try to create the order
     for _ in range(7):
         httpserver.expect(
-            Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
+            Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
                 bit2me_api_key, bik2me_api_secret
             ),
             handler_type=HandlerType.ONESHOT,
@@ -469,14 +469,14 @@ def _prepare_httpserver_mock_for_simulate_waiting_for_buy_order_filled(
     # Simulating waiting for FILLED
     for _ in range(faker.pyint(min_value=1, max_value=3)):
         httpserver.expect(
-            Bit2MeAPIRequestMacher(
+            Bit2MeAPIRequestMatcher(
                 f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
             ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
             handler_type=HandlerType.ONESHOT,
         ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
     # Already filled!
     httpserver.expect(
-        Bit2MeAPIRequestMacher(
+        Bit2MeAPIRequestMatcher(
             f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
         ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.ONESHOT,

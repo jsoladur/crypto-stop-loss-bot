@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, override
 
 from crypto_trailing_stop.commons.constants import MEXC_TAKER_FEES
@@ -36,23 +37,11 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
     async def get_trading_wallet_balances(
         self, symbols: list[str] | str | None = None, *, client: Any | None = None
     ) -> list[TradingWalletBalance]:
-        account_info = await self._mexc_remote_service.get_account_info(client=client)
-        return [
-            TradingWalletBalance(
-                currency=balance.asset.upper().strip(), balance=balance.free, blocked_balance=balance.locked
-            )
-            for balance in account_info.balances
-            if symbols is None or balance.asset.upper().strip() in [s.upper().strip() for s in symbols]
-        ]
+        raise NotImplementedError("To be implemented")
 
     @override
     async def retrieve_porfolio_balance(self, user_currency: str, *, client: Any | None = None) -> PortfolioBalance:
-        # FIXME: To be implemented properly
-        return PortfolioBalance(total_balance=0.0)
-
-    @override
-    async def get_accounting_summary_by_year(self, year: str, *, client: Any | None = None) -> bytes:
-        raise NotImplementedError("This method is not supported in MEXC")
+        raise NotImplementedError("To be implemented")
 
     @override
     async def get_single_tickers_by_symbol(self, symbol: str, *, client: Any | None = None) -> SymbolTickers:
@@ -93,10 +82,6 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
         raise NotImplementedError("To be implemented")
 
     @override
-    async def get_trading_crypto_currencies(self, *, client: Any | None = None) -> list[str]:
-        raise NotImplementedError("To be implemented")
-
-    @override
     async def get_trading_market_config_by_symbol(
         self, symbol: str, *, client: Any | None = None
     ) -> SymbolMarketConfig:
@@ -104,7 +89,21 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
 
     @override
     async def get_trading_market_config_list(self, *, client: Any | None = None) -> dict[str, SymbolMarketConfig]:
-        raise NotImplementedError("To be implemented")
+        exchange_info = await self._mexc_remote_service.get_exchange_info(client=client)
+        spot_trading_usdt_symbols = [
+            symbol_info
+            for symbol_info in exchange_info.symbols
+            if symbol_info.is_spot_trading_allowed and symbol_info.quote_asset == "USDT"
+        ]
+        ret: dict[str, SymbolMarketConfig] = {}
+        for symbol_info in spot_trading_usdt_symbols:
+            symbol = f"{symbol_info.base_asset}/{symbol_info.quote_asset}"
+            ret[symbol] = SymbolMarketConfig(
+                symbol=symbol,
+                price_precision=symbol_info.quote_precision,
+                amount_precision=abs(Decimal(symbol_info.base_size_precision).as_tuple().exponent),
+            )
+        return ret
 
     @override
     async def create_order(self, order: Order, *, client: Any | None = None) -> Order:
@@ -113,6 +112,10 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
     @override
     async def cancel_order_by_id(self, id: str, *, client: Any | None = None) -> None:
         raise NotImplementedError("To be implemented")
+
+    @override
+    async def get_accounting_summary_by_year(self, year: str, *, client: Any | None = None) -> bytes:
+        raise NotImplementedError("This method is not supported in MEXC")
 
     @override
     async def get_client(self) -> Any:

@@ -37,7 +37,7 @@ from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_ite
 from crypto_trailing_stop.infrastructure.services.vo.immediate_sell_order_item import ImmediateSellOrderItem
 from crypto_trailing_stop.infrastructure.tasks.limit_sell_order_guard_task_service import LimitSellOrderGuardTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
-from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
+from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMatcher
 from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
     Bit2MeTickersDtoObjectMother,
@@ -372,7 +372,7 @@ def _prepare_httpserver_mock(
     fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
     # Simulate that some times the Bit2Me API returns an empty list
     httpserver.expect(
-        Bit2MeAPIRequestMacher(
+        Bit2MeAPIRequestMatcher(
             "/bit2me-api/v1/trading/candle",
             method="GET",
             query_string=Bit2MeAPIQueryMatcher(
@@ -383,7 +383,7 @@ def _prepare_httpserver_mock(
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json([])
     httpserver.expect(
-        Bit2MeAPIRequestMacher(
+        Bit2MeAPIRequestMatcher(
             "/bit2me-api/v1/trading/candle",
             method="GET",
             query_string=Bit2MeAPIQueryMatcher(
@@ -422,7 +422,7 @@ def _prepare_httpserver_mock(
     buy_trades, buy_prices = generate_trades(faker, opened_sell_bit2me_orders)
     # Mock call to /v1/trading/order to get opened sell orders
     httpserver.expect(
-        Bit2MeAPIRequestMacher(
+        Bit2MeAPIRequestMatcher(
             "/bit2me-api/v1/trading/order",
             method="GET",
             query_string=urlencode({"direction": "desc", "status_in": "open,inactive", "side": "sell"}, doseq=False),
@@ -433,7 +433,7 @@ def _prepare_httpserver_mock(
     )
     # Mock call to /v2/trading/tickers
     httpserver.expect(
-        Bit2MeAPIRequestMacher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
+        Bit2MeAPIRequestMatcher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
             bit2me_api_key, bik2me_api_secret
         ),
         handler_type=HandlerType.ONESHOT,
@@ -443,7 +443,7 @@ def _prepare_httpserver_mock(
         # Mock call to /v1/trading/trade to get closed buy trades
         if bit2me_error_status_code is not None:
             httpserver.expect(
-                Bit2MeAPIRequestMacher(
+                Bit2MeAPIRequestMatcher(
                     "/bit2me-api/v1/trading/trade",
                     method="GET",
                     query_string=urlencode({"direction": "desc", "side": "buy", "symbol": symbol}, doseq=False),
@@ -452,7 +452,7 @@ def _prepare_httpserver_mock(
             ).respond_with_response(Response(status=bit2me_error_status_code))
         # Mock trades /v1/trading/trade
         httpserver.expect(
-            Bit2MeAPIRequestMacher(
+            Bit2MeAPIRequestMatcher(
                 "/bit2me-api/v1/trading/trade",
                 method="GET",
                 query_string=urlencode({"direction": "desc", "side": "buy", "symbol": symbol}, doseq=False),
@@ -466,7 +466,7 @@ def _prepare_httpserver_mock(
         if not simulate_future_sell_orders and not sell_1h_signals_behind_break_even:
             # Mock call to DELETE /v1/trading/order/{id}
             httpserver.expect(
-                Bit2MeAPIRequestMacher(
+                Bit2MeAPIRequestMatcher(
                     f"/bit2me-api/v1/trading/order/{str(sell_order.id)}", method="DELETE"
                 ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
                 handler_type=HandlerType.ONESHOT,
@@ -474,7 +474,7 @@ def _prepare_httpserver_mock(
 
             # Mock call to POST /v1/trading/order
             httpserver.expect(
-                Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
+                Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
                     bit2me_api_key, bik2me_api_secret
                 ),
                 handler_type=HandlerType.ONESHOT,
@@ -486,7 +486,7 @@ def _prepare_httpserver_mock(
 
             if percent_to_sell < 100:
                 httpserver.expect(
-                    Bit2MeAPIRequestMacher(
+                    Bit2MeAPIRequestMatcher(
                         "/bit2me-api/v1/trading/wallet/balance",
                         query_string=urlencode({"symbols": crypto_currency.upper()}, doseq=False),
                         method="GET",
@@ -505,9 +505,9 @@ def _prepare_httpserver_mock(
                     ).model_dump(mode="json", by_alias=True)
                 )
                 httpserver.expect(
-                    Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
-                        bit2me_api_key, bik2me_api_secret
-                    ),
+                    Bit2MeAPIRequestMatcher(
+                        "/bit2me-api/v1/trading/order", method="POST"
+                    ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
                     handler_type=HandlerType.ONESHOT,
                 ).respond_with_json(
                     Bit2MeOrderDtoObjectMother.create(side="sell", order_type="limit", status="open").model_dump(

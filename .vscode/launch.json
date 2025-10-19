@@ -109,7 +109,7 @@
         "-x",
         "--log-cli-level=INFO",
         "-k",
-        "should_calculate_all_limit_sell_order_guard_metrics_properly[True]"
+        "should_add_and_remove_favourite_crypto_currency_properly"
       ],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false

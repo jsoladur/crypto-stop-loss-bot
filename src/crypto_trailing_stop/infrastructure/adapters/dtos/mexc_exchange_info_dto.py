@@ -1,7 +1,7 @@
-from pydantic import ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class MEXCExchangeSymbolConfigDto:
+class MEXCExchangeSymbolConfigDto(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
     symbol: str
     base_asset: str = Field(alias="baseAsset")
@@ -21,7 +21,7 @@ class MEXCExchangeSymbolConfigDto:
     max_quote_amount_market: str = Field(alias="maxQuoteAmountMarket")
 
 
-class MEXCExchangeInfoDto:
+class MEXCExchangeInfoDto(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     symbols: list[MEXCExchangeSymbolConfigDto] = []

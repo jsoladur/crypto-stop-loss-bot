@@ -10,7 +10,7 @@ from werkzeug import Request
 logger = logging.getLogger(__name__)
 
 
-class Bit2MeAPIRequestMacher(RequestMatcher):
+class Bit2MeAPIRequestMatcher(RequestMatcher):
     def set_bit2me_api_key_and_secret(self, bit2me_api_key: str, bit2me_api_secret: str) -> Self:
         self._bit2me_api_key = bit2me_api_key
         self._bit2me_api_secret = bit2me_api_secret

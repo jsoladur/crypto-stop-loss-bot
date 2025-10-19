@@ -16,7 +16,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_d
     TotalDto,
 )
 from crypto_trailing_stop.infrastructure.services.global_summary_service import GlobalSummaryService
-from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
+from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher
 from tests.helpers.object_mothers import Bit2MeSummaryXlsxObjectMother
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_ke
 
     # Get account registration date
     httpserver.expect(
-        Bit2MeAPIRequestMacher("/bit2me-api/v1/account", method="GET").set_bit2me_api_key_and_secret(
+        Bit2MeAPIRequestMatcher("/bit2me-api/v1/account", method="GET").set_bit2me_api_key_and_secret(
             bit2me_api_key, bik2me_api_secret
         ),
         handler_type=HandlerType.ONESHOT,
@@ -62,7 +62,7 @@ def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_ke
     for current_year in range(registration_year, datetime.now(UTC).year + 1):
         excel_filecontent = Bit2MeSummaryXlsxObjectMother.create(year=current_year)
         httpserver.expect(
-            Bit2MeAPIRequestMacher(
+            Bit2MeAPIRequestMatcher(
                 f"/bit2me-api/v1/accounting/summary/{current_year}",
                 method="GET",
                 query_string=urlencode(
@@ -74,7 +74,7 @@ def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_ke
 
     # Portfolio balance
     httpserver.expect(
-        Bit2MeAPIRequestMacher(
+        Bit2MeAPIRequestMatcher(
             "/bit2me-api/v1/portfolio/balance",
             query_string=urlencode({"userCurrency": "EUR"}, doseq=False),
             method="GET",

@@ -7,9 +7,13 @@ from typing import Any
 from urllib.parse import urlencode
 
 import backoff
+import cachebox
 from httpx import URL, AsyncClient, HTTPStatusError, NetworkError, Response, Timeout, TimeoutException
 
-from crypto_trailing_stop.commons.constants import MEXC_RETRYABLE_HTTP_STATUS_CODES
+from crypto_trailing_stop.commons.constants import (
+    DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS,
+    MEXC_RETRYABLE_HTTP_STATUS_CODES,
+)
 from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler, prepare_backoff_giveup_handler_fn
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_account_info_dto import MEXCAccountInfoDto
@@ -33,6 +37,9 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
         ret = MEXCAccountInfoDto.model_validate_json(response.content)
         return ret
 
+    @cachebox.cachedmethod(
+        cachebox.TTLCache(0, ttl=DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS), key_maker=lambda _, __: "mexc_exchange_info"
+    )
     async def get_exchange_info(self, *, client: AsyncClient | None = None) -> MEXCExchangeInfoDto:
         response = await self._perform_http_request(url="/api/v3/exchangeInfo", client=client)
         ret = MEXCExchangeInfoDto.model_validate_json(response.content)

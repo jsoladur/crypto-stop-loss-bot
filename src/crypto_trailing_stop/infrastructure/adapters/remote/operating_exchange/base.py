@@ -22,6 +22,19 @@ if TYPE_CHECKING:
 
 
 class AbstractOperatingExchangeService(ABC):
+    async def get_trading_crypto_currencies(self, *, client: Any | None = None) -> list[str]:
+        """Fetches a list of trading cryptocurrencies available on the exchange.
+
+        Args:
+            client (Any | None, optional): Client to connect with the exchange. Defaults to None.
+
+        Returns:
+            list[str]: A list of trading cryptocurrency symbols.
+        """
+        market_config_list = await self.get_trading_market_config_list(client=client)
+        ret = list({symbol.split("/")[0].strip().upper() for symbol in market_config_list.keys()})
+        return ret
+
     async def get_pending_sell_orders(
         self, *, order_type: OrderTypeEnum | None = None, client: Any | None = None
     ) -> list[Order]:
@@ -199,17 +212,6 @@ class AbstractOperatingExchangeService(ABC):
 
         Returns:
             list[list[Any]]: A list of OHLCV data points.
-        """
-
-    @abstractmethod
-    async def get_trading_crypto_currencies(self, *, client: Any | None = None) -> list[str]:
-        """Fetches a list of trading cryptocurrencies available on the exchange.
-
-        Args:
-            client (Any | None, optional): Client to connect with the exchange. Defaults to None.
-
-        Returns:
-            list[str]: A list of trading cryptocurrency symbols.
         """
 
     @abstractmethod

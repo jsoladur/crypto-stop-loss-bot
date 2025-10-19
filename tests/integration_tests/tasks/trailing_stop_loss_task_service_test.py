@@ -17,7 +17,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.tasks.trailing_stop_loss_task_service import TrailingStopLossTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
-from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
+from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher
 from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, Bit2MeTickersDtoObjectMother
 
 
@@ -109,7 +109,7 @@ def _prepare_httpserver_mock(
     tickers_list = [tickers] + rest_tickers
     # Mock call to /v1/trading/order to get opened buy orders
     httpserver.expect(
-        Bit2MeAPIRequestMacher(
+        Bit2MeAPIRequestMatcher(
             "/bit2me-api/v1/trading/order",
             method="GET",
             query_string=urlencode({"direction": "desc", "status_in": "open,inactive", "side": "buy"}, doseq=False),
@@ -119,7 +119,7 @@ def _prepare_httpserver_mock(
 
     # Mock call to /v1/trading/order to get opened sell orders
     httpserver.expect(
-        Bit2MeAPIRequestMacher(
+        Bit2MeAPIRequestMatcher(
             "/bit2me-api/v1/trading/order",
             method="GET",
             query_string=urlencode(
@@ -134,7 +134,7 @@ def _prepare_httpserver_mock(
 
     # Mock call to /v2/trading/tickers
     httpserver.expect(
-        Bit2MeAPIRequestMacher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
+        Bit2MeAPIRequestMatcher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
             bit2me_api_key, bik2me_api_secret
         ),
         handler_type=HandlerType.ONESHOT,
@@ -151,7 +151,7 @@ def _prepare_httpserver_mock(
     ):
         # Mock call to DELETE /v1/trading/order/{id}
         httpserver.expect(
-            Bit2MeAPIRequestMacher(
+            Bit2MeAPIRequestMatcher(
                 f"/bit2me-api/v1/trading/order/{str(opened_sell_bit2me_order.id)}", method="DELETE"
             ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
             handler_type=HandlerType.ONESHOT,
@@ -159,7 +159,7 @@ def _prepare_httpserver_mock(
 
         # Mock call to POST /v1/trading/order
         httpserver.expect(
-            Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
+            Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
                 bit2me_api_key, bik2me_api_secret
             ),
             handler_type=HandlerType.ONESHOT,

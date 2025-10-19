@@ -161,12 +161,6 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
         )
 
     @override
-    async def get_trading_crypto_currencies(self, *, client: Any | None = None) -> list[str]:
-        market_config_list = await self.get_trading_market_config_list(client=client)
-        ret = list({symbol.split("/")[0].strip().upper() for symbol in market_config_list.keys()})
-        return ret
-
-    @override
     async def get_trading_market_config_by_symbol(
         self, symbol: str, *, client: Any | None = None
     ) -> SymbolMarketConfig:
