@@ -9,8 +9,10 @@ from crypto_trailing_stop.interfaces.telegram.internal.home_handler import HomeH
 from crypto_trailing_stop.interfaces.telegram.keyboards_builder import KeyboardsBuilder
 
 application_container = get_application_container()
-dp: Dispatcher = application_container.dispatcher()
-session_storage_service: SessionStorageService = application_container.session_storage_service()
+dp: Dispatcher = application_container.interfaces_container().telegram_container().dispatcher()
+session_storage_service: SessionStorageService = (
+    application_container.interfaces_container().telegram_container().session_storage_service()
+)
 keyboards_builder: KeyboardsBuilder = (
     application_container.interfaces_container().telegram_container().keyboards_builder()
 )

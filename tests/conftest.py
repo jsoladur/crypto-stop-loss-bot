@@ -30,6 +30,8 @@ def faker() -> Faker:
 def defaults_env(faker: Faker) -> Generator[None]:
     # App configuration
     environ["LOGIN_ENABLED"] = "true"
+    # Operating exchange
+    environ["OPERATING_EXCHANGE"] = "bit2me"
     # Background jobs configuration
     environ["BUY_SELL_SIGNALS_RUN_VIA_CRON_PATTERN"] = "false"
     # Database configuration

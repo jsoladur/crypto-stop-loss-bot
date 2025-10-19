@@ -12,6 +12,7 @@ from crypto_trailing_stop.commons.constants import (
     STOP_LOSS_STEPS_VALUE_LIST,
 )
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.services.enums.candlestick_enum import CandleStickEnum
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
@@ -21,8 +22,13 @@ from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item impo
 
 
 class KeyboardsBuilder:
-    def __init__(self, configuration_properties: ConfigurationProperties):
+    def __init__(
+        self,
+        configuration_properties: ConfigurationProperties,
+        operating_exchange_service: AbstractOperatingExchangeService,
+    ) -> None:
         self._configuration_properties = configuration_properties
+        self._operating_exchange_service = operating_exchange_service
 
     def get_login_keyboard(self, state: FSMContext) -> InlineKeyboardMarkup:
         """Builds the login keyboard with a button to log in."""
@@ -46,9 +52,10 @@ class KeyboardsBuilder:
     def get_home_keyboard(self) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
         builder.row(InlineKeyboardButton(text="🪙 ₿alances", callback_data="get_pro_wallet_balances"))
-        builder.row(InlineKeyboardButton(text="🌟 Favourites", callback_data="favourite_crypto_currencies_home"))
+        if self._operating_exchange_service.has_global_summary_report():
+            builder.row(InlineKeyboardButton(text="📈 Summary", callback_data="get_global_summary"))
         builder.row(
-            InlineKeyboardButton(text="📈 Summary", callback_data="get_global_summary"),
+            InlineKeyboardButton(text="🌟 Favourites", callback_data="favourite_crypto_currencies_home"),
             InlineKeyboardButton(text="📤 Sell Orders", callback_data="get_sell_orders_info"),
         )
         builder.row(

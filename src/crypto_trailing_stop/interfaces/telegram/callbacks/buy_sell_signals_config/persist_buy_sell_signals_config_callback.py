@@ -19,9 +19,11 @@ from crypto_trailing_stop.interfaces.telegram.messages_formatter import Messages
 logger = logging.getLogger(__name__)
 
 application_container = get_application_container()
-dp: Dispatcher = application_container.dispatcher()
+dp: Dispatcher = application_container.interfaces_container().telegram_container().dispatcher()
 configuration_properties: ConfigurationProperties = application_container.configuration_properties()
-session_storage_service: SessionStorageService = application_container.session_storage_service()
+session_storage_service: SessionStorageService = (
+    application_container.interfaces_container().telegram_container().session_storage_service()
+)
 keyboards_builder: KeyboardsBuilder = (
     application_container.interfaces_container().telegram_container().keyboards_builder()
 )

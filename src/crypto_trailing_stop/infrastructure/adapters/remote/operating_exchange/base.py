@@ -270,6 +270,14 @@ class AbstractOperatingExchangeService(ABC):
         """
 
     @abstractmethod
+    def has_global_summary_report(self) -> bool:
+        """Indicates whether the exchange supports global summary reports.
+
+        Returns:
+            bool: True if global summary reports are supported, False otherwise.
+        """
+
+    @abstractmethod
     def get_taker_fee(self) -> float:
         """Returns the taker fee percentage for the exchange.
 

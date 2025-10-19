@@ -18,13 +18,15 @@ from crypto_trailing_stop.interfaces.telegram.keyboards_builder import Keyboards
 logger = logging.getLogger(__name__)
 
 application_container = get_application_container()
-dp: Dispatcher = application_container.dispatcher()
-session_storage_service: SessionStorageService = application_container.session_storage_service()
+dp: Dispatcher = application_container.interfaces_container().telegram_container().dispatcher()
+session_storage_service: SessionStorageService = (
+    application_container.interfaces_container().telegram_container().session_storage_service()
+)
 keyboards_builder: KeyboardsBuilder = (
     application_container.interfaces_container().telegram_container().keyboards_builder()
 )
 operating_exchange_service: AbstractOperatingExchangeService = (
-    application_container.infrastructure_container().adapters_container().operating_exchange_service()
+    application_container.adapters_container().operating_exchange_service()
 )
 limit_sell_order_guard_cache_service: LimitSellOrderGuardCacheService = (
     application_container.infrastructure_container().services_container().limit_sell_order_guard_cache_service()
