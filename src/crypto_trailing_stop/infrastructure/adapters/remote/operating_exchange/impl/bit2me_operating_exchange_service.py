@@ -211,6 +211,10 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
         return await self._bit2me_remote_service.get_http_client()
 
     @override
+    def has_global_summary_report(self) -> bool:
+        return True
+
+    @override
     def get_taker_fee(self) -> float:
         return BIT2ME_TAKER_FEES
 

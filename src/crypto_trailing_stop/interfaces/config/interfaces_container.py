@@ -6,12 +6,12 @@ from crypto_trailing_stop.interfaces.telegram.config.telegram_container import T
 
 class InterfacesContainer(containers.DeclarativeContainer):
     configuration_properties = providers.Dependency()
-    session_storage_service = providers.Dependency()
+    operating_exchange_service = providers.Dependency()
 
     telegram_container = providers.Container(
         TelegramContainer,
         configuration_properties=configuration_properties,
-        session_storage_service=session_storage_service,
+        operating_exchange_service=operating_exchange_service,
     )
 
     controllers_container = providers.Container(ControllersContainer, configuration_properties=configuration_properties)
