@@ -1,4 +1,5 @@
 import logging
+from inspect import isclass
 from typing import Self
 
 from dependency_injector.containers import Container
@@ -45,7 +46,7 @@ class TaskManager:
     def _import_task_modules(self) -> dict[GlobalFlagTypeEnum, AbstractTaskService]:
         ret: dict[GlobalFlagTypeEnum, AbstractTaskService] = {}
         for provider in self._tasks_container.traverse(types=[Singleton]):
-            dependency_object = provider()
-            if isinstance(dependency_object, AbstractTaskService):
+            if isclass(provider.provides) and issubclass(provider.provides, AbstractTaskService):
+                dependency_object = provider()
                 ret[dependency_object.get_global_flag_type()] = dependency_object
         return ret

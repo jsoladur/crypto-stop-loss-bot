@@ -21,7 +21,9 @@ oauth_context: OAuth = application_container.interfaces_container().controllers_
 keyboards_builder: KeyboardsBuilder = (
     application_container.interfaces_container().telegram_container().keyboards_builder()
 )
-session_storage_service: SessionStorageService = application_container.session_storage_service()
+session_storage_service: SessionStorageService = (
+    application_container.interfaces_container().telegram_container().session_storage_service()
+)
 telegram_service: TelegramService = application_container.interfaces_container().telegram_container().telegram_service()
 
 

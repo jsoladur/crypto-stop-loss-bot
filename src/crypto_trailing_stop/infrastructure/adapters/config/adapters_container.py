@@ -6,9 +6,6 @@ from crypto_trailing_stop.infrastructure.adapters.remote.gemini_remote_service i
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.operating_exchange_enum import (
     OperatingExchangeEnum,
 )
-from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.factory import (
-    OperatingExchangeServiceFactory,
-)
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.impl.bit2me_operating_exchange_service import (  # noqa: E501
     Bit2MeOperatingExchangeService,
 )
@@ -19,8 +16,6 @@ from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.impl
 
 
 class AdaptersContainer(containers.DeclarativeContainer):
-    __self__ = providers.Self()
-
     configuration_properties = providers.Dependency()
 
     # Bit2Me remote service is considered private and should not be accessed directly, only in this container
@@ -33,10 +28,6 @@ class AdaptersContainer(containers.DeclarativeContainer):
 
     ccxt_remote_service = providers.Singleton(CcxtRemoteService)
     gemini_remote_service = providers.Singleton(GeminiRemoteService, configuration_properties=configuration_properties)
-
-    operating_exchange_service_factory = providers.Singleton(
-        OperatingExchangeServiceFactory, configuration_properties=configuration_properties, adapters_container=__self__
-    )
 
     operating_exchange_service = providers.Selector(
         configuration_properties.provided.operating_exchange,

@@ -20,7 +20,7 @@ from crypto_trailing_stop.interfaces.telegram.keyboards_builder import Keyboards
 logger = logging.getLogger(__name__)
 
 application_container = get_application_container()
-dp: Dispatcher = application_container.dispatcher()
+dp: Dispatcher = application_container.interfaces_container().telegram_container().dispatcher()
 keyboards_builder: KeyboardsBuilder = (
     application_container.interfaces_container().telegram_container().keyboards_builder()
 )

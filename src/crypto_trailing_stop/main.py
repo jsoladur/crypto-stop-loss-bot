@@ -4,6 +4,7 @@ import logging
 import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from inspect import isclass
 from os import listdir, path
 
 from aiogram import Bot, Dispatcher
@@ -54,7 +55,7 @@ def _load_telegram_commands() -> None:
 async def _lifespan(_: FastAPI) -> AsyncGenerator[None]:
     application_container = get_application_container()
     configuration_properties: ConfigurationProperties = application_container.configuration_properties()
-    dp: Dispatcher = application_container.dispatcher()
+    dp: Dispatcher = application_container.interfaces_container().telegram_container().dispatcher()
     scheduler: BaseScheduler = application_container.infrastructure_container().tasks_container().scheduler()
 
     # Initialize database
@@ -72,8 +73,8 @@ async def _lifespan(_: FastAPI) -> AsyncGenerator[None]:
         scheduler.start()
     # Configure pyee listeners
     for provider in application_container.infrastructure_container().services_container().traverse(types=[Singleton]):
-        dependency_object = provider()
-        if isinstance(dependency_object, AbstractEventHandlerService):
+        if isclass(provider.provides) and issubclass(provider.provides, AbstractEventHandlerService):
+            dependency_object = provider()
             dependency_object.configure()
     logger.info("Application startup complete.")
     # Yield control back to the FastAPI apps
