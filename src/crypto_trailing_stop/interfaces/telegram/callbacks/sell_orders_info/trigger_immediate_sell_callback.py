@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from crypto_trailing_stop.config.dependencies import get_application_container
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.services.limit_sell_order_guard_cache_service import (
     LimitSellOrderGuardCacheService,
 )
@@ -23,8 +23,8 @@ session_storage_service: SessionStorageService = application_container.session_s
 keyboards_builder: KeyboardsBuilder = (
     application_container.interfaces_container().telegram_container().keyboards_builder()
 )
-bit2_me_remote_service: Bit2MeRemoteService = (
-    application_container.infrastructure_container().adapters_container().bit2me_remote_service()
+operating_exchange_service: AbstractOperatingExchangeService = (
+    application_container.infrastructure_container().adapters_container().operating_exchange_service()
 )
 limit_sell_order_guard_cache_service: LimitSellOrderGuardCacheService = (
     application_container.infrastructure_container().services_container().limit_sell_order_guard_cache_service()
@@ -41,12 +41,12 @@ async def trigger_sell_now_callback_handler(callback_query: CallbackQuery, state
             match = re.match(REGEX, callback_query.data)
             sell_order_id = match.group(1)
             sell_percent = float(match.group(2))
-            sell_order = await bit2_me_remote_service.get_order_by_id(sell_order_id)
+            sell_order = await operating_exchange_service.get_order_by_id(sell_order_id)
             crypto_currency, *_ = sell_order.symbol.split("/")
             limit_sell_order_guard_cache_service.mark_immediate_sell_order(
                 ImmediateSellOrderItem(sell_order_id=sell_order_id, percent_to_sell=sell_percent)
             )
-            formatted_order_ammount = html.bold(f"{sell_order.order_amount} {crypto_currency}")
+            formatted_order_ammount = html.bold(f"{sell_order.amount} {crypto_currency}")
             await callback_query.message.answer(
                 f"ℹ️ {html.bold(sell_percent)}% OF {formatted_order_ammount} MARKED TO IMMEDIATE SELL. "
                 + "You will receive a push notification once the Limit Sell Guard has completed the trade.",

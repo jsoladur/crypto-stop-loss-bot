@@ -1,5 +1,8 @@
 import numpy as np
 
+BIT2ME_API_BASE_URL = "https://gateway.bit2me.com"
+MEXC_API_BASE_URL = "https://api.mexc.com"
+
 TELEGRAM_REPLY_EXCEPTION_MESSAGE_MAX_LENGTH = 3_000
 IDEMPOTENT_HTTP_METHODS = ["GET", "HEAD", "OPTIONS", "TRACE"]
 BIT2ME_RETRYABLE_HTTP_STATUS_CODES = [403, 412, 417, 429, 451, 455, 502, 503, 504]  # Backoff status codes

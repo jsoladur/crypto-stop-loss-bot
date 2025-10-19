@@ -8,10 +8,13 @@ from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict
 
 from crypto_trailing_stop.commons.constants import (
+    BIT2ME_API_BASE_URL,
     DEFAULT_JOB_INTERVAL_SECONDS,
     DEFAULT_TRAILING_STOP_LOSS_PERCENT,
+    MEXC_API_BASE_URL,
     STOP_LOSS_STEPS_VALUE_LIST,
 )
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
 
 
 class _CustomEnvSettingsSource(EnvSettingsSource):
@@ -38,10 +41,16 @@ class ConfigurationProperties(BaseSettings):
     # Database configuration
     database_in_memory: bool = False
     database_path: str = "./crypto_stop_loss.sqlite"
+    # Operating exchange
+    operating_exchange: OperatingExchangeEnum = OperatingExchangeEnum.BIT2ME
+    # MEXC API configuration
+    mexc_api_base_url: AnyUrl = MEXC_API_BASE_URL
+    mexc_api_key: str = ""
+    mexc_api_secret: str = ""
     # Bit2Me API configuration
-    bit2me_api_base_url: AnyUrl
-    bit2me_api_key: str
-    bit2me_api_secret: str
+    bit2me_api_base_url: AnyUrl = BIT2ME_API_BASE_URL
+    bit2me_api_key: str = ""
+    bit2me_api_secret: str = ""
     # Buy Sell Signals configuration
     buy_sell_signals_run_via_cron_pattern: bool = True
     # XXX: Better after backtesting in TradingView

@@ -2,10 +2,9 @@ import asyncio
 import logging
 import math
 from datetime import UTC, datetime
-from typing import override
+from typing import Any, override
 
 from aiogram import html
-from httpx import AsyncClient
 from pyee.asyncio import AsyncIOEventEmitter
 
 from crypto_trailing_stop.commons.constants import (
@@ -15,11 +14,18 @@ from crypto_trailing_stop.commons.constants import (
     TRIGGER_BUY_ACTION_EVENT_NAME,
 )
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.order_side_enum import OrderSideEnum
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.order_status_enum import (
+    OrderStatusEnum,
+)
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.order_type_enum import OrderTypeEnum
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.order import Order
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_market_config import (
+    SymbolMarketConfig,
+)
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_tickers import SymbolTickers
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
 from crypto_trailing_stop.infrastructure.services.base import AbstractEventHandlerService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
@@ -31,7 +37,6 @@ from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_serv
     FavouriteCryptoCurrencyService,
 )
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
-from crypto_trailing_stop.infrastructure.services.global_summary_service import GlobalSummaryService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
@@ -50,7 +55,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         self,
         configuration_properties: ConfigurationProperties,
         event_emitter: AsyncIOEventEmitter,
-        bit2me_remote_service: Bit2MeRemoteService,
+        operating_exchange_service: AbstractOperatingExchangeService,
         push_notification_service: PushNotificationService,
         telegram_service: TelegramService,
         ccxt_remote_service: CcxtRemoteService,
@@ -59,21 +64,18 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         buy_sell_signals_config_service: BuySellSignalsConfigService,
         auto_buy_trader_config_service: AutoBuyTraderConfigService,
         stop_loss_percent_service: StopLossPercentService,
-        global_summary_service: GlobalSummaryService,
         crypto_analytics_service: CryptoAnalyticsService,
         orders_analytics_service: OrdersAnalyticsService,
     ) -> None:
-        super().__init__(bit2me_remote_service, push_notification_service, telegram_service)
+        super().__init__(operating_exchange_service, push_notification_service, telegram_service)
         self._configuration_properties = configuration_properties
         self._event_emitter = event_emitter
-        self._bit2me_remote_service = bit2me_remote_service
         self._ccxt_remote_service = ccxt_remote_service
         self._global_flag_service = global_flag_service
         self._favourite_crypto_currency_service = favourite_crypto_currency_service
         self._buy_sell_signals_config_service = buy_sell_signals_config_service
         self._auto_buy_trader_config_service = auto_buy_trader_config_service
         self._stop_loss_percent_service = stop_loss_percent_service
-        self._global_summary_service = global_summary_service
         self._crypto_analytics_service = crypto_analytics_service
         self._orders_analytics_service = orders_analytics_service
 
@@ -104,9 +106,11 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
                 crypto_currency, fiat_currency = market_signal_item.symbol.split("/")
                 buy_trader_config = await self._auto_buy_trader_config_service.find_by_symbol(crypto_currency)
                 if buy_trader_config.fiat_wallet_percent_assigned > 0:
-                    async with await self._bit2me_remote_service.get_http_client() as client:
-                        trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
-                            market_signal_item.symbol, client=client
+                    async with await self._operating_exchange_service.get_client() as client:
+                        trading_market_config = (
+                            await self._operating_exchange_service.get_trading_market_config_by_symbol(
+                                market_signal_item.symbol, client=client
+                            )
                         )
                         market_signal_item_atr_percent = market_signal_item.get_atr_percent(trading_market_config)
                         if (
@@ -139,8 +143,8 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         fiat_currency: str,
         buy_trader_config: AutoBuyTraderConfigItem,
         *,
-        trading_market_config: Bit2MeMarketConfigDto,
-        client: AsyncClient,
+        trading_market_config: SymbolMarketConfig,
+        client: Any,
     ) -> None:
         initial_amount_to_invest = await self._calculate_total_amount_to_invest(
             buy_trader_config, crypto_currency, fiat_currency, client=client
@@ -169,8 +173,8 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         fiat_currency: str,
         initial_amount_to_invest: float,
         *,
-        trading_market_config: Bit2MeMarketConfigDto,
-        client: AsyncClient,
+        trading_market_config: SymbolMarketConfig,
+        client: Any,
     ) -> None:
         # XXX: [JMSOLA] Calculate buy order amount
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
@@ -204,15 +208,14 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
 
     async def _calculate_total_amount_to_invest(
-        self, buy_trader_config: AutoBuyTraderConfigItem, crypto_currency: str, fiat_currency: str, client: AsyncClient
+        self, buy_trader_config: AutoBuyTraderConfigItem, crypto_currency: str, fiat_currency: str, client: Any
     ) -> float | int:
         fiat_wallet_assigned_decimal_value = buy_trader_config.fiat_wallet_percent_assigned / 100.0
-        # 1.) Call to GlobalSummaryService.calculate_portfolio_total_fiat_amount(..),
-        # to get total portfolio AMOUNT
-        total_portfolio_fiat_amount = await self._global_summary_service.calculate_portfolio_total_fiat_amount(
+        # 1.) Get total portfolio amount
+        portfolio_balance = await self._operating_exchange_service.retrieve_porfolio_balance(
             fiat_currency, client=client
         )
-        portfolio_assigned_amount = math.floor(total_portfolio_fiat_amount * fiat_wallet_assigned_decimal_value)
+        portfolio_assigned_amount = math.floor(portfolio_balance.total_balance * fiat_wallet_assigned_decimal_value)
 
         # XXX: [JMSOLA] Calculate already invested amount to not invest more the percent assigned in overall
         current_guard_metrics_list = await self._orders_analytics_service.calculate_all_limit_sell_order_guard_metrics(
@@ -221,14 +224,14 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         already_invested_amount = math.ceil(
             sum(
                 [
-                    (guard_metrics.sell_order.order_amount * guard_metrics.avg_buy_price)
+                    (guard_metrics.sell_order.amount * guard_metrics.avg_buy_price)
                     for guard_metrics in current_guard_metrics_list
                 ]
             )
         )
         remaining_to_invest = portfolio_assigned_amount - already_invested_amount
 
-        eur_wallet_balance, *_ = await self._bit2me_remote_service.get_trading_wallet_balances(
+        eur_wallet_balance, *_ = await self._operating_exchange_service.get_trading_wallet_balances(
             symbols=fiat_currency.upper(), client=client
         )
         amount_to_invest = min(
@@ -243,15 +246,15 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         fiat_currency: str,
         amount_with_buffer: float,
         *,
-        trading_market_config: Bit2MeMarketConfigDto,
-        client: AsyncClient,
-    ) -> tuple[Bit2MeOrderDto, Bit2MeTickersDto]:
-        new_buy_market_order: Bit2MeOrderDto | None = None
+        trading_market_config: SymbolMarketConfig,
+        client: Any,
+    ) -> tuple[Order, SymbolTickers]:
+        new_buy_market_order: Order | None = None
         last_exception: Exception | None = None
         attemps = 1
         while new_buy_market_order is None and attemps <= AUTO_ENTRY_TRADER_MAX_ATTEMPS_TO_BUY:
             try:
-                tickers = await self._bit2me_remote_service.get_single_tickers_by_symbol(
+                tickers = await self._operating_exchange_service.get_single_tickers_by_symbol(
                     market_signal_item.symbol, client=client
                 )
                 # XXX: [JMSOLA] Get the current tickers.ask price for calculate the order_amount
@@ -283,74 +286,70 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         return new_buy_market_order, tickers
 
     async def _create_new_buy_market_order_and_wait_until_filled(
-        self, market_signal_item: MarketSignalItem, buy_order_amount: float | int, client: AsyncClient
-    ) -> Bit2MeOrderDto:
-        new_buy_market_order: Bit2MeOrderDto = await self._bit2me_remote_service.create_order(
-            order=CreateNewBit2MeOrderDto(
-                order_type="market", side="buy", symbol=market_signal_item.symbol, amount=str(buy_order_amount)
+        self, market_signal_item: MarketSignalItem, buy_order_amount: float | int, client: Any
+    ) -> Order:
+        new_buy_market_order: Order = await self._operating_exchange_service.create_order(
+            order=Order(
+                order_type=OrderTypeEnum.MARKET,
+                side=OrderSideEnum.BUY,
+                symbol=market_signal_item.symbol,
+                amount=buy_order_amount,
             ),
             client=client,
         )
-        while new_buy_market_order.status not in ["filled", "cancelled"]:
+        while new_buy_market_order.status not in [OrderStatusEnum.FILLED, OrderStatusEnum.CANCELLED]:
             logger.info(
                 f"[Auto-Entry Trader] NEW MARKET ORDER Id: '{new_buy_market_order.id}'. "
                 + "Waiting 2 seconds to watch the new buy market order is already filled..."
             )
             await asyncio.sleep(delay=2.0)
-            new_buy_market_order = await self._bit2me_remote_service.get_order_by_id(
+            new_buy_market_order = await self._operating_exchange_service.get_order_by_id(
                 new_buy_market_order.id, client=client
             )
-        if new_buy_market_order.status == "cancelled":
-            raise ValueError("Bit2Me recent BUY MARKET order was cancelled by the exchange!")
+        if new_buy_market_order.status == OrderStatusEnum.CANCELLED:
+            raise ValueError("The recent BUY MARKET order was cancelled by the exchange!")
         return new_buy_market_order
 
     async def _create_new_sell_limit_order(
         self,
-        new_buy_market_order: Bit2MeOrderDto,
-        trading_market_config: Bit2MeMarketConfigDto,
-        tickers: Bit2MeTickersDto,
+        new_buy_market_order: Order,
+        trading_market_config: SymbolMarketConfig,
+        tickers: SymbolTickers,
         crypto_currency: str,
         *,
-        client: AsyncClient,
-    ) -> Bit2MeOrderDto:
+        client: Any,
+    ) -> Order:
         # # XXX [JMSOLA]: Once buy sell order is FILLED,
         # we are now creating a LIMIT SELL ORDER to pass
         # the responsibility to the Limit Sell Order Guard for selling,
         # at some further favorable point!
-        crypto_currency_wallet, *_ = await self._bit2me_remote_service.get_trading_wallet_balances(
+        crypto_currency_wallet, *_ = await self._operating_exchange_service.get_trading_wallet_balances(
             symbols=crypto_currency, client=client
         )
         new_limit_sell_order_amount = self._floor_round(
-            min(crypto_currency_wallet.balance, new_buy_market_order.order_amount),
+            min(crypto_currency_wallet.balance, new_buy_market_order.amount),
             ndigits=trading_market_config.amount_precision,
         )
-        new_limit_sell_order = await self._bit2me_remote_service.create_order(
-            order=CreateNewBit2MeOrderDto(
-                order_type="limit",
-                side="sell",
+        new_limit_sell_order = await self._operating_exchange_service.create_order(
+            order=Order(
+                order_type=OrderTypeEnum.LIMIT,
+                side=OrderSideEnum.SELL,
                 symbol=new_buy_market_order.symbol,
-                price=str(
-                    self._floor_round(
-                        # XXX: [JMSOLA] Price is unreachable in purpose,
-                        # for giving to the Limit Sell Order Guard the chance to
-                        # operate properly
-                        tickers.close * 2,
-                        ndigits=trading_market_config.price_precision,
-                    )
+                price=self._floor_round(
+                    # XXX: [JMSOLA] Price is unreachable in purpose,
+                    # for giving to the Limit Sell Order Guard the chance to
+                    # operate properly
+                    tickers.close * 2,
+                    ndigits=trading_market_config.price_precision,
                 ),
-                amount=str(new_limit_sell_order_amount),
+                amount=new_limit_sell_order_amount,
             ),
             client=client,
         )
         return new_limit_sell_order
 
     async def _update_stop_loss(
-        self,
-        new_limit_sell_order: Bit2MeOrderDto,
-        tickers: Bit2MeTickersDto,
-        crypto_currency: str,
-        *,
-        client: AsyncClient,
+        self, new_limit_sell_order: Order, tickers: SymbolTickers, crypto_currency: str, *, client: Any
     ) -> LimitSellOrderGuardMetrics:
         guard_metrics, *_ = await self._orders_analytics_service.calculate_guard_metrics_by_sell_order(
             new_limit_sell_order, tickers=tickers, client=client
@@ -370,22 +369,20 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
 
     async def _notify_success_alert(
         self,
-        new_buy_market_order: Bit2MeOrderDto,
-        new_limit_sell_order: Bit2MeOrderDto,
-        tickers: Bit2MeTickersDto,
+        new_buy_market_order: Order,
+        new_limit_sell_order: Order,
+        tickers: SymbolTickers,
         guard_metrics: LimitSellOrderGuardMetrics,
         buy_sell_signals_config: BuySellSignalsConfigItem,
     ) -> None:
         crypto_currency, fiat_currency = tickers.symbol.split("/")
         message = f"✅ {html.bold('MARKET BUY ORDER FILLED')} ✅\n\n"
-        message += (
-            f"🔥 {new_buy_market_order.order_amount} {crypto_currency} purchased at {tickers.ask} {fiat_currency}"
-        )
+        message += f"🔥 {new_buy_market_order.amount} {crypto_currency} purchased at {tickers.ask} {fiat_currency}"
         message += html.bold("\n\n⚠️ IMPORTANT CONSIDERATIONS ⚠️\n\n")
         new_limit_sell_order_price_formatted = f"{new_limit_sell_order.price} {fiat_currency}"
         message += (
             f"* 🚀 A new {html.bold(new_limit_sell_order.order_type.upper() + ' Sell Order')} ("
-            + f"{new_limit_sell_order.order_amount} {crypto_currency}), "
+            + f"{new_limit_sell_order.amount} {crypto_currency}), "
             + f"further sell at {html.bold(new_limit_sell_order_price_formatted)}"
             + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
         )

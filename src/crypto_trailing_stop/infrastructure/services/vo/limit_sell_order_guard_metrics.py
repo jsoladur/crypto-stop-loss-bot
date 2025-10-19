@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.order import Order
 
 
 @dataclass
 class LimitSellOrderGuardMetrics:
-    sell_order: Bit2MeOrderDto
+    sell_order: Order
     current_price: float | int
     avg_buy_price: float | int
     break_even_price: float | int

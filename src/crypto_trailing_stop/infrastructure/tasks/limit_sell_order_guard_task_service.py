@@ -9,11 +9,13 @@ from httpx import AsyncClient
 
 from crypto_trailing_stop.commons.constants import LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto, CreateNewBit2MeOrderDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.order_side_enum import OrderSideEnum
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.order_type_enum import OrderTypeEnum
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.order import Order
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_tickers import SymbolTickers
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.trade import Trade
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.enums import GlobalFlagTypeEnum, PushNotificationTypeEnum
@@ -42,7 +44,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     def __init__(
         self,
         configuration_properties: ConfigurationProperties,
-        bit2me_remote_service: Bit2MeRemoteService,
+        operating_exchange_service: AbstractOperatingExchangeService,
         push_notification_service: PushNotificationService,
         telegram_service: TelegramService,
         scheduler: AsyncIOScheduler,
@@ -54,7 +56,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         crypto_analytics_service: CryptoAnalyticsService,
         orders_analytics_service: OrdersAnalyticsService,
     ):
-        super().__init__(bit2me_remote_service, push_notification_service, telegram_service, scheduler)
+        super().__init__(operating_exchange_service, push_notification_service, telegram_service, scheduler)
         self._configuration_properties = configuration_properties
         self._market_signal_service = market_signal_service
         self._ccxt_remote_service = ccxt_remote_service
@@ -72,8 +74,8 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
 
     @override
     async def _run(self) -> None:
-        async with await self._bit2me_remote_service.get_http_client() as client:
-            sell_orders = await self._bit2me_remote_service.get_pending_sell_orders(client=client)
+        async with await self._operating_exchange_service.get_client() as client:
+            sell_orders = await self._operating_exchange_service.get_pending_sell_orders(client=client)
             if sell_orders:
                 await self._handle_opened_sell_orders(sell_orders, client=client)
             else:  # pragma: no cover
@@ -83,16 +85,14 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     def _get_job_trigger(self) -> IntervalTrigger:
         return IntervalTrigger(seconds=self._configuration_properties.job_interval_seconds)
 
-    async def _handle_opened_sell_orders(
-        self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
-    ) -> None:
+    async def _handle_opened_sell_orders(self, opened_sell_orders: list[Order], *, client: AsyncClient) -> None:
         # Refresh technical indicators if needed
         await self._refresh_technical_indicators_by_symbol_cache_if_needed(opened_sell_orders, client=client)
         # Get current tickers for getting closing prices
-        current_tickers_by_symbol: dict[str, Bit2MeTickersDto] = await self._fetch_tickers_for_open_sell_orders(
+        current_tickers_by_symbol: dict[str, SymbolTickers] = await self._fetch_tickers_for_open_sell_orders(
             opened_sell_orders, client=client
         )
-        last_buy_trades_by_symbol: dict[str, Bit2MeTradeDto] = await self._get_last_buy_trades_by_opened_sell_orders(
+        last_buy_trades_by_symbol: dict[str, Trade] = await self._get_last_buy_trades_by_opened_sell_orders(
             opened_sell_orders, client=client
         )
         previous_used_buy_trades: dict[str, float] = {}
@@ -111,16 +111,16 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
 
     async def _handle_single_sell_order(
         self,
-        sell_order: Bit2MeOrderDto,
+        sell_order: Order,
         *,
-        tickers: Bit2MeTickersDto,
-        last_buy_trades: list[Bit2MeTradeDto],
+        tickers: SymbolTickers,
+        last_buy_trades: list[Trade],
         previous_used_buy_trades: dict[str, float],
         client: AsyncClient,
     ) -> set[str]:
         crypto_currency, fiat_currency = sell_order.symbol.split("/")
         buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
-        trading_market_config = await self._bit2me_remote_service.get_trading_market_config_by_symbol(
+        trading_market_config = await self._operating_exchange_service.get_trading_market_config_by_symbol(
             sell_order.symbol, client=client
         )
         technical_indicators = self._technical_indicators_by_symbol_cache[sell_order.symbol].technical_indicators
@@ -167,62 +167,58 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         )
         if auto_exit_reason.is_exit:
             # Cancel current take-profit sell limit order
-            await self._bit2me_remote_service.cancel_order_by_id(sell_order.id, client=client)
+            await self._operating_exchange_service.cancel_order_by_id(sell_order.id, client=client)
             if auto_exit_reason.percent_to_sell < 100:
                 final_amount_to_sell = self._floor_round(
-                    sell_order.order_amount * (auto_exit_reason.percent_to_sell / 100),
+                    sell_order.amount * (auto_exit_reason.percent_to_sell / 100),
                     ndigits=trading_market_config.price_precision,
                 )
             else:
-                final_amount_to_sell = sell_order.order_amount
+                final_amount_to_sell = sell_order.amount
             # Create new market order
-            new_market_order = await self._bit2me_remote_service.create_order(
-                order=CreateNewBit2MeOrderDto(
-                    order_type="limit",
+            new_market_order = await self._operating_exchange_service.create_order(
+                order=Order(
+                    order_type=OrderTypeEnum.LIMIT,
                     side=sell_order.side,
                     symbol=sell_order.symbol,
-                    price=str(
-                        self._floor_round(
-                            # XXX: [JMSOLA] Limit Sell order will be immediately filled
-                            # since the price is less than the current bid/close one.
-                            tickers.bid_or_close * LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR,
-                            ndigits=trading_market_config.price_precision,
-                        )
+                    price=self._floor_round(
+                        # XXX: [JMSOLA] Limit Sell order will be immediately filled
+                        # since the price is less than the current bid/close one.
+                        tickers.bid_or_close * LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR,
+                        ndigits=trading_market_config.price_precision,
                     ),
-                    amount=str(final_amount_to_sell),
+                    amount=final_amount_to_sell,
                 ),
                 client=client,
             )
             logger.info(
                 f"[LIMIT SELL ORDER GUARD] NEW MARKET ORDER Id: '{new_market_order.id}', "
                 + f"for selling {auto_exit_reason.percent_to_sell}% "
-                + f"of {sell_order.order_amount} {crypto_currency} immediately!"  # noqa: E501
+                + f"of {sell_order.amount} {crypto_currency} immediately!"  # noqa: E501
             )
-            if (remaining_amount := sell_order.order_amount - final_amount_to_sell) > 0:
+            if (remaining_amount := sell_order.amount - final_amount_to_sell) > 0:
                 # NOTE: If we sold a percent less than 100.0%,
                 #  we have to create again the sell order with the remaining order amount
-                crypto_currency_wallet, *_ = await self._bit2me_remote_service.get_trading_wallet_balances(
+                crypto_currency_wallet, *_ = await self._operating_exchange_service.get_trading_wallet_balances(
                     symbols=crypto_currency, client=client
                 )
                 new_limit_sell_order_amount = self._floor_round(
                     min(crypto_currency_wallet.balance, remaining_amount),
                     ndigits=trading_market_config.amount_precision,
                 )
-                new_limit_sell_order = await self._bit2me_remote_service.create_order(
-                    order=CreateNewBit2MeOrderDto(
-                        order_type="limit",
-                        side="sell",
+                new_limit_sell_order = await self._operating_exchange_service.create_order(
+                    order=Order(
+                        order_type=OrderTypeEnum.LIMIT,
+                        side=OrderSideEnum.SELL,
                         symbol=sell_order.symbol,
-                        price=str(
-                            self._floor_round(
-                                # XXX: [JMSOLA] Price is unreachable in purpose,
-                                # for giving to the Limit Sell Order Guard the chance to
-                                # operate properly
-                                tickers.close * 2,
-                                ndigits=trading_market_config.price_precision,
-                            )
+                        price=self._floor_round(
+                            # XXX: [JMSOLA] Price is unreachable in purpose,
+                            # for giving to the Limit Sell Order Guard the chance to
+                            # operate properly
+                            tickers.close * 2,
+                            ndigits=trading_market_config.price_precision,
                         ),
-                        amount=str(new_limit_sell_order_amount),
+                        amount=new_limit_sell_order_amount,
                     ),
                     client=client,
                 )
@@ -242,8 +238,8 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     async def _is_moment_to_exit(
         self,
         *,
-        sell_order: Bit2MeOrderDto,
-        tickers: Bit2MeTickersDto,
+        sell_order: Order,
+        tickers: SymbolTickers,
         buy_sell_signals_config: BuySellSignalsConfigItem,
         guard_metrics: LimitSellOrderGuardMetrics,
         prev_candle_market_metrics: CryptoMarketMetrics,
@@ -291,7 +287,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         )
 
     def _is_stop_loss_triggered(
-        self, *, tickers: Bit2MeTickersDto, guard_metrics: LimitSellOrderGuardMetrics
+        self, *, tickers: SymbolTickers, guard_metrics: LimitSellOrderGuardMetrics
     ) -> tuple[bool, bool, bool]:
         # XXX: [JMSOLA] Check if the safeguard stop price is reached
         # or the current sell price (bid) is below the safeguard stop price
@@ -301,8 +297,8 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     async def _should_auto_exit_on_sell_or_bearish_divergence_1h_signal(
         self,
         *,
-        sell_order: Bit2MeOrderDto,
-        tickers: Bit2MeTickersDto,
+        sell_order: Order,
+        tickers: SymbolTickers,
         guard_metrics: LimitSellOrderGuardMetrics,
         buy_sell_signals_config: BuySellSignalsConfigItem,
         prev_candle_market_metrics: CryptoMarketMetrics,
@@ -327,7 +323,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     async def _should_auto_exit_on_take_profit_reached(
         self,
         *,
-        tickers: Bit2MeTickersDto,
+        tickers: SymbolTickers,
         guard_metrics: LimitSellOrderGuardMetrics,
         buy_sell_signals_config: BuySellSignalsConfigItem,
     ) -> bool:
@@ -343,17 +339,17 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
 
     async def _notify_new_market_sell_order_created_via_telegram(
         self,
-        new_market_order: Bit2MeOrderDto,
+        new_market_order: Order,
         *,
-        tickers: Bit2MeTickersDto,
-        last_candle_market_metrics: Bit2MeTickersDto,
+        tickers: SymbolTickers,
+        last_candle_market_metrics: SymbolTickers,
         guard_metrics: LimitSellOrderGuardMetrics,
         auto_exit_reason: AutoExitReason,
     ) -> None:
         crypto_currency, fiat_currency = new_market_order.symbol.split("/")
         icon = "🚨" if auto_exit_reason.stop_loss_triggered else "🟢"
         text_message = f"{icon} {html.bold('MARKET SELL ORDER FILLED')} {icon}\n\n"
-        text_message += f"{new_market_order.order_amount} {crypto_currency} (Buy Price: {guard_metrics.avg_buy_price} {fiat_currency}) HAS BEEN SOLD due to:\n"  # noqa: E501
+        text_message += f"{new_market_order.amount} {crypto_currency} (Buy Price: {guard_metrics.avg_buy_price} {fiat_currency}) HAS BEEN SOLD due to:\n"  # noqa: E501
         details = self._get_notification_message_details(
             tickers, last_candle_market_metrics, guard_metrics, auto_exit_reason, crypto_currency, fiat_currency
         )
@@ -364,7 +360,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
 
     def _get_notification_message_details(
         self,
-        tickers: Bit2MeTickersDto,
+        tickers: SymbolTickers,
         last_candle_market_metrics: CryptoMarketMetrics,
         guard_metrics: LimitSellOrderGuardMetrics,
         auto_exit_reason: AutoExitReason,
@@ -400,7 +396,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         return details
 
     async def _refresh_technical_indicators_by_symbol_cache_if_needed(
-        self, opened_sell_orders: list[Bit2MeOrderDto], *, client: AsyncClient
+        self, opened_sell_orders: list[Order], *, client: AsyncClient
     ) -> None:
         now = datetime.now(UTC)
         open_sell_order_symbols = set([open_sell_order.symbol for open_sell_order in opened_sell_orders])
