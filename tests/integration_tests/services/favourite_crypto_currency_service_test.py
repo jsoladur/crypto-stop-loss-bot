@@ -26,7 +26,7 @@ async def should_set_buy_sell_signals_config_properly(
     _prepare_httpserver_mock(httpserver, bit2me_api_key, bit2me_api_secret)
 
     operating_exchange_service: AbstractOperatingExchangeService = (
-        get_application_container().infrastructure_container().adapters_container().operating_exchange_service()
+        get_application_container().adapters_container().operating_exchange_service()
     )
     favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
         get_application_container().infrastructure_container().services_container().favourite_crypto_currency_service()
