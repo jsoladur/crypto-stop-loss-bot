@@ -1,33 +1,35 @@
 from dependency_injector import containers, providers
 from pyee.asyncio import AsyncIOEventEmitter
 
-from crypto_trailing_stop.infrastructure.adapters.config.adapters_container import AdaptersContainer
 from crypto_trailing_stop.infrastructure.services.config.services_container import ServicesContainer
 from crypto_trailing_stop.infrastructure.tasks.config.tasks_container import TasksContainer
 
 
 class InfrastructureContainer(containers.DeclarativeContainer):
     configuration_properties = providers.Dependency()
+    operating_exchange_service = providers.Dependency()
+    ccxt_remote_service = providers.Dependency()
+    gemini_remote_service = providers.Dependency()
+
     telegram_service = providers.Dependency()
 
     event_emitter = providers.Singleton(AsyncIOEventEmitter)
 
-    adapters_container = providers.Container(AdaptersContainer, configuration_properties=configuration_properties)
     services_container = providers.Container(
         ServicesContainer,
         configuration_properties=configuration_properties,
         event_emitter=event_emitter,
-        operating_exchange_service=adapters_container.operating_exchange_service,
-        ccxt_remote_service=adapters_container.ccxt_remote_service,
-        gemini_remote_service=adapters_container.gemini_remote_service,
+        operating_exchange_service=operating_exchange_service,
+        ccxt_remote_service=ccxt_remote_service,
+        gemini_remote_service=gemini_remote_service,
         telegram_service=telegram_service,
     )
     tasks_container = providers.Container(
         TasksContainer,
         configuration_properties=configuration_properties,
         event_emitter=event_emitter,
-        operating_exchange_service=adapters_container.operating_exchange_service,
-        ccxt_remote_service=adapters_container.ccxt_remote_service,
+        operating_exchange_service=operating_exchange_service,
+        ccxt_remote_service=ccxt_remote_service,
         global_flag_service=services_container.global_flag_service,
         market_signal_service=services_container.market_signal_service,
         limit_sell_order_guard_cache_service=services_container.limit_sell_order_guard_cache_service,

@@ -38,7 +38,7 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
 
     @override
     async def get_accounting_summary_by_year(self, year: str, *, client: Any | None = None) -> bytes:
-        raise NotImplementedError("To be implemented")
+        raise NotImplementedError("This method is not supported in MEXC")
 
     @override
     async def get_single_tickers_by_symbol(self, symbol: str, *, client: Any | None = None) -> SymbolTickers:
@@ -103,6 +103,10 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
     @override
     async def get_client(self) -> Any:
         raise NotImplementedError("To be implemented")
+
+    @override
+    def has_global_summary_report(self) -> bool:
+        return False
 
     @override
     def get_taker_fee(self) -> float:
