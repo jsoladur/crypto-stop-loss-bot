@@ -2,6 +2,9 @@ import logging
 
 from backtesting import Strategy
 
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.impl.bit2me_operating_exchange_service import (  # noqa: E501
+    Bit2MeOperatingExchangeService,
+)
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
@@ -24,7 +27,7 @@ class SignalStrategy(Strategy):
     def init(self):
         # Instantiate the service needed for calculations
         self._orders_analytics_service = OrdersAnalyticsService(
-            bit2me_remote_service=None,
+            operating_exchange_service=Bit2MeOperatingExchangeService(bit2me_remote_service=None),
             ccxt_remote_service=self.analytics_service._ccxt_remote_service,
             stop_loss_percent_service=None,
             buy_sell_signals_config_service=None,
