@@ -10,6 +10,7 @@ import ccxt
 import numpy as np
 import pandas as pd
 import pydash
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from backtesting import backtesting
 from joblib import Parallel, delayed
 from tqdm import tqdm
@@ -22,7 +23,7 @@ from crypto_trailing_stop.commons.constants import (
     MIN_VOLUME_THRESHOLD_STEP_VALUE,
     SP_TP_PAIRS_AS_TUPLES,
 )
-from crypto_trailing_stop.infrastructure.adapters.remote.bit2me_remote_service import Bit2MeRemoteService
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
@@ -48,14 +49,25 @@ from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult, Backtest
 
 class BacktestingCliService:
     def __init__(self) -> None:
-        self._bit2me_remote_service = Bit2MeRemoteService()
         self._analytics_service = CryptoAnalyticsService(
-            bit2me_remote_service=self._bit2me_remote_service,
+            operating_exchange_service=None,
             ccxt_remote_service=CcxtRemoteService(),
             favourite_crypto_currency_service=None,
             buy_sell_signals_config_service=None,
         )
-        self._signal_service = BuySellSignalsTaskService()
+        self._signal_service = BuySellSignalsTaskService(
+            configuration_properties=ConfigurationProperties(),
+            operating_exchange_service=None,
+            push_notification_service=None,
+            telegram_service=None,
+            event_emitter=None,
+            scheduler=AsyncIOScheduler(),
+            ccxt_remote_service=CcxtRemoteService(),
+            global_flag_service=None,
+            favourite_crypto_currency_service=None,
+            crypto_analytics_service=None,
+            auto_buy_trader_config_service=None,
+        )
         self._serde = BacktestResultSerde()
 
     def download_backtesting_data(
@@ -69,7 +81,7 @@ class BacktestingCliService:
         echo_fn: Callable[[str], None],
     ) -> list[list[Any]]:
         _, fiat_currency, *_ = symbol.split("/")
-        interval = self._bit2me_remote_service._convert_timeframe_to_interval(timeframe)
+        interval = self._convert_timeframe_to_interval(timeframe)
         exchange = getattr(ccxt, exchange)()
 
         end_date = datetime.now(UTC)
@@ -762,6 +774,12 @@ class BacktestingCliService:
         os.makedirs("data/backtesting/raw", exist_ok=True)
         parquet_file = f"data/backtesting/raw/{symbol.replace('/', '_')}_{timeframe}_{tp_filter}_{suffix}.parquet"  # noqa: E501
         self._serde.save(results=results, filepath=parquet_file)
+
+    def _convert_timeframe_to_interval(self, timeframe: str) -> int:
+        # The interval of entries in minutes: 1, 5, 15, 30, 60 (1 hour), 240 (4 hours), 1440 (1 day)
+        td = pd.Timedelta(timeframe)
+        ret = int(td.total_seconds() // 60)
+        return ret
 
     def _convert_timeframe_to_days(self, timeframe: str) -> float:
         td = pd.Timedelta(timeframe)
