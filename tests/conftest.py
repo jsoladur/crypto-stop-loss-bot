@@ -29,7 +29,9 @@ def pytest_generate_tests(metafunc: Metafunc) -> None:
     if "integration_test_env" in metafunc.fixturenames or "integration_test_jobs_disabled_env" in metafunc.fixturenames:
         metafunc.parametrize(
             "httpserver_test_env",
-            [operating_exchange_value for operating_exchange_value in OperatingExchangeEnum],
+            # [OperatingExchangeEnum.BIT2ME],
+            # [OperatingExchangeEnum.MEXC],
+            [operating_exchange.value for operating_exchange in OperatingExchangeEnum],
             indirect=True,
             ids=lambda ex: f"exchange={ex}",
         )
@@ -59,7 +61,7 @@ def defaults_env(faker: Faker) -> Generator[None]:
     environ["GOOGLE_OAUTH_CLIENT_SECRET"] = str(uuid4())
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def httpserver_test_env(request: FixtureRequest) -> Generator[tuple[HTTPServer, ...]]:
     operating_exchange = request.param
     with HTTPServer() as httpserver:
