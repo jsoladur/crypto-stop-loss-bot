@@ -23,15 +23,13 @@ class AdaptersContainer(containers.DeclarativeContainer):
     _bit2me_operating_exchange_service = providers.Singleton(
         Bit2MeOperatingExchangeService, bit2me_remote_service=_bit2me_remote_service
     )
+    ccxt_remote_service = providers.Singleton(CcxtRemoteService, configuration_properties=configuration_properties)
 
     _mexc_remote_service = providers.Singleton(MEXCRemoteService, configuration_properties=configuration_properties)
     _mexc_operating_exchange_service = providers.Singleton(
-        MEXCOperatingExchangeService, mexc_remote_service=_mexc_remote_service
+        MEXCOperatingExchangeService, mexc_remote_service=_mexc_remote_service, ccxt_remote_service=ccxt_remote_service
     )
-
-    ccxt_remote_service = providers.Singleton(CcxtRemoteService, configuration_properties=configuration_properties)
     gemini_remote_service = providers.Singleton(GeminiRemoteService, configuration_properties=configuration_properties)
-
     operating_exchange_service = providers.Selector(
         configuration_properties.provided.operating_exchange,
         **{

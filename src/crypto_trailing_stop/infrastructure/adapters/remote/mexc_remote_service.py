@@ -19,8 +19,10 @@ from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler, prepa
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_account_info_dto import MEXCAccountInfoDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_exchange_info_dto import MEXCExchangeInfoDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import CreateNewMEXCOrderDto, MEXCOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_book_dto import MEXCTickerBookDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_price_dto import MEXCTickerPriceDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_trade_dto import MEXCTradeDto
 from crypto_trailing_stop.infrastructure.adapters.remote.base import AbstractHttpRemoteAsyncService
 
 logger = logging.getLogger(__name__)
@@ -63,6 +65,51 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
         response = await self._perform_http_request(url="/api/v3/ticker/price", client=client)
         ret = RootModel[list[MEXCTickerPriceDto]].model_validate_json(response.content).root
         return ret
+
+    async def get_open_orders(
+        self, symbol: str | None = None, *, client: AsyncClient | None = None
+    ) -> list[MEXCOrderDto]:
+        params = {}
+        if symbol:
+            params["symbol"] = symbol
+        response = await self._perform_http_request(url="/api/v3/openOrders", params=params, client=client)
+        ret = RootModel[list[MEXCOrderDto]].model_validate_json(response.content).root
+        return ret
+
+    async def get_all_orders(
+        self, symbol: str | None = None, *, client: AsyncClient | None = None
+    ) -> list[MEXCOrderDto]:
+        params = {}
+        if symbol:
+            params["symbol"] = symbol
+        response = await self._perform_http_request(url="/api/v3/allOrders", params=params, client=client)
+        ret = RootModel[list[MEXCOrderDto]].model_validate_json(response.content).root
+        return ret
+
+    async def get_order_by_id(self, order_id: str, *, client: AsyncClient | None = None) -> MEXCOrderDto:
+        response = await self._perform_http_request(
+            method="GET", url="/api/v3/order", params={"orderId": order_id}, client=client
+        )
+        ret = MEXCOrderDto.model_validate_json(response.content)
+        return ret
+
+    async def get_trades(self, *, symbol: str, client: Any | None = None) -> list[MEXCTradeDto]:
+        response = await self._perform_http_request(url="/api/v3/myTrades", params={"symbol": symbol}, client=client)
+        ret = RootModel[list[MEXCTradeDto]].model_validate_json(response.content).root
+        return ret
+
+    async def create_order(self, order: CreateNewMEXCOrderDto, *, client: AsyncClient | None = None) -> MEXCOrderDto:
+        order_as_dict: dict[str, Any] = order.model_dump(mode="json", by_alias=True, exclude_none=True)
+        response = await self._perform_http_request(
+            method="POST", url="/api/v3/order", params=order_as_dict, client=client
+        )
+        order = MEXCOrderDto.model_validate_json(response.content)
+        return order
+
+    async def cancel_order_by_id(self, order_id: str, *, client: AsyncClient | None = None) -> None:
+        await self._perform_http_request(
+            method="DELETE", url="/api/v3/order", params={"orderId": order_id}, client=client
+        )
 
     @cachebox.cachedmethod(
         cachebox.TTLCache(0, ttl=DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS), key_maker=lambda _, __: "mexc_exchange_info"
