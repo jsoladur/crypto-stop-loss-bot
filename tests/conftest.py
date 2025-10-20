@@ -136,15 +136,15 @@ def _prepare_global_httpserver_mock_requests(
         case OperatingExchangeEnum.BIT2ME:
             raw_market_config_list = load_raw_bit2me_market_config_list()
             httpserver.expect(
-                Bit2MeAPIRequestMatcher(
-                    "/bit2me-api/v1/trading/market-config", method="GET"
-                ).set_bit2me_api_key_and_secret(api_key, api_secret),
+                Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/market-config", method="GET").set_api_key_and_secret(
+                    api_key, api_secret
+                ),
                 handler_type=HandlerType.ONESHOT,
             ).respond_with_json(raw_market_config_list)
         case OperatingExchangeEnum.MEXC:
             raw_exchange_info = load_raw_mexc_exchange_info()
             httpserver.expect(
-                MEXCAPIRequestMatcher("/mexc-api/api/v3/exchangeInfo", method="GET").set_bit2me_api_key_and_secret(
+                MEXCAPIRequestMatcher("/mexc-api/api/v3/exchangeInfo", method="GET").set_api_key_and_secret(
                     api_key, api_secret
                 ),
                 handler_type=HandlerType.ONESHOT,

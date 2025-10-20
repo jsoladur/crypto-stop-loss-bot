@@ -70,7 +70,7 @@ async def _prepare_httpserver_mock_for_get_favourite_tickers(
     )
     # Mock call to /v2/trading/tickers
     httpserver.expect(
-        Bit2MeAPIRequestMatcher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
+        Bit2MeAPIRequestMatcher("/bit2me-api/v2/trading/tickers", method="GET").set_api_key_and_secret(
             bit2me_api_key, bik2me_api_secret
         ),
         handler_type=HandlerType.ONESHOT,
@@ -94,7 +94,7 @@ async def _prepare_httpserver_mock_for_favourite_symbols(
     )
     # Get account registration date
     httpserver.expect(
-        Bit2MeAPIRequestMatcher("/bit2me-api/v1/account", method="GET").set_bit2me_api_key_and_secret(
+        Bit2MeAPIRequestMatcher("/bit2me-api/v1/account", method="GET").set_api_key_and_secret(
             bit2me_api_key, bik2me_api_secret
         ),
         handler_type=HandlerType.ONESHOT,
@@ -102,7 +102,7 @@ async def _prepare_httpserver_mock_for_favourite_symbols(
 
     # Trading Wallet Balances
     httpserver.expect(
-        Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/wallet/balance", method="GET").set_bit2me_api_key_and_secret(
+        Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/wallet/balance", method="GET").set_api_key_and_secret(
             bit2me_api_key, bik2me_api_secret
         ),
         handler_type=HandlerType.ONESHOT,

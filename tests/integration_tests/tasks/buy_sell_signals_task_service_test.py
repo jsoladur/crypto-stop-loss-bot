@@ -27,7 +27,7 @@ from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_ite
 from crypto_trailing_stop.infrastructure.tasks.buy_sell_signals_task_service import BuySellSignalsTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.constants import BUY_SELL_SIGNALS_MOCK_FILES_PATH, MOCK_CRYPTO_CURRENCIES
-from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMatcher
+from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher, CustomAPIQueryMatcher
 from tests.helpers.object_mothers import Bit2MeTickersDtoObjectMother, Bit2MeTradingWalletBalanceDtoObjectMother
 from tests.helpers.ohlcv_test_utils import load_ohlcv_result_by_filename
 
@@ -135,16 +135,16 @@ async def _prepare_httpserver_mock(
         Bit2MeAPIRequestMatcher(
             "/bit2me-api/v1/trading/candle",
             method="GET",
-            query_string=Bit2MeAPIQueryMatcher(
+            query_string=CustomAPIQueryMatcher(
                 {"symbol": symbol, "interval": 60, "limit": 251},
                 additional_required_query_params=["startTime", "endTime"],
             ),
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        ).set_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.PERMANENT,
     ).respond_with_json(fetch_ohlcv_return_value)
     # Trading Wallet Balances
     httpserver.expect(
-        Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/wallet/balance", method="GET").set_bit2me_api_key_and_secret(
+        Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/wallet/balance", method="GET").set_api_key_and_secret(
             bit2me_api_key, bik2me_api_secret
         ),
         handler_type=HandlerType.ONESHOT,
@@ -156,7 +156,7 @@ async def _prepare_httpserver_mock(
 
     # Get account info (registration date)
     httpserver.expect(
-        Bit2MeAPIRequestMatcher("/bit2me-api/v1/account", method="GET").set_bit2me_api_key_and_secret(
+        Bit2MeAPIRequestMatcher("/bit2me-api/v1/account", method="GET").set_api_key_and_secret(
             bit2me_api_key, bik2me_api_secret
         ),
         handler_type=HandlerType.ONESHOT,
@@ -167,7 +167,7 @@ async def _prepare_httpserver_mock(
     tickers_list = [tickers] + rest_tickers
     # Mock call to /v2/trading/tickers
     httpserver.expect(
-        Bit2MeAPIRequestMatcher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
+        Bit2MeAPIRequestMatcher("/bit2me-api/v2/trading/tickers", method="GET").set_api_key_and_secret(
             bit2me_api_key, bik2me_api_secret
         ),
         handler_type=HandlerType.ONESHOT,

@@ -6,13 +6,10 @@ class MEXCTradeDto(BaseModel):
     id: str
     time: int
     symbol: str
-    order_id: str = Field(..., alias="orderId")
     price: float | int
     qty: float | int
-    quote_qty: float | int = Field(..., alias="quoteQty")
     commission: float | int
-    commission_asset: float | int = Field(..., alias="commissionAsset")
     is_buyer: bool = Field(..., alias="isBuyer")
-    is_maker: bool = Field(..., alias="isMaker")
-    is_best_match: bool = Field(..., alias="isBestMatch")
-    is_self_trade: bool = Field(..., alias="isSelfTrade")
+    order_id: str | None = Field(alias="orderId", default=None)
+    quote_qty: float | int | None = Field(alias="quoteQty", default=None)
+    commission_asset: float | int | None = Field(alias="commissionAsset", default=None)

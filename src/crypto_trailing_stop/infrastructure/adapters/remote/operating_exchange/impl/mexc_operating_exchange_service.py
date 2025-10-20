@@ -153,13 +153,17 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
     async def get_trades(
         self, *, side: OrderSideEnum | None = None, symbol: str | None = None, client: Any | None = None
     ) -> list[Trade]:
+        mexc_symbol = self._to_mexc_symbol_repr(symbol) if symbol else None
         mexc_exchange_symbol_config_dict = await self._get_all_mexc_exchange_symbol_config(client=client)
-        mexc_trades = await self._mexc_remote_service.get_trades(symbol=symbol, client=client)
+        mexc_trades = await self._mexc_remote_service.get_trades(symbol=mexc_symbol, client=client)
+        # NOTE: Filter by side
+        mexc_trades = [trade for trade in mexc_trades if (not side or trade.is_buyer == (side == OrderSideEnum.BUY))]
+        # NOTE: Sort by time DESC
+        mexc_trades = sorted(mexc_trades, key=lambda trade: trade.time, reverse=True)
         ret = [
             self._map_mexc_trade(mecx_trade, mexc_exchange_symbol_config_dict[mecx_trade.symbol])
             for mecx_trade in mexc_trades
         ]
-        ret = [trade for trade in ret if (not side or trade.side == side)]
         return ret
 
     @override
@@ -243,7 +247,7 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
         self, symbol: str, ticker_price: MEXCTickerPriceDto, ticker_book: MEXCTickerBookDto | None = None
     ) -> SymbolTickers:
         ret = SymbolTickers(
-            timestamp=int(datetime.now(UTC).timestamp()),
+            timestamp=int(datetime.now(UTC).timestamp() * 1000),
             symbol=symbol,
             close=ticker_price.price,
             bid=ticker_book.bid_price if ticker_book else None,
@@ -253,11 +257,11 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
 
     def _map_mexc_order(self, mexc_order: MEXCOrderDto, symbol_config: MEXCExchangeSymbolConfigDto) -> Order:
         ret = Order(
-            id=mexc_order.order_id,
-            created_at=datetime.fromtimestamp(mexc_order.time, UTC),
+            id=str(mexc_order.order_id),
+            created_at=datetime.fromtimestamp(mexc_order.time / 1000, tz=UTC),
             symbol=f"{symbol_config.base_asset}/{symbol_config.quote_asset}",
-            order_type=OrderTypeEnum(pydash.snake_case(mexc_order.type).upper()),
-            side=OrderSideEnum(mexc_order.side.upper()),
+            order_type=OrderTypeEnum(pydash.kebab_case(mexc_order.type).lower()),
+            side=OrderSideEnum(mexc_order.side.lower()),
             amount=float(mexc_order.executed_qty),
             status=self._map_mexc_status(mexc_order.status),
             price=float(mexc_order.price) if mexc_order.price else None,
@@ -270,14 +274,14 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
             id=mexc_trade.id,
             order_id=mexc_trade.order_id,
             symbol=f"{symbol_config.base_asset}/{symbol_config.quote_asset}",
-            side=OrderSideEnum(mexc_trade.side.upper()),
+            side=OrderSideEnum.BUY if mexc_trade.is_buyer else OrderSideEnum.SELL,
             price=mexc_trade.price,
             amount=mexc_trade.qty,
             fee_amount=mexc_trade.commission,
         )
         return ret
 
-    def _map_mexc_status(mexc_status: MEXCOrderStatus) -> OrderStatusEnum:
+    def _map_mexc_status(self, mexc_status: MEXCOrderStatus) -> OrderStatusEnum:
         match mexc_status:
             case "NEW":
                 ret = OrderStatusEnum.OPEN

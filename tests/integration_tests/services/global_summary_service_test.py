@@ -45,7 +45,7 @@ def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_ke
 
     # Get account registration date
     httpserver.expect(
-        Bit2MeAPIRequestMatcher("/bit2me-api/v1/account", method="GET").set_bit2me_api_key_and_secret(
+        Bit2MeAPIRequestMatcher("/bit2me-api/v1/account", method="GET").set_api_key_and_secret(
             bit2me_api_key, bik2me_api_secret
         ),
         handler_type=HandlerType.ONESHOT,
@@ -68,7 +68,7 @@ def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_ke
                 query_string=urlencode(
                     {"timeZone": "Europe/Madrid", "langCode": "en", "documentType": "xlsx"}, doseq=False
                 ),
-            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+            ).set_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
             handler_type=HandlerType.ONESHOT,
         ).respond_with_data(excel_filecontent)
 
@@ -78,7 +78,7 @@ def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_ke
             "/bit2me-api/v1/portfolio/balance",
             query_string=urlencode({"userCurrency": "EUR"}, doseq=False),
             method="GET",
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        ).set_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(
         RootModel[list[Bit2MePortfolioBalanceDto]](

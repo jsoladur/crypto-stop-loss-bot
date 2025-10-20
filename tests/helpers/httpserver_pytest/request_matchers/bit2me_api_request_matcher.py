@@ -11,19 +11,19 @@ logger = logging.getLogger(__name__)
 
 
 class Bit2MeAPIRequestMatcher(RequestMatcher):
-    def set_bit2me_api_key_and_secret(self, bit2me_api_key: str, bit2me_api_secret: str) -> Self:
-        self._bit2me_api_key = bit2me_api_key
-        self._bit2me_api_secret = bit2me_api_secret
+    def set_api_key_and_secret(self, api_key: str, api_secret: str) -> Self:
+        self._api_key = api_key
+        self._api_secret = api_secret
         return self
 
     def difference(self, request: Request) -> list[tuple[str, str, str | URIPattern]]:
-        if not self._bit2me_api_key or not self._bit2me_api_secret:
+        if not self._api_key or not self._api_secret:
             raise ValueError("Bit2Me API key and/or secret are not setup!")
 
         difference = super().difference(request)
         # Check API key, nonce, signature
-        if (received_api_key := request.headers.get("X-API-KEY")) != self._bit2me_api_key:
-            difference.append(("X-API-KEY", received_api_key, self._bit2me_api_key))
+        if (received_api_key := request.headers.get("X-API-KEY")) != self._api_key:
+            difference.append(("X-API-KEY", received_api_key, self._api_key))
         if (received_nonce := request.headers.get("x-nonce")) is None:
             difference.append(("x-nonce", received_nonce, ""))
         if not self._match_api_signature(request):
@@ -50,6 +50,6 @@ class Bit2MeAPIRequestMatcher(RequestMatcher):
         hash_digest = sha256_hash.update(message_to_sign.encode("utf-8"))
         hash_digest = sha256_hash.digest()
         # Create HMAC-SHA512
-        hmac_obj = hmac.new(self._bit2me_api_secret.encode(), hash_digest, hashlib.sha512)
+        hmac_obj = hmac.new(self._api_secret.encode(), hash_digest, hashlib.sha512)
         hmac_digest = base64.b64encode(hmac_obj.digest()).decode()
         return hmac_digest

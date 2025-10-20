@@ -13,19 +13,19 @@ logger = logging.getLogger(__name__)
 
 
 class MEXCAPIRequestMatcher(RequestMatcher):
-    def set_bit2me_api_key_and_secret(self, mexc_api_key: str, mexc_api_secret: str) -> Self:
-        self._mexc_api_key = mexc_api_key
-        self._mexc_api_secret = mexc_api_secret
+    def set_api_key_and_secret(self, api_key: str, api_secret: str) -> Self:
+        self._api_key = api_key
+        self._api_secret = api_secret
         return self
 
     def difference(self, request: Request) -> list[tuple[str, str, str | URIPattern]]:
-        if not self._mexc_api_key or not self._mexc_api_secret:
-            raise ValueError("Bit2Me API key and/or secret are not setup!")
+        if not self._api_key or not self._api_secret:
+            raise ValueError("MEXC API key and/or secret are not setup!")
 
         difference = super().difference(request)
         # Check API key, nonce, signature
-        if (received_api_key := request.headers.get("X-MEXC-APIKEY")) != self._mexc_api_key:
-            difference.append(("X-MEXC-APIKEY", received_api_key, self._mexc_api_key))
+        if (received_api_key := request.headers.get("X-MEXC-APIKEY")) != self._api_key:
+            difference.append(("X-MEXC-APIKEY", received_api_key, self._api_key))
 
         query_params: dict[str, str] = MultiDict(parse_qsl(request.query_string.decode("utf-8"))).to_dict()
         if (received_timestamp := query_params.get("timestamp")) is None:
@@ -49,6 +49,6 @@ class MEXCAPIRequestMatcher(RequestMatcher):
             params_to_sign.update(json.loads(raw_body.decode()))
         query_string_to_sign = urlencode(params_to_sign, doseq=True)
         signature = hmac.new(
-            self._mexc_api_secret.encode("utf-8"), query_string_to_sign.encode("utf-8"), hashlib.sha256
+            self._api_secret.encode("utf-8"), query_string_to_sign.encode("utf-8"), hashlib.sha256
         ).hexdigest()
         return signature

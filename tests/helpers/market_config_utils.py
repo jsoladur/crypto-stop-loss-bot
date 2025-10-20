@@ -61,6 +61,12 @@ def load_raw_bit2me_market_config_list() -> list[dict[str, Any]]:
     return ret
 
 
+def load_mexc_exchange_symbol_config_by_mexc_symbol(mexc_symbol: str) -> MEXCExchangeSymbolConfigDto:
+    exchange_info = _load_mexc_exchange_info()
+    ret = next(symbol for symbol in exchange_info.symbols if symbol.symbol == mexc_symbol)
+    return ret
+
+
 def get_symbol_market_config_by_exchange_and_symbol(exchange: OperatingExchangeEnum, symbol: str) -> SymbolMarketConfig:
     match exchange:
         case OperatingExchangeEnum.BIT2ME:

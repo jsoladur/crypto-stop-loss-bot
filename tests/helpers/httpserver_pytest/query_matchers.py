@@ -5,7 +5,7 @@ from pytest_httpserver.httpserver import QueryMatcher
 from werkzeug.datastructures import MultiDict
 
 
-class Bit2MeAPIQueryMatcher(QueryMatcher):
+class CustomAPIQueryMatcher(QueryMatcher):
     """
     Matches a query string to a dictionary or MultiDict specified
     """
