@@ -52,7 +52,25 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
 
     @override
     async def retrieve_porfolio_balance(self, user_currency: str, *, client: Any | None = None) -> PortfolioBalance:
-        raise NotImplementedError("To be implemented")
+        trading_wallet_balances = await self.get_trading_wallet_balances(client=client)
+        symbol_tickers_dict = {
+            symbol_tickers.symbol: symbol_tickers.close
+            for symbol_tickers in await self.get_tickers_by_symbols(client=client)
+        }
+        total_balance = sum(
+            [
+                (
+                    trading_wallet_balance.total_balance
+                    * symbol_tickers_dict[f"{trading_wallet_balance.currency}/{user_currency}"]
+                )
+                if trading_wallet_balance.currency.lower() != user_currency.lower()
+                else trading_wallet_balance.total_balance
+                for trading_wallet_balance in trading_wallet_balances
+                if trading_wallet_balance.is_effective
+            ]
+        )
+        ret = PortfolioBalance(total_balance=total_balance)
+        return ret
 
     @override
     async def get_single_tickers_by_symbol(self, symbol: str, *, client: Any | None = None) -> SymbolTickers:
