@@ -168,7 +168,8 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
         spot_trading_usdt_symbols = [
             symbol_info
             for symbol_info in mexc_exchange_symbol_config_dict.values()
-            if symbol_info.is_spot_trading_allowed and symbol_info.quote_asset == "USDT"
+            if "spot" in [permission.lower() for permission in symbol_info.permissions]
+            and symbol_info.quote_asset == "USDT"
         ]
         ret: dict[str, SymbolMarketConfig] = {}
         for symbol_info in spot_trading_usdt_symbols:

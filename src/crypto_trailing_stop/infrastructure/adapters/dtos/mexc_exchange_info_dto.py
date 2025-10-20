@@ -19,6 +19,7 @@ class MEXCExchangeSymbolConfigDto(BaseModel):
     taker_commission: str = Field(alias="takerCommission")
     quote_amount_precision_market: str = Field(alias="quoteAmountPrecisionMarket")
     max_quote_amount_market: str = Field(alias="maxQuoteAmountMarket")
+    permissions: list[str] = []
 
 
 class MEXCExchangeInfoDto(BaseModel):
