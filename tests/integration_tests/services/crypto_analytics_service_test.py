@@ -2,21 +2,18 @@ import logging
 
 import pytest
 from faker import Faker
-from pydantic import RootModel
 from pytest_httpserver import HTTPServer
-from pytest_httpserver.httpserver import HandlerType
 
 from crypto_trailing_stop.config.dependencies import get_application_container
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from tests.helpers.favourite_crypto_currencies_test_utils import prepare_favourite_crypto_currencies
-from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher
 from tests.helpers.httpserver_pytest.utils import (
     prepare_httpserver_account_info_mock,
+    prepare_httpserver_tickers_list_mock,
     prepare_httpserver_trading_wallet_balances_mock,
 )
-from tests.helpers.object_mothers import Bit2MeTickersDtoObjectMother
+from tests.helpers.object_mothers import Bit2MeTickersDtoObjectMother, MEXCTickerPriceAndBookDtoObjectMother
 
 logger = logging.getLogger(__name__)
 
@@ -60,16 +57,18 @@ async def _prepare_httpserver_mock_for_get_favourite_tickers(
     _, favourite_crypto_currencies, account_info = await _prepare_httpserver_mock_for_favourite_symbols(
         faker, httpserver, operating_exchange, api_key, api_secret
     )
-    tickers_list = Bit2MeTickersDtoObjectMother.list(
-        symbols=[f"{crypto_currency}/{account_info.currency_code}" for crypto_currency in favourite_crypto_currencies]
+    symbols = symbols = [
+        f"{crypto_currency}/{account_info.currency_code}" for crypto_currency in favourite_crypto_currencies
+    ]
+    if operating_exchange == OperatingExchangeEnum.BIT2ME:
+        tickers_list = Bit2MeTickersDtoObjectMother.list(symbols=symbols)
+    elif operating_exchange == OperatingExchangeEnum.MEXC:
+        tickers_list = MEXCTickerPriceAndBookDtoObjectMother.list(symbols=symbols)
+    else:
+        raise ValueError(f"Unsupported operating exchange: {operating_exchange}")
+    prepare_httpserver_tickers_list_mock(
+        faker, httpserver, operating_exchange, api_key, api_secret=api_secret, tickers_list=tickers_list
     )
-    # Mock call to /v2/trading/tickers
-    httpserver.expect(
-        Bit2MeAPIRequestMatcher("/bit2me-api/v2/trading/tickers", method="GET").set_api_key_and_secret(
-            api_key, api_secret
-        ),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
 
 
 async def _prepare_httpserver_mock_for_favourite_symbols(

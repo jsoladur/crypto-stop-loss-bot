@@ -10,8 +10,12 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_bal
 )
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
 from tests.helpers.constants import MOCK_CRYPTO_CURRENCIES
-from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher
-from tests.helpers.object_mothers import Bit2MeTradingWalletBalanceDtoObjectMother
+from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher, MEXCAPIRequestMatcher
+from tests.helpers.object_mothers import (
+    Bit2MeTradingWalletBalanceDtoObjectMother,
+    MEXCAccountBalanceDtoObjectMother,
+    MEXCAccountInfoDtoObjectMother,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +48,18 @@ def prepare_httpserver_trading_wallet_balances_mock(
                 ).model_dump(mode="json", by_alias=True)
             )
         case OperatingExchangeEnum.MEXC:
-            raise NotImplementedError("FIXME: To be implemented!")
+            mexc_account_info = MEXCAccountInfoDtoObjectMother.create(
+                balances=[
+                    MEXCAccountBalanceDtoObjectMother.create(currency=current)
+                    for current in wallet_balances_crypto_currencies
+                ]
+            )
+            httpserver.expect(
+                MEXCAPIRequestMatcher("/mexc-api/api/v3/account", method="GET").set_api_key_and_secret(
+                    api_key, api_secret
+                ),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(mexc_account_info.model_dump(mode="json", by_alias=True))
         case _:
             raise ValueError(f"Unsupported operating exchange: {operating_exchange}")
     return wallet_balances_crypto_currencies

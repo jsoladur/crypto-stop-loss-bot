@@ -5,6 +5,8 @@ from tests.helpers.object_mothers.bit2me_trade_dto_object_mother import Bit2MeTr
 from tests.helpers.object_mothers.bit2me_trading_wallet_balance_dto_object_mother import (
     Bit2MeTradingWalletBalanceDtoObjectMother,
 )
+from tests.helpers.object_mothers.mexc_account_balance_dto_object_mother import MEXCAccountBalanceDtoObjectMother
+from tests.helpers.object_mothers.mexc_account_info_dto_object_mother import MEXCAccountInfoDtoObjectMother
 from tests.helpers.object_mothers.mexc_order_dto_object_mother import MEXCOrderDtoObjectMother
 from tests.helpers.object_mothers.mexc_ticker_price_and_book_dto_object_mother import (
     MEXCTickerPriceAndBookDtoObjectMother,
@@ -22,4 +24,6 @@ __all__ = [
     "MEXCTickerPriceAndBookDtoObjectMother",
     "MEXCTradeDtoObjectMother",
     "MEXCOrderDtoObjectMother",
+    "MEXCAccountBalanceDtoObjectMother",
+    "MEXCAccountInfoDtoObjectMother",
 ]
