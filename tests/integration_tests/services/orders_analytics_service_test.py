@@ -1,21 +1,14 @@
 import logging
 from unittest.mock import patch
-from urllib.parse import urlencode
 
 import ccxt.async_support as ccxt
 import pytest
 from faker import Faker
-from pydantic import RootModel
 from pytest_httpserver import HTTPServer
-from pytest_httpserver.httpserver import HandlerType
-from werkzeug import Response
 
 from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import MEXCOrderDto, MEXCOrderStatus
-from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_trade_dto import MEXCTradeDto
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import (
     OperatingExchangeEnum,
     OrderStatusEnum,
@@ -23,13 +16,12 @@ from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enum
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
-from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher, CustomAPIQueryMatcher, MEXCAPIRequestMatcher
 from tests.helpers.httpserver_pytest.utils import (
     prepare_httpserver_fetch_ohlcv_mock,
+    prepare_httpserver_open_sell_orders_mock,
     prepare_httpserver_tickers_list_mock,
+    prepare_httpserver_trades_mock,
 )
-from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, MEXCOrderDtoObjectMother
-from tests.helpers.sell_orders_test_utils import generate_bit2me_trades, generate_mexc_trades
 
 logger = logging.getLogger(__name__)
 
@@ -157,117 +149,11 @@ def _prepare_httpserver_mock(
     fetch_ohlcv_return_value = prepare_httpserver_fetch_ohlcv_mock(
         faker, httpserver, operating_exchange, api_key, api_secret, symbol
     )
-    opened_sell_orders = _prepare_httpserver_open_sell_orders_mock(
+    opened_sell_orders = prepare_httpserver_open_sell_orders_mock(
         faker, httpserver, operating_exchange, api_key, api_secret, symbol
     )
-    _prepare_httpserver_trades_mock(faker, httpserver, operating_exchange, api_key, api_secret, opened_sell_orders)
+    prepare_httpserver_trades_mock(faker, httpserver, operating_exchange, api_key, api_secret, opened_sell_orders)
     return (fetch_ohlcv_return_value, opened_sell_orders, symbol)
-
-
-def _prepare_httpserver_open_sell_orders_mock(
-    faker: Faker,
-    httpserver: HTTPServer,
-    operating_exchange: OperatingExchangeEnum,
-    api_key: str,
-    api_secret: str,
-    symbol: str,
-) -> list[Bit2MeOrderDto] | list[MEXCOrderDto]:
-    match operating_exchange:
-        case OperatingExchangeEnum.BIT2ME:
-            opened_sell_orders = [
-                Bit2MeOrderDtoObjectMother.create(
-                    side="sell",
-                    order_type="stop-limit",
-                    symbol=symbol,
-                    status=faker.random_element(["open", "inactive"]),
-                ),
-                Bit2MeOrderDtoObjectMother.create(
-                    side="sell", order_type="limit", symbol=symbol, status=faker.random_element(["open", "inactive"])
-                ),
-            ]
-            # Mock call to /v1/trading/order to get opened sell orders
-            httpserver.expect(
-                Bit2MeAPIRequestMatcher(
-                    "/bit2me-api/v1/trading/order",
-                    method="GET",
-                    query_string=urlencode(
-                        {"direction": "desc", "status_in": "open,inactive", "side": "sell"}, doseq=False
-                    ),
-                ).set_api_key_and_secret(api_key, api_secret),
-                handler_type=HandlerType.ONESHOT,
-            ).respond_with_json(
-                RootModel[list[Bit2MeOrderDto]](opened_sell_orders).model_dump(mode="json", by_alias=True)
-            )
-        case OperatingExchangeEnum.MEXC:
-            opened_sell_orders = [
-                MEXCOrderDtoObjectMother.create(side="SELL", symbol=symbol, order_type="STOP_LIMIT", status="NEW"),
-                MEXCOrderDtoObjectMother.create(side="SELL", symbol=symbol, order_type="LIMIT", status="NEW"),
-            ]
-            httpserver.expect(
-                MEXCAPIRequestMatcher("/mexc-api/api/v3/openOrders", method="GET").set_api_key_and_secret(
-                    api_key, api_secret
-                ),
-                handler_type=HandlerType.ONESHOT,
-            ).respond_with_json(
-                RootModel[list[MEXCOrderDto]](opened_sell_orders).model_dump(mode="json", by_alias=True)
-            )
-
-    return opened_sell_orders
-
-
-def _prepare_httpserver_trades_mock(
-    faker: Faker,
-    httpserver: HTTPServer,
-    operating_exchange: OperatingExchangeEnum,
-    api_key: str,
-    api_secret: str,
-    opened_sell_orders: list[Bit2MeOrderDto] | list[MEXCOrderDto],
-) -> None:
-    match operating_exchange:
-        case OperatingExchangeEnum.BIT2ME:
-            buy_trades, *_ = generate_bit2me_trades(faker, opened_sell_orders)
-            for sell_order in opened_sell_orders:
-                # Mock call to /v1/trading/trade to get closed buy trades
-                httpserver.expect(
-                    Bit2MeAPIRequestMatcher(
-                        "/bit2me-api/v1/trading/trade",
-                        method="GET",
-                        query_string=urlencode(
-                            {"direction": "desc", "side": "buy", "symbol": sell_order.symbol}, doseq=False
-                        ),
-                    ).set_api_key_and_secret(api_key, api_secret),
-                    handler_type=HandlerType.ONESHOT,
-                ).respond_with_response(Response(status=403))
-                # Mock trades /v1/trading/trade
-                httpserver.expect(
-                    Bit2MeAPIRequestMatcher(
-                        "/bit2me-api/v1/trading/trade",
-                        method="GET",
-                        query_string=urlencode(
-                            {"direction": "desc", "side": "buy", "symbol": sell_order.symbol}, doseq=False
-                        ),
-                    ).set_api_key_and_secret(api_key, api_secret),
-                    handler_type=HandlerType.ONESHOT,
-                ).respond_with_json(
-                    Bit2MePaginationResultDto[Bit2MeTradeDto](
-                        data=buy_trades, total=faker.pyint(min_value=len(buy_trades), max_value=len(buy_trades) * 10)
-                    ).model_dump(mode="json", by_alias=True)
-                )
-        case OperatingExchangeEnum.MEXC:
-            buy_trades, *_ = generate_mexc_trades(faker, opened_sell_orders)
-            for sell_order in opened_sell_orders:
-                httpserver.expect(
-                    MEXCAPIRequestMatcher(
-                        "/mexc-api/api/v3/myTrades",
-                        method="GET",
-                        query_string=CustomAPIQueryMatcher(
-                            {"symbol": sell_order.symbol}, additional_required_query_params=["signature", "timestamp"]
-                        ),
-                    ).set_api_key_and_secret(api_key, api_secret),
-                    handler_type=HandlerType.ONESHOT,
-                ).respond_with_json(RootModel[list[MEXCTradeDto]](buy_trades).model_dump(mode="json", by_alias=True))
-        case _:
-            raise ValueError(f"Unsupported operating exchange: {operating_exchange}")
 
 
 def _map_mexc_status(mexc_status: MEXCOrderStatus) -> OrderStatusEnum:

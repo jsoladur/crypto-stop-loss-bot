@@ -53,14 +53,18 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
     async def get_trading_wallet_balances(
         self, symbols: list[str] | str | None = None, *, client: Any | None = None
     ) -> list[TradingWalletBalance]:
+        symbols = symbols or []
+        symbols = symbols if isinstance(symbols, (list, set, tuple, frozenset)) else [symbols]
+        symbols = [symbol.upper() for symbol in symbols] if symbols else []
         account_info = await self._mexc_remote_service.get_account_info(client=client)
-        return [
+        all_balances = [
             TradingWalletBalance(
                 currency=balance.asset.upper().strip(), balance=balance.free, blocked_balance=balance.locked
             )
             for balance in account_info.balances
-            if symbols is None or balance.asset.upper().strip() in [s.upper().strip() for s in symbols]
         ]
+        ret = [balance for balance in all_balances if (not symbols or balance.currency.upper() in symbols)]
+        return ret
 
     @override
     async def retrieve_porfolio_balance(self, user_currency: str, *, client: Any | None = None) -> PortfolioBalance:

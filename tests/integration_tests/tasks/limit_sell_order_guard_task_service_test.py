@@ -188,7 +188,7 @@ async def should_create_market_sell_order_when_auto_exit_sell_or_bearish_diverge
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
 
-    opened_sell_bit2me_orders, *_ = _prepare_httpserver_mock(
+    opened_sell_orders, *_ = _prepare_httpserver_mock(
         faker,
         httpserver,
         bit2me_api_key,
@@ -196,7 +196,7 @@ async def should_create_market_sell_order_when_auto_exit_sell_or_bearish_diverge
         closing_crypto_currency_price_multipler=1.5,
         simulate_future_sell_orders=simulate_future_sell_orders,
     )
-    first_order, *_ = opened_sell_bit2me_orders
+    first_order, *_ = opened_sell_orders
     crypto_currency, *_ = first_order.symbol.split("/")
     task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
     buy_sell_signals_config_service: BuySellSignalsConfigService = (
@@ -309,7 +309,7 @@ async def should_create_market_sell_order_when_stop_loss_triggered(
     _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
-    opened_sell_bit2me_orders, *_ = _prepare_httpserver_mock(
+    opened_sell_orders, *_ = _prepare_httpserver_mock(
         faker,
         httpserver,
         bit2me_api_key,
@@ -322,7 +322,7 @@ async def should_create_market_sell_order_when_stop_loss_triggered(
         get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
     )
 
-    for current_order in opened_sell_bit2me_orders:
+    for current_order in opened_sell_orders:
         crypto_currency, *_ = current_order.symbol.split("/")
         buy_sell_signals_config_item: BuySellSignalsConfigItem = (
             buy_sell_signals_config_service._get_defaults_by_symbol(symbol=crypto_currency)
@@ -396,7 +396,7 @@ def _prepare_httpserver_mock(
 
     orders_price = faker.pyfloat(positive=True, min_value=500, max_value=1_000)
     orders_create_at = datetime.now(UTC) + timedelta(days=2) if simulate_future_sell_orders else None
-    opened_sell_bit2me_orders = [
+    opened_sell_orders = [
         Bit2MeOrderDtoObjectMother.create(
             created_at=orders_create_at,
             side="sell",
@@ -419,7 +419,7 @@ def _prepare_httpserver_mock(
     )
     rest_tickers = Bit2MeTickersDtoObjectMother.list(exclude_symbols=symbol)
     tickers_list = [tickers] + rest_tickers
-    buy_trades, buy_prices = generate_bit2me_trades(faker, opened_sell_bit2me_orders)
+    buy_trades, buy_prices = generate_bit2me_trades(faker, opened_sell_orders)
     # Mock call to /v1/trading/order to get opened sell orders
     httpserver.expect(
         Bit2MeAPIRequestMatcher(
@@ -428,9 +428,7 @@ def _prepare_httpserver_mock(
             query_string=urlencode({"direction": "desc", "status_in": "open,inactive", "side": "sell"}, doseq=False),
         ).set_api_key_and_secret(bit2me_api_key, bit2me_api_secret),
         handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(
-        RootModel[list[Bit2MeOrderDto]](opened_sell_bit2me_orders).model_dump(mode="json", by_alias=True)
-    )
+    ).respond_with_json(RootModel[list[Bit2MeOrderDto]](opened_sell_orders).model_dump(mode="json", by_alias=True))
     # Mock call to /v2/trading/tickers
     httpserver.expect(
         Bit2MeAPIRequestMatcher("/bit2me-api/v2/trading/tickers", method="GET").set_api_key_and_secret(
@@ -439,7 +437,7 @@ def _prepare_httpserver_mock(
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
 
-    for sell_order in opened_sell_bit2me_orders:
+    for sell_order in opened_sell_orders:
         # Mock call to /v1/trading/trade to get closed buy trades
         if bit2me_error_status_code is not None:
             httpserver.expect(
@@ -515,7 +513,7 @@ def _prepare_httpserver_mock(
                     )
                 )
 
-    return opened_sell_bit2me_orders, buy_prices
+    return opened_sell_orders, buy_prices
 
 
 async def _create_fake_market_signals(

@@ -13,6 +13,9 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_d
 )
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher
+from tests.helpers.httpserver_pytest.utils.trading_wallet_balances_mock import (
+    prepare_httpserver_trading_wallet_balances_mock,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +55,14 @@ def prepare_httpserver_retrieve_portfolio_balance_mock(
                 ).model_dump(mode="json", by_alias=True)
             )
         case OperatingExchangeEnum.MEXC:
-            raise NotImplementedError("FIXME: To be implemented!")
+            prepare_httpserver_trading_wallet_balances_mock(
+                faker,
+                httpserver,
+                operating_exchange,
+                api_key,
+                api_secret,
+                wallet_balances_crypto_currencies=["USDT"],
+                fixed_balance=global_portfolio_balance,
+            )
         case _:
             raise ValueError(f"Unsupported operating exchange: {operating_exchange}")

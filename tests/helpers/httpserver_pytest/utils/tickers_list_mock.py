@@ -9,7 +9,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_book_dto import MEXCTickerBookDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_price_dto import MEXCTickerPriceDto
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
-from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher, MEXCAPIRequestMatcher
+from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher, CustomAPIQueryMatcher, MEXCAPIRequestMatcher
 from tests.helpers.market_config_test_utils import load_mexc_exchange_symbol_config_dict
 from tests.helpers.object_mothers import Bit2MeTickersDtoObjectMother, MEXCTickerPriceAndBookDtoObjectMother
 
@@ -32,9 +32,11 @@ def prepare_httpserver_tickers_list_mock(
             all_symbols = [ticker.symbol for ticker in tickers_list]
             symbol = faker.random_element([ticker.symbol for ticker in tickers_list])
             httpserver.expect(
-                Bit2MeAPIRequestMatcher("/bit2me-api/v2/trading/tickers", method="GET").set_api_key_and_secret(
-                    api_key, api_secret
-                ),
+                Bit2MeAPIRequestMatcher(
+                    "/bit2me-api/v2/trading/tickers",
+                    query_string=CustomAPIQueryMatcher(unexpected_query_params=["symbol"]),
+                    method="GET",
+                ).set_api_key_and_secret(api_key, api_secret),
                 handler_type=handler_type,
             ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
         case OperatingExchangeEnum.MEXC:
@@ -46,18 +48,24 @@ def prepare_httpserver_tickers_list_mock(
             ]
             symbol = faker.random_element(all_symbols)
             httpserver.expect(
-                MEXCAPIRequestMatcher("/mexc-api/api/v3/ticker/price", method="GET").set_api_key_and_secret(
-                    api_key, api_secret
-                )
+                MEXCAPIRequestMatcher(
+                    "/mexc-api/api/v3/ticker/price",
+                    query_string=CustomAPIQueryMatcher(unexpected_query_params=["symbol"]),
+                    method="GET",
+                ).set_api_key_and_secret(api_key, api_secret),
+                handler_type=handler_type,
             ).respond_with_json(
                 RootModel[list[MEXCTickerPriceDto]]([price for price, _ in tickers_list]).model_dump(
                     mode="json", by_alias=True
                 )
             )
             httpserver.expect(
-                MEXCAPIRequestMatcher("/mexc-api/api/v3/ticker/bookTicker", method="GET").set_api_key_and_secret(
-                    api_key, api_secret
-                )
+                MEXCAPIRequestMatcher(
+                    "/mexc-api/api/v3/ticker/bookTicker",
+                    query_string=CustomAPIQueryMatcher(unexpected_query_params=["symbol"]),
+                    method="GET",
+                ).set_api_key_and_secret(api_key, api_secret),
+                handler_type=handler_type,
             ).respond_with_json(
                 RootModel[list[MEXCTickerBookDto]]([book for _, book in tickers_list]).model_dump(
                     mode="json", by_alias=True
