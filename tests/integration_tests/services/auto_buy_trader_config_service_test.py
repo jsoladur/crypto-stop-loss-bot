@@ -6,11 +6,8 @@ from pytest_httpserver import HTTPServer
 
 from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
-from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_service import (
-    FavouriteCryptoCurrencyService,
-)
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
-from tests.helpers.constants import MOCK_CRYPTO_CURRENCIES
+from tests.helpers.favourite_crypto_currencies_test_utils import prepare_favourite_crypto_currencies
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +21,7 @@ async def should_set_auto_buy_trader_config_properly(
     auto_buy_trader_config_service: AutoBuyTraderConfigService = (
         get_application_container().infrastructure_container().services_container().auto_buy_trader_config_service()
     )
-    favourite_crypto_currencies = await _prepare_favourite_crypto_currencies(faker)
+    favourite_crypto_currencies = await prepare_favourite_crypto_currencies(faker)
     auto_buy_trader_config_list = await auto_buy_trader_config_service.find_all()
     assert len(auto_buy_trader_config_list) == len(favourite_crypto_currencies)
 
@@ -49,13 +46,3 @@ async def should_set_auto_buy_trader_config_properly(
         returned_auto_buy_trader_config_item.fiat_wallet_percent_assigned
         == expected_auto_buy_trader_config_item.fiat_wallet_percent_assigned
     )
-
-
-async def _prepare_favourite_crypto_currencies(faker: Faker) -> list[str]:
-    favourite_crypto_currency_service: FavouriteCryptoCurrencyService = (
-        get_application_container().infrastructure_container().services_container().favourite_crypto_currency_service()
-    )
-    favourite_crypto_currencies = set(faker.random_choices(MOCK_CRYPTO_CURRENCIES, length=3))
-    for crypto_currency in favourite_crypto_currencies:
-        await favourite_crypto_currency_service.add(crypto_currency)
-    return favourite_crypto_currencies

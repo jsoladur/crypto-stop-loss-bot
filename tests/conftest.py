@@ -20,7 +20,7 @@ from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enum
     OperatingExchangeEnum,
 )
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher, MEXCAPIRequestMatcher
-from tests.helpers.market_config_utils import load_raw_bit2me_market_config_list, load_raw_mexc_exchange_info
+from tests.helpers.market_config_test_utils import load_raw_bit2me_market_config_list, load_raw_mexc_exchange_info
 
 main_module: ModuleType | None = None
 

@@ -55,7 +55,7 @@ def _prepare_httpserver_mock(
     simulate_pending_buy_orders_to_filled: bool,
     httpserver: HTTPServer,
     bit2me_api_key: str,
-    bik2me_api_secret: str,
+    bit2me_api_secret: str,
 ) -> None:
     opened_sell_bit2me_order = Bit2MeOrderDtoObjectMother.create(
         side="sell", order_type="stop-limit", status=faker.random_element(["open", "inactive"])
@@ -113,7 +113,7 @@ def _prepare_httpserver_mock(
             "/bit2me-api/v1/trading/order",
             method="GET",
             query_string=urlencode({"direction": "desc", "status_in": "open,inactive", "side": "buy"}, doseq=False),
-        ).set_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        ).set_api_key_and_secret(bit2me_api_key, bit2me_api_secret),
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(RootModel[list[Bit2MeOrderDto]](opened_buy_orders).model_dump(mode="json", by_alias=True))
 
@@ -126,7 +126,7 @@ def _prepare_httpserver_mock(
                 {"direction": "desc", "status_in": "open,inactive", "side": "sell", "orderType": "stop-limit"},
                 doseq=False,
             ),
-        ).set_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+        ).set_api_key_and_secret(bit2me_api_key, bit2me_api_secret),
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(
         RootModel[list[Bit2MeOrderDto]]([opened_sell_bit2me_order]).model_dump(mode="json", by_alias=True)
@@ -135,7 +135,7 @@ def _prepare_httpserver_mock(
     # Mock call to /v2/trading/tickers
     httpserver.expect(
         Bit2MeAPIRequestMatcher("/bit2me-api/v2/trading/tickers", method="GET").set_api_key_and_secret(
-            bit2me_api_key, bik2me_api_secret
+            bit2me_api_key, bit2me_api_secret
         ),
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
@@ -153,14 +153,14 @@ def _prepare_httpserver_mock(
         httpserver.expect(
             Bit2MeAPIRequestMatcher(
                 f"/bit2me-api/v1/trading/order/{str(opened_sell_bit2me_order.id)}", method="DELETE"
-            ).set_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+            ).set_api_key_and_secret(bit2me_api_key, bit2me_api_secret),
             handler_type=HandlerType.ONESHOT,
         ).respond_with_response(Response(status=204))
 
         # Mock call to POST /v1/trading/order
         httpserver.expect(
             Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_api_key_and_secret(
-                bit2me_api_key, bik2me_api_secret
+                bit2me_api_key, bit2me_api_secret
             ),
             handler_type=HandlerType.ONESHOT,
         ).respond_with_json(

@@ -42,7 +42,7 @@ from tests.helpers.background_jobs_test_utils import disable_all_background_jobs
 from tests.helpers.enums import AutoEntryTraderUnexpectedErrorBuyMarketOrder, AutoEntryTraderWarningTypeEnum
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher
 from tests.helpers.httpserver_pytest.utils import prepare_httpserver_fetch_ohlcv_mock
-from tests.helpers.market_config_utils import get_symbol_market_config_by_exchange_and_symbol
+from tests.helpers.market_config_test_utils import get_symbol_market_config_by_exchange_and_symbol
 from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
     Bit2MeTickersDtoObjectMother,
