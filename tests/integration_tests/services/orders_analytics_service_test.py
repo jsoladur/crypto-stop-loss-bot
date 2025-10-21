@@ -1,6 +1,8 @@
 import logging
+from unittest.mock import patch
 from urllib.parse import urlencode
 
+import ccxt.async_support as ccxt
 import pytest
 from faker import Faker
 from pydantic import RootModel
@@ -46,8 +48,42 @@ async def should_calculate_all_limit_sell_order_guard_metrics_properly(
     orders_analytics_service: OrdersAnalyticsService = (
         get_application_container().infrastructure_container().services_container().orders_analytics_service()
     )
-    opened_sell_orders, symbol = _prepare_httpserver_mock(faker, httpserver, operating_exchange, api_key, api_secret)
+    fetch_ohlcv_return_value, opened_sell_orders, symbol = _prepare_httpserver_mock(
+        faker, httpserver, operating_exchange, api_key, api_secret
+    )
+    if operating_exchange == OperatingExchangeEnum.MEXC:
+        with patch.object(ccxt.mexc, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
+            await _exec_test(
+                faker,
+                httpserver,
+                buy_sell_signals_config_service,
+                orders_analytics_service,
+                opened_sell_orders,
+                symbol,
+                previous_stored_buy_sell_signals_config=previous_stored_buy_sell_signals_config,
+            )
+    else:
+        await _exec_test(
+            faker,
+            httpserver,
+            buy_sell_signals_config_service,
+            orders_analytics_service,
+            opened_sell_orders,
+            symbol,
+            previous_stored_buy_sell_signals_config=previous_stored_buy_sell_signals_config,
+        )
 
+
+async def _exec_test(
+    faker: Faker,
+    httpserver: HTTPServer,
+    buy_sell_signals_config_service: BuySellSignalsConfigService,
+    orders_analytics_service: OrdersAnalyticsService,
+    opened_sell_orders: list[Bit2MeOrderDto] | list[MEXCOrderDto],
+    symbol,
+    *,
+    previous_stored_buy_sell_signals_config: bool,
+) -> None:
     if previous_stored_buy_sell_signals_config:
         expected_buy_sell_signals_config_item = BuySellSignalsConfigItem(
             symbol=symbol.split("/")[0],
@@ -118,12 +154,14 @@ def _prepare_httpserver_mock(
     faker: Faker, httpserver: HTTPServer, operating_exchange: OperatingExchangeEnum, api_key: str, api_secret: str
 ) -> tuple[list[Bit2MeOrderDto] | list[MEXCOrderDto]]:
     *_, symbol = prepare_httpserver_tickers_list_mock(faker, httpserver, operating_exchange, api_key, api_secret)
-    prepare_httpserver_fetch_ohlcv_mock(faker, httpserver, operating_exchange, api_key, api_secret, symbol)
+    fetch_ohlcv_return_value = prepare_httpserver_fetch_ohlcv_mock(
+        faker, httpserver, operating_exchange, api_key, api_secret, symbol
+    )
     opened_sell_orders = _prepare_httpserver_open_sell_orders_mock(
         faker, httpserver, operating_exchange, api_key, api_secret, symbol
     )
     _prepare_httpserver_trades_mock(faker, httpserver, operating_exchange, api_key, api_secret, opened_sell_orders)
-    return (opened_sell_orders, symbol)
+    return (fetch_ohlcv_return_value, opened_sell_orders, symbol)
 
 
 def _prepare_httpserver_open_sell_orders_mock(

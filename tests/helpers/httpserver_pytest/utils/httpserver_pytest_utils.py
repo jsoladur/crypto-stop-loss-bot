@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from faker import Faker
@@ -14,6 +15,8 @@ from tests.helpers.market_config_utils import load_mexc_exchange_symbol_config_b
 from tests.helpers.object_mothers import Bit2MeTickersDtoObjectMother, MEXCTickerPriceAndBookDtoObjectMother
 from tests.helpers.ohlcv_test_utils import get_fetch_ohlcv_random_result
 
+logger = logging.getLogger(__name__)
+
 
 def prepare_httpserver_fetch_ohlcv_mock(
     faker: Faker,
@@ -24,7 +27,7 @@ def prepare_httpserver_fetch_ohlcv_mock(
     symbol: str,
     *,
     fetch_ohlcv_return_value: list[list[Any]] | None = None,
-) -> None:
+) -> list[list[Any]]:
     # Mock OHLCV /v1/trading/candle
     fetch_ohlcv_return_value = fetch_ohlcv_return_value or get_fetch_ohlcv_random_result(faker)
     match operating_exchange:
@@ -41,12 +44,10 @@ def prepare_httpserver_fetch_ohlcv_mock(
                 handler_type=HandlerType.PERMANENT,
             ).respond_with_json(fetch_ohlcv_return_value)
         case OperatingExchangeEnum.MEXC:
-            # FIXME: This MOCK is not being effective. We have to see how to mock it!
-            httpserver.expect_request(
-                "/mexc-api/api/v3/klines", method="GET", query_string={"symbol": symbol, "interval": 60, "limit": 251}
-            ).respond_with_json(fetch_ohlcv_return_value)
+            logger.debug("MEXC mock will be setup via unittest.mock.patch(..)...")
         case _:
             raise ValueError(f"Unknown operating exchange: {operating_exchange}")
+    return fetch_ohlcv_return_value
 
 
 def prepare_httpserver_tickers_list_mock(
