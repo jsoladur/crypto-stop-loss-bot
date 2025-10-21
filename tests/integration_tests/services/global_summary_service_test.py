@@ -4,19 +4,15 @@ from urllib.parse import urlencode
 
 import pytest
 from faker import Faker
-from pydantic import RootModel
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
 from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto, Profile
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_dto import (
-    Bit2MePortfolioBalanceDto,
-    ConvertedBalanceDto,
-    TotalDto,
-)
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
 from crypto_trailing_stop.infrastructure.services.global_summary_service import GlobalSummaryService
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher
+from tests.helpers.httpserver_pytest.utils import prepare_httpserver_retrieve_portfolio_balance_mock
 from tests.helpers.object_mothers import Bit2MeSummaryXlsxObjectMother
 
 logger = logging.getLogger(__name__)
@@ -26,28 +22,32 @@ logger = logging.getLogger(__name__)
 async def should_calculate_global_summary_properly(
     faker: Faker, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
 ) -> None:
-    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
+    _, httpserver, api_key, api_secret, operating_exchange, *_ = integration_test_jobs_disabled_env
     global_summary_service: GlobalSummaryService = (
         get_application_container().infrastructure_container().services_container().global_summary_service()
     )
-    _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
-    global_summary = await global_summary_service.get_global_summary()
+    if operating_exchange == OperatingExchangeEnum.BIT2ME:
+        _prepare_httpserver_mock(faker, httpserver, operating_exchange, api_key, api_secret)
+        global_summary = await global_summary_service.get_global_summary()
 
-    logger.info(repr(global_summary))
+        logger.info(repr(global_summary))
 
-    assert global_summary is not None
+        assert global_summary is not None
 
-    httpserver.check_assertions()
+        httpserver.check_assertions()
+    else:
+        with pytest.raises(ValueError):
+            await global_summary_service.get_global_summary()
 
 
-def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str) -> None:
+def _prepare_httpserver_mock(
+    faker: Faker, httpserver: HTTPServer, operating_exchange: OperatingExchangeEnum, api_key: str, api_secret: str
+) -> None:
     registration_year = datetime.now(UTC).year - 1
 
     # Get account registration date
     httpserver.expect(
-        Bit2MeAPIRequestMatcher("/bit2me-api/v1/account", method="GET").set_api_key_and_secret(
-            bit2me_api_key, bik2me_api_secret
-        ),
+        Bit2MeAPIRequestMatcher("/bit2me-api/v1/account", method="GET").set_api_key_and_secret(api_key, api_secret),
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(
         Bit2MeAccountInfoDto(
@@ -68,30 +68,9 @@ def _prepare_httpserver_mock(faker: Faker, httpserver: HTTPServer, bit2me_api_ke
                 query_string=urlencode(
                     {"timeZone": "Europe/Madrid", "langCode": "en", "documentType": "xlsx"}, doseq=False
                 ),
-            ).set_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
+            ).set_api_key_and_secret(api_key, api_secret),
             handler_type=HandlerType.ONESHOT,
         ).respond_with_data(excel_filecontent)
 
     # Portfolio balance
-    httpserver.expect(
-        Bit2MeAPIRequestMatcher(
-            "/bit2me-api/v1/portfolio/balance",
-            query_string=urlencode({"userCurrency": "EUR"}, doseq=False),
-            method="GET",
-        ).set_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(
-        RootModel[list[Bit2MePortfolioBalanceDto]](
-            [
-                Bit2MePortfolioBalanceDto(
-                    serviceName="all",
-                    total=TotalDto(
-                        converted_balance=ConvertedBalanceDto(
-                            currency="EUR", value=faker.pyfloat(min_value=1_000, max_value=3_000)
-                        )
-                    ),
-                    wallets=[],
-                )
-            ]
-        ).model_dump(mode="json", by_alias=True)
-    )
+    prepare_httpserver_retrieve_portfolio_balance_mock(faker, httpserver, operating_exchange, api_key, api_secret)
