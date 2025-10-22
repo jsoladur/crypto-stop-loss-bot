@@ -1,5 +1,4 @@
 import json
-from decimal import Decimal
 from os import path
 from typing import Any
 
@@ -87,7 +86,7 @@ def get_symbol_market_config_by_exchange_and_symbol(exchange: OperatingExchangeE
             ret = SymbolMarketConfig(
                 symbol=symbol,
                 price_precision=mexc_market_config.quote_precision,
-                amount_precision=abs(Decimal(mexc_market_config.base_size_precision).as_tuple().exponent),
+                amount_precision=mexc_market_config.base_asset_precision,
             )
         case _:
             raise ValueError(f"Unknown exchange: {exchange}")

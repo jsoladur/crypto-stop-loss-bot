@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from decimal import Decimal
 from typing import TYPE_CHECKING, Any, override
 
 import ccxt.async_support as ccxt
@@ -185,7 +184,7 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
             ret[symbol] = SymbolMarketConfig(
                 symbol=symbol,
                 price_precision=symbol_info.quote_precision,
-                amount_precision=abs(Decimal(symbol_info.base_size_precision).as_tuple().exponent),
+                amount_precision=symbol_info.base_asset_precision,
             )
         return ret
 
