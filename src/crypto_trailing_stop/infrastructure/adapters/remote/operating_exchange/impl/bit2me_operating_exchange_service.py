@@ -191,8 +191,8 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
         return ret
 
     @override
-    async def cancel_order_by_id(self, id: str, *, client: Any | None = None) -> None:
-        await self._bit2me_remote_service.cancel_order_by_id(id=id, client=client)
+    async def cancel_order(self, order: Order, *, client: Any | None = None) -> None:
+        await self._bit2me_remote_service.cancel_order_by_id(id=order.id, client=client)
 
     @override
     async def get_client(self) -> Any:

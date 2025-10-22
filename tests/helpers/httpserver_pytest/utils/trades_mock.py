@@ -6,6 +6,7 @@ from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 from werkzeug import Response
 
+from crypto_trailing_stop.commons.constants import BIT2ME_RETRYABLE_HTTP_STATUS_CODES
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
@@ -26,23 +27,35 @@ def prepare_httpserver_trades_mock(
     *,
     buy_trades: list[Bit2MeTradeDto] | list[MEXCTradeDto] | None = None,
     number_of_trades: int | None = None,
-) -> None:
+    operating_exchange_error_status_code: int | None = None,
+    handler_type: HandlerType = HandlerType.ONESHOT,
+) -> (
+    tuple[list[Bit2MeTradeDto], list[tuple[Bit2MeOrderDto, float]]]
+    | tuple[list[MEXCTradeDto], list[tuple[MEXCOrderDto, float]]]
+):
+    buy_prices = []
     match operating_exchange:
         case OperatingExchangeEnum.BIT2ME:
             if not buy_trades:
-                buy_trades, *_ = generate_bit2me_trades(faker, opened_sell_orders, number_of_trades=number_of_trades)
+                buy_trades, buy_prices = generate_bit2me_trades(
+                    faker, opened_sell_orders, number_of_trades=number_of_trades
+                )
             for sell_order in opened_sell_orders:
-                # Mock call to /v1/trading/trade to get closed buy trades
-                httpserver.expect(
-                    Bit2MeAPIRequestMatcher(
-                        "/bit2me-api/v1/trading/trade",
-                        method="GET",
-                        query_string=urlencode(
-                            {"direction": "desc", "side": "buy", "symbol": sell_order.symbol}, doseq=False
-                        ),
-                    ).set_api_key_and_secret(api_key, api_secret),
-                    handler_type=HandlerType.ONESHOT,
-                ).respond_with_response(Response(status=403))
+                if (
+                    operating_exchange_error_status_code is not None
+                    and operating_exchange_error_status_code in BIT2ME_RETRYABLE_HTTP_STATUS_CODES
+                ):
+                    # Mock call to /v1/trading/trade to get closed buy trades
+                    httpserver.expect(
+                        Bit2MeAPIRequestMatcher(
+                            "/bit2me-api/v1/trading/trade",
+                            method="GET",
+                            query_string=urlencode(
+                                {"direction": "desc", "side": "buy", "symbol": sell_order.symbol}, doseq=False
+                            ),
+                        ).set_api_key_and_secret(api_key, api_secret),
+                        handler_type=handler_type,
+                    ).respond_with_response(Response(status=operating_exchange_error_status_code))
                 # Mock trades /v1/trading/trade
                 httpserver.expect(
                     Bit2MeAPIRequestMatcher(
@@ -52,7 +65,7 @@ def prepare_httpserver_trades_mock(
                             {"direction": "desc", "side": "buy", "symbol": sell_order.symbol}, doseq=False
                         ),
                     ).set_api_key_and_secret(api_key, api_secret),
-                    handler_type=HandlerType.ONESHOT,
+                    handler_type=handler_type,
                 ).respond_with_json(
                     Bit2MePaginationResultDto[Bit2MeTradeDto](
                         data=buy_trades, total=faker.pyint(min_value=len(buy_trades), max_value=len(buy_trades) * 10)
@@ -60,7 +73,9 @@ def prepare_httpserver_trades_mock(
                 )
         case OperatingExchangeEnum.MEXC:
             if not buy_trades:
-                buy_trades, *_ = generate_mexc_trades(faker, opened_sell_orders, number_of_trades=number_of_trades)
+                buy_trades, buy_prices = generate_mexc_trades(
+                    faker, opened_sell_orders, number_of_trades=number_of_trades
+                )
             for sell_order in opened_sell_orders:
                 httpserver.expect(
                     MEXCAPIRequestMatcher(
@@ -70,7 +85,8 @@ def prepare_httpserver_trades_mock(
                             {"symbol": sell_order.symbol}, additional_required_query_params=["signature", "timestamp"]
                         ),
                     ).set_api_key_and_secret(api_key, api_secret),
-                    handler_type=HandlerType.ONESHOT,
+                    handler_type=handler_type,
                 ).respond_with_json(RootModel[list[MEXCTradeDto]](buy_trades).model_dump(mode="json", by_alias=True))
         case _:
             raise ValueError(f"Unsupported operating exchange: {operating_exchange}")
+    return buy_trades, buy_prices

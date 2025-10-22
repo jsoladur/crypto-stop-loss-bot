@@ -256,11 +256,11 @@ class AbstractOperatingExchangeService(ABC):
         """
 
     @abstractmethod
-    async def cancel_order_by_id(self, id: str, *, client: Any | None = None) -> None:
-        """Cancels an order by its ID on the exchange.
+    async def cancel_order(self, order: Order, *, client: Any | None = None) -> None:
+        """Cancels an order
 
         Args:
-            id (str): The ID of the order to cancel.
+            order (Order): The order object to cancel.
             client (Any | None, optional): Client to connect with the exchange. Defaults to None.
 
         Returns:

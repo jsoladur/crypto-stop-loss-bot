@@ -8,16 +8,17 @@ from faker import Faker
 from pydantic import RootModel
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
-from werkzeug import Response
 
 from crypto_trailing_stop.commons.constants import DEFAULT_TRAILING_STOP_LOSS_PERCENT
 from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.tasks.trailing_stop_loss_task_service import TrailingStopLossTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher
+from tests.helpers.httpserver_pytest.utils import prepare_httpserver_delete_order_mock
 from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, Bit2MeTickersDtoObjectMother
 
 
@@ -30,14 +31,19 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
     Test that all expected calls to Bit2Me are made when a trailing stop is loss.
     """
     # Mock the Bit2Me API
-    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+    _, httpserver, api_key, api_secret, operating_exchange, *_ = integration_test_env
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
 
     task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
 
     _prepare_httpserver_mock(
-        faker, simulate_pending_buy_orders_to_filled, httpserver, bit2me_api_key, bit2me_api_secret
+        faker,
+        httpserver,
+        operating_exchange,
+        api_key,
+        api_secret,
+        simulate_pending_buy_orders_to_filled=simulate_pending_buy_orders_to_filled,
     )
     trailing_stop_loss_task_service: TrailingStopLossTaskService = task_manager.get_tasks()[
         GlobalFlagTypeEnum.TRAILING_STOP_LOSS
@@ -52,10 +58,12 @@ async def should_make_all_expected_calls_to_bit2me_when_trailing_stop_loss(
 
 def _prepare_httpserver_mock(
     faker: Faker,
-    simulate_pending_buy_orders_to_filled: bool,
     httpserver: HTTPServer,
-    bit2me_api_key: str,
-    bit2me_api_secret: str,
+    operating_exchange: OperatingExchangeEnum,
+    api_key: str,
+    api_secret: str,
+    *,
+    simulate_pending_buy_orders_to_filled: bool = False,
 ) -> None:
     opened_sell_bit2me_order = Bit2MeOrderDtoObjectMother.create(
         side="sell", order_type="stop-limit", status=faker.random_element(["open", "inactive"])
@@ -113,7 +121,7 @@ def _prepare_httpserver_mock(
             "/bit2me-api/v1/trading/order",
             method="GET",
             query_string=urlencode({"direction": "desc", "status_in": "open,inactive", "side": "buy"}, doseq=False),
-        ).set_api_key_and_secret(bit2me_api_key, bit2me_api_secret),
+        ).set_api_key_and_secret(api_key, api_secret),
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(RootModel[list[Bit2MeOrderDto]](opened_buy_orders).model_dump(mode="json", by_alias=True))
 
@@ -126,7 +134,7 @@ def _prepare_httpserver_mock(
                 {"direction": "desc", "status_in": "open,inactive", "side": "sell", "orderType": "stop-limit"},
                 doseq=False,
             ),
-        ).set_api_key_and_secret(bit2me_api_key, bit2me_api_secret),
+        ).set_api_key_and_secret(api_key, api_secret),
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(
         RootModel[list[Bit2MeOrderDto]]([opened_sell_bit2me_order]).model_dump(mode="json", by_alias=True)
@@ -135,7 +143,7 @@ def _prepare_httpserver_mock(
     # Mock call to /v2/trading/tickers
     httpserver.expect(
         Bit2MeAPIRequestMatcher("/bit2me-api/v2/trading/tickers", method="GET").set_api_key_and_secret(
-            bit2me_api_key, bit2me_api_secret
+            api_key, api_secret
         ),
         handler_type=HandlerType.ONESHOT,
     ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
@@ -150,17 +158,13 @@ def _prepare_httpserver_mock(
         and ((1 - (lowest_buy_price / tickers.close)) * 100) > DEFAULT_TRAILING_STOP_LOSS_PERCENT
     ):
         # Mock call to DELETE /v1/trading/order/{id}
-        httpserver.expect(
-            Bit2MeAPIRequestMatcher(
-                f"/bit2me-api/v1/trading/order/{str(opened_sell_bit2me_order.id)}", method="DELETE"
-            ).set_api_key_and_secret(bit2me_api_key, bit2me_api_secret),
-            handler_type=HandlerType.ONESHOT,
-        ).respond_with_response(Response(status=204))
-
+        prepare_httpserver_delete_order_mock(
+            httpserver, operating_exchange, api_key, api_secret, opened_sell_bit2me_order
+        )
         # Mock call to POST /v1/trading/order
         httpserver.expect(
             Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_api_key_and_secret(
-                bit2me_api_key, bit2me_api_secret
+                api_key, api_secret
             ),
             handler_type=HandlerType.ONESHOT,
         ).respond_with_json(

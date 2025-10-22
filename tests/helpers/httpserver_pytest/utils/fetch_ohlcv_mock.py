@@ -22,6 +22,7 @@ def prepare_httpserver_fetch_ohlcv_mock(
     *,
     fetch_ohlcv_return_value: list[list[Any]] | None = None,
     intervals: list[int] | None = None,
+    simulate_empty_ohlcv: bool = False,
 ) -> list[list[Any]]:
     # Mock OHLCV /v1/trading/candle
     fetch_ohlcv_return_value = fetch_ohlcv_return_value or get_fetch_ohlcv_random_result(faker)
@@ -29,6 +30,18 @@ def prepare_httpserver_fetch_ohlcv_mock(
     for interval in intervals:
         match operating_exchange:
             case OperatingExchangeEnum.BIT2ME:
+                if simulate_empty_ohlcv and faker.pybool():
+                    httpserver.expect(
+                        Bit2MeAPIRequestMatcher(
+                            "/bit2me-api/v1/trading/candle",
+                            method="GET",
+                            query_string=CustomAPIQueryMatcher(
+                                {"symbol": symbol, "interval": interval, "limit": 251},
+                                additional_required_query_params=["startTime", "endTime"],
+                            ),
+                        ).set_api_key_and_secret(api_key, api_secret),
+                        handler_type=HandlerType.ONESHOT if simulate_empty_ohlcv else HandlerType.PERMANENT,
+                    ).respond_with_json([])
                 httpserver.expect(
                     Bit2MeAPIRequestMatcher(
                         "/bit2me-api/v1/trading/candle",
@@ -38,7 +51,7 @@ def prepare_httpserver_fetch_ohlcv_mock(
                             additional_required_query_params=["startTime", "endTime"],
                         ),
                     ).set_api_key_and_secret(api_key, api_secret),
-                    handler_type=HandlerType.PERMANENT,
+                    handler_type=HandlerType.ONESHOT if simulate_empty_ohlcv else HandlerType.PERMANENT,
                 ).respond_with_json(fetch_ohlcv_return_value)
             case OperatingExchangeEnum.MEXC:
                 logger.debug("MEXC mock will be setup via unittest.mock.patch(..)...")

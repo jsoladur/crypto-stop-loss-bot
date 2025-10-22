@@ -474,12 +474,12 @@ def _simulate_bit2me_corner_cases_if_needed(
 
 def _prepare_httpserver_mock_order_created_successfully(
     httpserver: HTTPServer,
-    operting_exchange: OperatingExchangeEnum,
+    operating_exchange: OperatingExchangeEnum,
     api_key: str,
     api_secret: str,
     buy_order_created: Bit2MeOrderDto | MEXCOrderDto,
 ) -> None:
-    match operting_exchange:
+    match operating_exchange:
         case OperatingExchangeEnum.BIT2ME:
             httpserver.expect(
                 Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_api_key_and_secret(
@@ -500,7 +500,7 @@ def _prepare_httpserver_mock_order_created_successfully(
                 handler_type=HandlerType.ONESHOT,
             ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
         case _:
-            raise ValueError(f"Unknown operating exchange: {operting_exchange}")
+            raise ValueError(f"Unknown operating exchange: {operating_exchange}")
 
 
 def _prepare_httpserver_limit_sell_order_created_mock(

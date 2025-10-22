@@ -204,8 +204,9 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
         return ret
 
     @override
-    async def cancel_order_by_id(self, id: str, *, client: Any | None = None) -> None:
-        await self._mexc_remote_service.cancel_order_by_id(order_id=id, client=client)
+    async def cancel_order(self, order: Order, *, client: Any | None = None) -> None:
+        mexc_symbol = self._to_mexc_symbol_repr(order.symbol)
+        await self._mexc_remote_service.cancel_order(symbol=mexc_symbol, order_id=order.id, client=client)
 
     @override
     async def fetch_ohlcv(
@@ -259,13 +260,16 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
         return ret
 
     def _map_mexc_order(self, mexc_order: MEXCOrderDto, symbol_config: MEXCExchangeSymbolConfigDto) -> Order:
+        status = self._map_mexc_status(mexc_order.status)
         ret = Order(
             id=str(mexc_order.order_id),
             created_at=datetime.fromtimestamp(mexc_order.time / 1000, tz=UTC),
             symbol=f"{symbol_config.base_asset}/{symbol_config.quote_asset}",
             order_type=OrderTypeEnum(pydash.kebab_case(mexc_order.type).lower()),
             side=OrderSideEnum(mexc_order.side.lower()),
-            amount=float(mexc_order.executed_qty),
+            amount=float(mexc_order.qty)
+            if status in [OrderStatusEnum.OPEN, OrderStatusEnum.INACTIVE] or not mexc_order.executed_qty
+            else float(mexc_order.executed_qty),
             status=self._map_mexc_status(mexc_order.status),
             price=float(mexc_order.price) if mexc_order.price else None,
             stop_price=float(mexc_order.stop_price) if mexc_order.stop_price else None,

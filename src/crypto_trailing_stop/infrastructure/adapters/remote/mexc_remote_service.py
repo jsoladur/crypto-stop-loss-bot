@@ -106,9 +106,9 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
         order = MEXCOrderDto.model_validate_json(response.content)
         return order
 
-    async def cancel_order_by_id(self, order_id: str, *, client: AsyncClient | None = None) -> None:
+    async def cancel_order(self, symbol: str, order_id: str, *, client: AsyncClient | None = None) -> None:
         await self._perform_http_request(
-            method="DELETE", url="/api/v3/order", params={"orderId": order_id}, client=client
+            method="DELETE", url="/api/v3/order", params={"symbol": symbol, "orderId": order_id}, client=client
         )
 
     @cachebox.cachedmethod(
