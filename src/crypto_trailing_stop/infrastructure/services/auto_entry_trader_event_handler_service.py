@@ -78,6 +78,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         self._stop_loss_percent_service = stop_loss_percent_service
         self._crypto_analytics_service = crypto_analytics_service
         self._orders_analytics_service = orders_analytics_service
+        self._lock = asyncio.Lock()
 
     @override
     def configure(self) -> None:
@@ -100,6 +101,10 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         self._event_emitter.emit(TRIGGER_BUY_ACTION_EVENT_NAME, market_signal_item)
 
     async def on_buy_market_signal(self, market_signal_item: MarketSignalItem) -> None:
+        async with self._lock:
+            await self._internal_on_buy_market_signal(market_signal_item)
+
+    async def _internal_on_buy_market_signal(self, market_signal_item: MarketSignalItem) -> None:
         try:
             is_enabled_for = await self._global_flag_service.is_enabled_for(GlobalFlagTypeEnum.AUTO_ENTRY_TRADER)
             if is_enabled_for:
