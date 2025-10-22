@@ -21,24 +21,27 @@ def prepare_httpserver_fetch_ohlcv_mock(
     symbol: str,
     *,
     fetch_ohlcv_return_value: list[list[Any]] | None = None,
+    intervals: list[int] | None = None,
 ) -> list[list[Any]]:
     # Mock OHLCV /v1/trading/candle
     fetch_ohlcv_return_value = fetch_ohlcv_return_value or get_fetch_ohlcv_random_result(faker)
-    match operating_exchange:
-        case OperatingExchangeEnum.BIT2ME:
-            httpserver.expect(
-                Bit2MeAPIRequestMatcher(
-                    "/bit2me-api/v1/trading/candle",
-                    method="GET",
-                    query_string=CustomAPIQueryMatcher(
-                        {"symbol": symbol, "interval": 60, "limit": 251},
-                        additional_required_query_params=["startTime", "endTime"],
-                    ),
-                ).set_api_key_and_secret(api_key, api_secret),
-                handler_type=HandlerType.PERMANENT,
-            ).respond_with_json(fetch_ohlcv_return_value)
-        case OperatingExchangeEnum.MEXC:
-            logger.debug("MEXC mock will be setup via unittest.mock.patch(..)...")
-        case _:
-            raise ValueError(f"Unknown operating exchange: {operating_exchange}")
+    intervals = intervals or [60]
+    for interval in intervals:
+        match operating_exchange:
+            case OperatingExchangeEnum.BIT2ME:
+                httpserver.expect(
+                    Bit2MeAPIRequestMatcher(
+                        "/bit2me-api/v1/trading/candle",
+                        method="GET",
+                        query_string=CustomAPIQueryMatcher(
+                            {"symbol": symbol, "interval": interval, "limit": 251},
+                            additional_required_query_params=["startTime", "endTime"],
+                        ),
+                    ).set_api_key_and_secret(api_key, api_secret),
+                    handler_type=HandlerType.PERMANENT,
+                ).respond_with_json(fetch_ohlcv_return_value)
+            case OperatingExchangeEnum.MEXC:
+                logger.debug("MEXC mock will be setup via unittest.mock.patch(..)...")
+            case _:
+                raise ValueError(f"Unknown operating exchange: {operating_exchange}")
     return fetch_ohlcv_return_value

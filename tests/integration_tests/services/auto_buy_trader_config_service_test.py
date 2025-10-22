@@ -21,7 +21,7 @@ async def should_set_auto_buy_trader_config_properly(
     auto_buy_trader_config_service: AutoBuyTraderConfigService = (
         get_application_container().infrastructure_container().services_container().auto_buy_trader_config_service()
     )
-    favourite_crypto_currencies = await prepare_favourite_crypto_currencies(faker)
+    favourite_crypto_currencies = await prepare_favourite_crypto_currencies(faker, length=3)
     auto_buy_trader_config_list = await auto_buy_trader_config_service.find_all()
     assert len(auto_buy_trader_config_list) == len(favourite_crypto_currencies)
 

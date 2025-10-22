@@ -26,11 +26,11 @@ class CustomAPIQueryMatcher(QueryMatcher):
 
         for unexpected_query_param in self._unexpected_query_params:
             if unexpected_query_param in received_query:
-                return (False, False)
+                return (True, False)
         for query_name, query_value in self._query_dict.items():
-            if query_name not in received_query or query_value != received_query[query_name]:
-                return (False, False)
+            if query_name not in received_query or str(query_value) != str(received_query[query_name]):
+                return (True, False)
         for additional_required_query_param in self._additional_required_query_params:
             if additional_required_query_param not in additional_required_query_param:
-                return (False, False)
+                return (True, False)
         return (True, True)

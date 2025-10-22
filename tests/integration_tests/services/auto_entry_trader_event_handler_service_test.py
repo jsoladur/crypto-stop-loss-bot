@@ -43,7 +43,7 @@ from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.enums import AutoEntryTraderUnexpectedErrorBuyMarketOrder, AutoEntryTraderWarningTypeEnum
-from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher, CustomAPIQueryMatcher, MEXCAPIRequestMatcher
+from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher
 from tests.helpers.httpserver_pytest.utils import (
     prepare_httpserver_fetch_ohlcv_mock,
     prepare_httpserver_open_sell_orders_mock,
@@ -385,12 +385,6 @@ def _prepare_httpserver_tickers_mock(
         buy_order_amount = _floor_round(
             spot_balance / (tickers.ask or tickers.close), ndigits=trading_market_config.amount_precision
         )
-        httpserver.expect(
-            Bit2MeAPIRequestMatcher(
-                "/bit2me-api/v2/trading/tickers", query_string={"symbol": tickers.symbol}, method="GET"
-            ).set_api_key_and_secret(api_key, api_secret),
-            handler_type=HandlerType.PERMANENT,
-        ).respond_with_json(RootModel[list[Bit2MeTickersDto]]([tickers]).model_dump(mode="json", by_alias=True))
     elif operating_exchange == OperatingExchangeEnum.MEXC:
         tickers = MEXCTickerPriceAndBookDtoObjectMother.create(symbol=symbol, close=closing_price * 1.02)
         rest_tickers = MEXCTickerPriceAndBookDtoObjectMother.list(exclude_symbols=symbol)
@@ -399,26 +393,6 @@ def _prepare_httpserver_tickers_mock(
         buy_order_amount = _floor_round(
             spot_balance / (ticker_book.ask_price or ticker_price.price), ndigits=trading_market_config.amount_precision
         )
-        httpserver.expect(
-            MEXCAPIRequestMatcher(
-                "/mexc-api/api/v3/ticker/price",
-                query_string=CustomAPIQueryMatcher(
-                    {"symbol": symbol}, additional_required_query_params=["signature", "timestamp"]
-                ),
-                method="GET",
-            ).set_api_key_and_secret(api_key, api_secret),
-            handler_type=HandlerType.PERMANENT,
-        ).respond_with_json(ticker_price.model_dump(mode="json", by_alias=True))
-        httpserver.expect(
-            MEXCAPIRequestMatcher(
-                "/mexc-api/api/v3/ticker/bookTicker",
-                query_string=CustomAPIQueryMatcher(
-                    {"symbol": symbol}, additional_required_query_params=["signature", "timestamp"]
-                ),
-                method="GET",
-            ).set_api_key_and_secret(api_key, api_secret),
-            handler_type=HandlerType.PERMANENT,
-        ).respond_with_json(ticker_book.model_dump(mode="json", by_alias=True))
     prepare_httpserver_tickers_list_mock(
         faker,
         httpserver,
@@ -426,6 +400,7 @@ def _prepare_httpserver_tickers_mock(
         api_key,
         api_secret,
         tickers_list=tickers_list,
+        unique_tickers=[tickers],
         handler_type=HandlerType.PERMANENT,
     )
     return tickers, buy_order_amount

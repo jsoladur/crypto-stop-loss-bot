@@ -24,6 +24,7 @@ def prepare_httpserver_tickers_list_mock(
     api_secret: str,
     *,
     tickers_list: list[Bit2MeTickersDto] | list[tuple[MEXCTickerPriceDto, MEXCTickerBookDto]] = None,
+    unique_tickers: list[Bit2MeTickersDto] | list[tuple[MEXCTickerPriceDto, MEXCTickerBookDto]] = None,
     handler_type: HandlerType = HandlerType.ONESHOT,
 ) -> tuple[list[Bit2MeTickersDto] | list[tuple[MEXCTickerPriceDto, MEXCTickerBookDto]], list[str], str]:
     match operating_exchange:
@@ -31,6 +32,18 @@ def prepare_httpserver_tickers_list_mock(
             tickers_list = tickers_list or Bit2MeTickersDtoObjectMother.list()
             all_symbols = [ticker.symbol for ticker in tickers_list]
             symbol = faker.random_element([ticker.symbol for ticker in tickers_list])
+            if unique_tickers:
+                for unique_ticker in unique_tickers:
+                    httpserver.expect(
+                        Bit2MeAPIRequestMatcher(
+                            "/bit2me-api/v2/trading/tickers",
+                            query_string={"symbol": unique_ticker.symbol},
+                            method="GET",
+                        ).set_api_key_and_secret(api_key, api_secret),
+                        handler_type=HandlerType.PERMANENT,
+                    ).respond_with_json(
+                        RootModel[list[Bit2MeTickersDto]]([unique_ticker]).model_dump(mode="json", by_alias=True)
+                    )
             httpserver.expect(
                 Bit2MeAPIRequestMatcher(
                     "/bit2me-api/v2/trading/tickers",
@@ -47,6 +60,31 @@ def prepare_httpserver_tickers_list_mock(
                 for price, _ in tickers_list
             ]
             symbol = faker.random_element(all_symbols)
+            if unique_tickers:
+                for unique_ticker in unique_tickers:
+                    ticker_price, ticker_book = unique_ticker
+                    httpserver.expect(
+                        MEXCAPIRequestMatcher(
+                            "/mexc-api/api/v3/ticker/price",
+                            query_string=CustomAPIQueryMatcher(
+                                {"symbol": ticker_price.symbol},
+                                additional_required_query_params=["signature", "timestamp"],
+                            ),
+                            method="GET",
+                        ).set_api_key_and_secret(api_key, api_secret),
+                        handler_type=HandlerType.PERMANENT,
+                    ).respond_with_json(ticker_price.model_dump(mode="json", by_alias=True))
+                    httpserver.expect(
+                        MEXCAPIRequestMatcher(
+                            "/mexc-api/api/v3/ticker/bookTicker",
+                            query_string=CustomAPIQueryMatcher(
+                                {"symbol": ticker_book.symbol},
+                                additional_required_query_params=["signature", "timestamp"],
+                            ),
+                            method="GET",
+                        ).set_api_key_and_secret(api_key, api_secret),
+                        handler_type=HandlerType.PERMANENT,
+                    ).respond_with_json(ticker_book.model_dump(mode="json", by_alias=True))
             httpserver.expect(
                 MEXCAPIRequestMatcher(
                     "/mexc-api/api/v3/ticker/price",
