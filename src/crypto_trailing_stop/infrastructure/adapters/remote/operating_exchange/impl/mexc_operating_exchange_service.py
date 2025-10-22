@@ -193,7 +193,7 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
         create_order_obj = CreateNewMEXCOrderDto(
             side=order.side.value.upper(),
             symbol=self._to_mexc_symbol_repr(order.symbol),
-            type=pydash.kebab_case(order.order_type.value).upper(),
+            type=pydash.snake_case(order.order_type.value).upper(),
             quantity=order.amount,
             price=order.price,
             stop_price=order.stop_price,

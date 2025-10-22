@@ -1,5 +1,6 @@
 from urllib.parse import urlencode
 
+import pydash
 from faker import Faker
 from pydantic import RootModel
 from pytest_httpserver import HTTPServer
@@ -7,8 +8,11 @@ from pytest_httpserver.httpserver import HandlerType
 from werkzeug import Response
 
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import MEXCOrderDto
-from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import CreateNewMEXCOrderDto, MEXCOrderDto
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import (
+    OperatingExchangeEnum,
+    OrderTypeEnum,
+)
 from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher, CustomAPIQueryMatcher, MEXCAPIRequestMatcher
 from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, MEXCOrderDtoObjectMother
 
@@ -66,6 +70,46 @@ def prepare_httpserver_open_sell_orders_mock(
     return opened_sell_orders
 
 
+def prepare_httpserver_sell_order_created_mock(
+    faker: Faker,
+    httpserver: HTTPServer,
+    operating_exchange: OperatingExchangeEnum,
+    api_key: str,
+    api_secret: str,
+    order_type: OrderTypeEnum = OrderTypeEnum.MARKET,
+) -> None:
+    match operating_exchange:
+        case OperatingExchangeEnum.BIT2ME:
+            httpserver.expect(
+                Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_api_key_and_secret(
+                    api_key, api_secret
+                ),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(
+                Bit2MeOrderDtoObjectMother.create(
+                    side="sell", order_type=order_type.value.lower(), status=faker.random_element(["open", "inactive"])
+                ).model_dump(by_alias=True, mode="json")
+            )
+        case OperatingExchangeEnum.MEXC:
+            additional_required_query_params = [*CreateNewMEXCOrderDto.model_fields.keys(), "signature", "timestamp"]
+            httpserver.expect(
+                MEXCAPIRequestMatcher(
+                    "/mexc-api/api/v3/order",
+                    query_string=CustomAPIQueryMatcher(
+                        additional_required_query_params=additional_required_query_params
+                    ),
+                    method="POST",
+                ).set_api_key_and_secret(api_key, api_secret),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(
+                MEXCOrderDtoObjectMother.create(
+                    side="SELL", order_type=pydash.snake_case(order_type.value).upper(), status="NEW"
+                ).model_dump(by_alias=True, mode="json")
+            )
+        case _:
+            raise ValueError(f"Unknown operating exchange: {operating_exchange}")
+
+
 def prepare_httpserver_delete_order_mock(
     httpserver: HTTPServer,
     operating_exchange: OperatingExchangeEnum,
@@ -83,7 +127,6 @@ def prepare_httpserver_delete_order_mock(
                 handler_type=HandlerType.ONESHOT,
             ).respond_with_response(Response(status=204))
         case OperatingExchangeEnum.MEXC:
-            MEXCAPIRequestMatcher, CustomAPIQueryMatcher
             httpserver.expect(
                 MEXCAPIRequestMatcher(
                     "/mexc-api/api/v3/order",

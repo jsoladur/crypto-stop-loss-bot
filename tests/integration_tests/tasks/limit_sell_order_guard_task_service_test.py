@@ -13,7 +13,7 @@ from pytest_httpserver.httpserver import HandlerType
 from crypto_trailing_stop.commons.constants import BIT2ME_RETRYABLE_HTTP_STATUS_CODES, PERCENT_TO_SELL_LIST
 from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import CreateNewMEXCOrderDto, MEXCOrderDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import MEXCOrderDto
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import (
     OperatingExchangeEnum,
@@ -31,11 +31,11 @@ from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_ite
 from crypto_trailing_stop.infrastructure.services.vo.immediate_sell_order_item import ImmediateSellOrderItem
 from crypto_trailing_stop.infrastructure.tasks.limit_sell_order_guard_task_service import LimitSellOrderGuardTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
-from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher, CustomAPIQueryMatcher, MEXCAPIRequestMatcher
 from tests.helpers.httpserver_pytest.utils import (
     prepare_httpserver_delete_order_mock,
     prepare_httpserver_fetch_ohlcv_mock,
     prepare_httpserver_open_sell_orders_mock,
+    prepare_httpserver_sell_order_created_mock,
     prepare_httpserver_tickers_list_mock,
     prepare_httpserver_trades_mock,
     prepare_httpserver_trading_wallet_balances_mock,
@@ -435,9 +435,7 @@ def _prepare_httpserver_mock(
             prepare_httpserver_delete_order_mock(
                 httpserver, operating_exchange, api_key, api_secret, open_sell_order=sell_order
             )
-            _prepare_httpserver_sell_market_order_created_mock(
-                faker, httpserver, operating_exchange, api_key, api_secret
-            )
+            prepare_httpserver_sell_order_created_mock(faker, httpserver, operating_exchange, api_key, api_secret)
             if percent_to_sell < 100:
                 operating_exchange_service: AbstractOperatingExchangeService = (
                     get_application_container().adapters_container().operating_exchange_service()
@@ -457,7 +455,7 @@ def _prepare_httpserver_mock(
                         ndigits=2,
                     ),
                 )
-                _prepare_httpserver_sell_market_order_created_mock(
+                prepare_httpserver_sell_order_created_mock(
                     faker, httpserver, operating_exchange, api_key, api_secret, order_type=OrderTypeEnum.LIMIT
                 )
     return opened_sell_orders, buy_prices, fetch_ohlcv_return_value
@@ -550,46 +548,6 @@ def _prepare_httpserver_open_sell_orders_mock(
     )
 
     return opened_sell_orders
-
-
-def _prepare_httpserver_sell_market_order_created_mock(
-    faker: Faker,
-    httpserver: HTTPServer,
-    operating_exchange: OperatingExchangeEnum,
-    api_key: str,
-    api_secret: str,
-    order_type: OrderTypeEnum = OrderTypeEnum.MARKET,
-) -> None:
-    match operating_exchange:
-        case OperatingExchangeEnum.BIT2ME:
-            httpserver.expect(
-                Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_api_key_and_secret(
-                    api_key, api_secret
-                ),
-                handler_type=HandlerType.ONESHOT,
-            ).respond_with_json(
-                Bit2MeOrderDtoObjectMother.create(
-                    side="sell", order_type=order_type.value.lower(), status=faker.random_element(["open", "inactive"])
-                ).model_dump(by_alias=True, mode="json")
-            )
-        case OperatingExchangeEnum.MEXC:
-            additional_required_query_params = [*CreateNewMEXCOrderDto.model_fields.keys(), "signature", "timestamp"]
-            httpserver.expect(
-                MEXCAPIRequestMatcher(
-                    "/mexc-api/api/v3/order",
-                    query_string=CustomAPIQueryMatcher(
-                        additional_required_query_params=additional_required_query_params
-                    ),
-                    method="POST",
-                ).set_api_key_and_secret(api_key, api_secret),
-                handler_type=HandlerType.ONESHOT,
-            ).respond_with_json(
-                MEXCOrderDtoObjectMother.create(
-                    side="SELL", order_type=order_type.value.upper(), status="NEW"
-                ).model_dump(by_alias=True, mode="json")
-            )
-        case _:
-            raise ValueError(f"Unknown operating exchange: {operating_exchange}")
 
 
 async def _create_fake_market_signals(
