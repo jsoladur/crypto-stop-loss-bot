@@ -24,11 +24,13 @@ def prepare_httpserver_trades_mock(
     api_secret: str,
     opened_sell_orders: list[Bit2MeOrderDto] | list[MEXCOrderDto],
     *,
+    buy_trades: list[Bit2MeTradeDto] | list[MEXCTradeDto] | None = None,
     number_of_trades: int | None = None,
 ) -> None:
     match operating_exchange:
         case OperatingExchangeEnum.BIT2ME:
-            buy_trades, *_ = generate_bit2me_trades(faker, opened_sell_orders, number_of_trades=number_of_trades)
+            if not buy_trades:
+                buy_trades, *_ = generate_bit2me_trades(faker, opened_sell_orders, number_of_trades=number_of_trades)
             for sell_order in opened_sell_orders:
                 # Mock call to /v1/trading/trade to get closed buy trades
                 httpserver.expect(
@@ -57,7 +59,8 @@ def prepare_httpserver_trades_mock(
                     ).model_dump(mode="json", by_alias=True)
                 )
         case OperatingExchangeEnum.MEXC:
-            buy_trades, *_ = generate_mexc_trades(faker, opened_sell_orders, number_of_trades=number_of_trades)
+            if not buy_trades:
+                buy_trades, *_ = generate_mexc_trades(faker, opened_sell_orders, number_of_trades=number_of_trades)
             for sell_order in opened_sell_orders:
                 httpserver.expect(
                     MEXCAPIRequestMatcher(

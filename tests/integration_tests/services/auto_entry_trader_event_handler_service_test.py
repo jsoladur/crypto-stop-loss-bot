@@ -4,28 +4,22 @@ import math
 from datetime import UTC, datetime
 from itertools import product
 from unittest.mock import patch
-from urllib.parse import urlencode
 
 import ccxt.async_support as ccxt
 import pytest
 from aiogram import Bot
 from faker import Faker
-from pydantic import RootModel
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
-from crypto_trailing_stop.commons.constants import BIT2ME_TAKER_FEES, TRIGGER_BUY_ACTION_EVENT_NAME
+from crypto_trailing_stop.commons.constants import TRIGGER_BUY_ACTION_EVENT_NAME
 from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
-    Bit2MeTradingWalletBalanceDto,
-)
-from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import MEXCOrderDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import CreateNewMEXCOrderDto, MEXCOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_book_dto import MEXCTickerBookDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_price_dto import MEXCTickerPriceDto
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.base import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_market_config import (
     SymbolMarketConfig,
@@ -43,7 +37,7 @@ from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
 from tests.helpers.enums import AutoEntryTraderUnexpectedErrorBuyMarketOrder, AutoEntryTraderWarningTypeEnum
-from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher
+from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher, CustomAPIQueryMatcher, MEXCAPIRequestMatcher
 from tests.helpers.httpserver_pytest.utils import (
     prepare_httpserver_fetch_ohlcv_mock,
     prepare_httpserver_open_sell_orders_mock,
@@ -57,9 +51,9 @@ from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
     Bit2MeTickersDtoObjectMother,
     Bit2MeTradeDtoObjectMother,
-    Bit2MeTradingWalletBalanceDtoObjectMother,
     MEXCOrderDtoObjectMother,
     MEXCTickerPriceAndBookDtoObjectMother,
+    MEXCTradeDtoObjectMother,
 )
 from tests.helpers.operating_exchange_utils import get_random_symbol_by_operating_exchange
 
@@ -277,93 +271,60 @@ def _prepare_httpserver_mock(
 
         if warning_type != AutoEntryTraderWarningTypeEnum.NOT_ENOUGH_FUNDS:
             # Mock call to POST /v1/trading/order
-            buy_order_created = Bit2MeOrderDtoObjectMother.create(
-                symbol=symbol, side="buy", order_amount=buy_order_amount, order_type="market", status="open"
+            if operating_exchange == OperatingExchangeEnum.BIT2ME:
+                buy_order_created = Bit2MeOrderDtoObjectMother.create(
+                    symbol=symbol, side="buy", order_amount=buy_order_amount, order_type="market", status="open"
+                )
+            else:
+                buy_order_created = MEXCOrderDtoObjectMother.create(
+                    symbol=symbol, side="BUY", order_amount=buy_order_amount, order_type="MARKET", status="NEW"
+                )
+            _simulate_bit2me_corner_cases_if_needed(
+                httpserver,
+                operating_exchange,
+                api_key,
+                api_secret,
+                use_event_emitter,
+                unexpected_error_buy_market_order,
+                buy_order_created,
             )
-            if not use_event_emitter:
-                if unexpected_error_buy_market_order == AutoEntryTraderUnexpectedErrorBuyMarketOrder.NOT_ENOUGH_BALANCE:
-                    _prepare_httpserver_mock_for_simulate_not_enough_balance(httpserver, api_key, api_secret)
-                elif (
-                    unexpected_error_buy_market_order
-                    == AutoEntryTraderUnexpectedErrorBuyMarketOrder.SUDDEN_CANCELLED_BUY_MARKET_ORDER
-                ):
-                    # Simulating order has been suddenly cancelled by Bit2Me exchange
-                    for _ in range(4):
-                        # Buy market order created
-                        _prepare_httpserver_mock_order_created_successfully(
-                            httpserver, api_key, api_secret, buy_order_created
-                        )
-                        httpserver.expect(
-                            Bit2MeAPIRequestMatcher(
-                                f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
-                            ).set_api_key_and_secret(api_key, api_secret),
-                            handler_type=HandlerType.ONESHOT,
-                        ).respond_with_json(
-                            buy_order_created.model_copy(deep=True, update={"status": "cancelled"}).model_dump(
-                                by_alias=True, mode="json"
-                            )
-                        )
             # Buy market order created
-            _prepare_httpserver_mock_order_created_successfully(httpserver, api_key, api_secret, buy_order_created)
+            _prepare_httpserver_mock_order_created_successfully(
+                httpserver, operating_exchange, api_key, api_secret, buy_order_created
+            )
             _prepare_httpserver_mock_for_simulate_waiting_for_buy_order_filled(
-                faker, httpserver, api_key, api_secret, buy_order_created
-            )
-            # Trading Wallet Balance for CRYPTO currency
-            buy_order_amount_after_feeds = buy_order_amount * (1 - BIT2ME_TAKER_FEES)
-            httpserver.expect(
-                Bit2MeAPIRequestMatcher(
-                    "/bit2me-api/v1/trading/wallet/balance",
-                    query_string=urlencode({"symbols": crypto_currency.upper()}, doseq=False),
-                    method="GET",
-                ).set_api_key_and_secret(api_key, api_secret),
-                handler_type=HandlerType.ONESHOT,
-            ).respond_with_json(
-                RootModel[list[Bit2MeTradingWalletBalanceDto]](
-                    [
-                        Bit2MeTradingWalletBalanceDtoObjectMother.create(
-                            currency=crypto_currency, balance=round(buy_order_amount_after_feeds, ndigits=2)
-                        )
-                    ]
-                ).model_dump(mode="json", by_alias=True)
-            )
-            # Mock Limit Sell order created
-            httpserver.expect(
-                Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_api_key_and_secret(
-                    api_key, api_secret
-                ),
-                handler_type=HandlerType.ONESHOT,
-            ).respond_with_json(
-                Bit2MeOrderDtoObjectMother.create(
-                    symbol=symbol,
-                    side="sell",
-                    order_amount=buy_order_amount_after_feeds,
-                    order_type="limit",
-                    status="open",
-                    price=(tickers.close if isinstance(tickers, Bit2MeTickersDto) else tickers[0].price) * 2,
-                ).model_dump(by_alias=True, mode="json")
-            )
-            # Mock trades /v1/trading/trade
-            httpserver.expect(
-                Bit2MeAPIRequestMatcher(
-                    "/bit2me-api/v1/trading/trade",
-                    method="GET",
-                    query_string=urlencode({"direction": "desc", "side": "buy", "symbol": symbol}, doseq=False),
-                ).set_api_key_and_secret(api_key, api_secret),
-                handler_type=HandlerType.ONESHOT,
-            ).respond_with_json(
-                Bit2MePaginationResultDto[Bit2MeTradeDto](
-                    data=[
-                        Bit2MeTradeDtoObjectMother.create(
-                            side="buy",
-                            symbol=market_signal_item.symbol,
-                            price=tickers.close if isinstance(tickers, Bit2MeTickersDto) else tickers[0].price,
-                            amount=buy_order_amount_after_feeds,
-                        )
-                    ],
-                    total=faker.pyint(min_value=50, max_value=100),
-                ).model_dump(mode="json", by_alias=True)
+                faker, httpserver, operating_exchange, api_key, api_secret, buy_order_created
             )
 
+            operating_exchange_service: AbstractOperatingExchangeService = (
+                get_application_container().adapters_container().operating_exchange_service()
+            )
+            buy_order_amount_after_feeds = buy_order_amount * (1 - operating_exchange_service.get_taker_fee())
+            # Trading Wallet Balance for CRYPTO currency
+            prepare_httpserver_trading_wallet_balances_mock(
+                faker,
+                httpserver,
+                operating_exchange,
+                api_key,
+                api_secret,
+                wallet_balances_crypto_currencies=[crypto_currency.upper()],
+                fixed_balance=buy_order_amount_after_feeds,
+            )
+            # Mock Limit Sell order created
+            open_sell_order = _prepare_httpserver_limit_sell_order_created_mock(
+                httpserver, operating_exchange, api_key, api_secret, symbol, tickers, buy_order_amount_after_feeds
+            )
+            _prepare_httpserver_last_buy_trade_generated_mock(
+                faker,
+                httpserver,
+                operating_exchange,
+                api_key,
+                api_secret,
+                market_signal_item,
+                tickers,
+                buy_order_amount_after_feeds,
+                open_sell_order,
+            )
     return market_signal_item, symbol, crypto_currency, fiat_currency, fetch_ohlcv_return_value
 
 
@@ -477,15 +438,154 @@ def _prepare_httpserver_open_sell_orders_mock(
     return opened_sell_orders
 
 
-def _prepare_httpserver_mock_order_created_successfully(
-    httpserver: HTTPServer, api_key: str, api_secret: str, buy_order_created: Bit2MeOrderDto
+def _simulate_bit2me_corner_cases_if_needed(
+    httpserver: HTTPServer,
+    operating_exchange: OperatingExchangeEnum,
+    api_key: str,
+    api_secret: str,
+    use_event_emitter: bool,
+    unexpected_error_buy_market_order: AutoEntryTraderUnexpectedErrorBuyMarketOrder,
+    buy_order_created: Bit2MeOrderDto,
 ) -> None:
-    httpserver.expect(
-        Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_api_key_and_secret(
-            api_key, api_secret
-        ),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
+    if operating_exchange == OperatingExchangeEnum.BIT2ME and not use_event_emitter:
+        if unexpected_error_buy_market_order == AutoEntryTraderUnexpectedErrorBuyMarketOrder.NOT_ENOUGH_BALANCE:
+            _prepare_httpserver_mock_for_simulate_not_enough_balance(httpserver, api_key, api_secret)
+        elif (
+            unexpected_error_buy_market_order
+            == AutoEntryTraderUnexpectedErrorBuyMarketOrder.SUDDEN_CANCELLED_BUY_MARKET_ORDER
+        ):
+            # Simulating order has been suddenly cancelled by Bit2Me exchange
+            for _ in range(4):
+                # Buy market order created
+                _prepare_httpserver_mock_order_created_successfully(
+                    httpserver, operating_exchange, api_key, api_secret, buy_order_created
+                )
+                httpserver.expect(
+                    Bit2MeAPIRequestMatcher(
+                        f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
+                    ).set_api_key_and_secret(api_key, api_secret),
+                    handler_type=HandlerType.ONESHOT,
+                ).respond_with_json(
+                    buy_order_created.model_copy(deep=True, update={"status": "cancelled"}).model_dump(
+                        by_alias=True, mode="json"
+                    )
+                )
+
+
+def _prepare_httpserver_mock_order_created_successfully(
+    httpserver: HTTPServer,
+    operting_exchange: OperatingExchangeEnum,
+    api_key: str,
+    api_secret: str,
+    buy_order_created: Bit2MeOrderDto | MEXCOrderDto,
+) -> None:
+    match operting_exchange:
+        case OperatingExchangeEnum.BIT2ME:
+            httpserver.expect(
+                Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_api_key_and_secret(
+                    api_key, api_secret
+                ),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
+        case OperatingExchangeEnum.MEXC:
+            additional_required_query_params = [*CreateNewMEXCOrderDto.model_fields.keys(), "signature", "timestamp"]
+            httpserver.expect(
+                MEXCAPIRequestMatcher(
+                    "/mexc-api/api/v3/order",
+                    query_string=CustomAPIQueryMatcher(
+                        additional_required_query_params=additional_required_query_params
+                    ),
+                    method="POST",
+                ).set_api_key_and_secret(api_key, api_secret),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
+        case _:
+            raise ValueError(f"Unknown operating exchange: {operting_exchange}")
+
+
+def _prepare_httpserver_limit_sell_order_created_mock(
+    httpserver: HTTPServer,
+    operating_exchange: OperatingExchangeEnum,
+    api_key: str,
+    api_secret: str,
+    symbol: str,
+    tickers: list[Bit2MeTickersDto] | list[tuple[MEXCTickerPriceDto, MEXCTickerBookDto]],
+    buy_order_amount_after_feeds: float,
+) -> Bit2MeOrderDto | MEXCOrderDto:
+    match operating_exchange:
+        case OperatingExchangeEnum.BIT2ME:
+            open_sell_order = Bit2MeOrderDtoObjectMother.create(
+                symbol=symbol,
+                side="sell",
+                order_amount=buy_order_amount_after_feeds,
+                order_type="limit",
+                status="open",
+                price=tickers.close * 2,
+            )
+            httpserver.expect(
+                Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/order", method="POST").set_api_key_and_secret(
+                    api_key, api_secret
+                ),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(open_sell_order.model_dump(by_alias=True, mode="json"))
+        case OperatingExchangeEnum.MEXC:
+            additional_required_query_params = [*CreateNewMEXCOrderDto.model_fields.keys(), "signature", "timestamp"]
+            ticker_price, _ = tickers
+            open_sell_order = MEXCOrderDtoObjectMother.create(
+                symbol=symbol,
+                side="SELL",
+                order_amount=buy_order_amount_after_feeds,
+                order_type="LIMIT",
+                status="NEW",
+                price=ticker_price.price * 2,
+            )
+            httpserver.expect(
+                MEXCAPIRequestMatcher(
+                    "/mexc-api/api/v3/order",
+                    query_string=CustomAPIQueryMatcher(
+                        additional_required_query_params=additional_required_query_params
+                    ),
+                    method="POST",
+                ).set_api_key_and_secret(api_key, api_secret),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(open_sell_order.model_dump(by_alias=True, mode="json"))
+
+        case _:
+            raise ValueError(f"Unknown operating exchange: {operating_exchange}")
+    return open_sell_order
+
+
+def _prepare_httpserver_last_buy_trade_generated_mock(
+    faker: Faker,
+    httpserver: HTTPServer,
+    operating_exchange: OperatingExchangeEnum,
+    api_key: str,
+    api_secret: str,
+    market_signal_item: MarketSignalItem,
+    tickers: list[Bit2MeTickersDto] | list[tuple[MEXCTickerPriceDto, MEXCTickerBookDto]],
+    buy_order_amount_after_feeds: float,
+    open_sell_order: Bit2MeOrderDto | MEXCOrderDto,
+) -> None:
+    if operating_exchange == OperatingExchangeEnum.BIT2ME:
+        buy_trade = Bit2MeTradeDtoObjectMother.create(
+            side="buy", symbol=market_signal_item.symbol, price=tickers.close, amount=buy_order_amount_after_feeds
+        )
+    elif operating_exchange == OperatingExchangeEnum.MEXC:
+        buy_trade = MEXCTradeDtoObjectMother.create(
+            is_buyer=True, symbol=market_signal_item.symbol, price=tickers[0].price, amount=buy_order_amount_after_feeds
+        )
+    else:
+        raise ValueError(f"Unknown operating exchange: {operating_exchange}")
+    prepare_httpserver_trades_mock(
+        faker,
+        httpserver,
+        operating_exchange,
+        api_key,
+        api_secret,
+        [open_sell_order],
+        buy_trades=[buy_trade],
+        number_of_trades=1,
+    )
 
 
 def _prepare_httpserver_mock_for_simulate_not_enough_balance(
@@ -510,25 +610,65 @@ def _prepare_httpserver_mock_for_simulate_not_enough_balance(
 
 
 def _prepare_httpserver_mock_for_simulate_waiting_for_buy_order_filled(
-    faker: Faker, httpserver: HTTPServer, api_key: str, api_secret: str, buy_order_created: Bit2MeOrderDto
+    faker: Faker,
+    httpserver: HTTPServer,
+    operating_exchange: OperatingExchangeEnum,
+    api_key: str,
+    api_secret: str,
+    buy_order_created: Bit2MeOrderDto | MEXCOrderDto,
 ) -> None:
-    # Simulating waiting for FILLED
-    for _ in range(faker.pyint(min_value=1, max_value=3)):
-        httpserver.expect(
-            Bit2MeAPIRequestMatcher(
-                f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
-            ).set_api_key_and_secret(api_key, api_secret),
-            handler_type=HandlerType.ONESHOT,
-        ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
-    # Already filled!
-    httpserver.expect(
-        Bit2MeAPIRequestMatcher(
-            f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
-        ).set_api_key_and_secret(api_key, api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(
-        buy_order_created.model_copy(deep=True, update={"status": "filled"}).model_dump(by_alias=True, mode="json")
-    )
+    match operating_exchange:
+        case OperatingExchangeEnum.BIT2ME:
+            # Simulating waiting for FILLED
+            for _ in range(faker.pyint(min_value=1, max_value=3)):
+                httpserver.expect(
+                    Bit2MeAPIRequestMatcher(
+                        f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
+                    ).set_api_key_and_secret(api_key, api_secret),
+                    handler_type=HandlerType.ONESHOT,
+                ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
+            # Already filled!
+            httpserver.expect(
+                Bit2MeAPIRequestMatcher(
+                    f"/bit2me-api/v1/trading/order/{buy_order_created.id}", method="GET"
+                ).set_api_key_and_secret(api_key, api_secret),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(
+                buy_order_created.model_copy(deep=True, update={"status": "filled"}).model_dump(
+                    by_alias=True, mode="json"
+                )
+            )
+        case OperatingExchangeEnum.MEXC:
+            # Simulating waiting for FILLED
+            for _ in range(faker.pyint(min_value=1, max_value=3)):
+                httpserver.expect(
+                    MEXCAPIRequestMatcher(
+                        "/mexc-api/api/v3/order",
+                        query_string=CustomAPIQueryMatcher(
+                            {"orderId": str(buy_order_created.order_id)},
+                            additional_required_query_params=["signature", "timestamp"],
+                        ),
+                        method="GET",
+                    ).set_api_key_and_secret(api_key, api_secret),
+                    handler_type=HandlerType.ONESHOT,
+                ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
+            httpserver.expect(
+                MEXCAPIRequestMatcher(
+                    "/mexc-api/api/v3/order",
+                    query_string=CustomAPIQueryMatcher(
+                        {"orderId": str(buy_order_created.order_id)},
+                        additional_required_query_params=["signature", "timestamp"],
+                    ),
+                    method="GET",
+                ).set_api_key_and_secret(api_key, api_secret),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(
+                buy_order_created.model_copy(deep=True, update={"status": "FILLED"}).model_dump(
+                    by_alias=True, mode="json"
+                )
+            )
+        case _:
+            raise ValueError(f"Unknown operating exchange: {operating_exchange}")
 
 
 def _floor_round(value: float, *, ndigits: int) -> float:

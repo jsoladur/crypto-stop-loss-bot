@@ -31,6 +31,7 @@ def prepare_httpserver_trading_wallet_balances_mock(
     wallet_balances_objects: list[Bit2MeTradingWalletBalanceDto] | list[MEXCAccountBalanceDto] | None = None,
     wallet_balances_crypto_currencies: list[str] | None = None,
     fixed_balance: float | None = None,
+    handler_type: HandlerType = HandlerType.ONESHOT,
 ) -> list[str]:
     wallet_balances_crypto_currencies = wallet_balances_crypto_currencies or faker.random_choices(
         MOCK_CRYPTO_CURRENCIES, length=faker.pyint(min_value=2, max_value=len(MOCK_CRYPTO_CURRENCIES) - 1)
@@ -45,7 +46,7 @@ def prepare_httpserver_trading_wallet_balances_mock(
                 Bit2MeAPIRequestMatcher("/bit2me-api/v1/trading/wallet/balance", method="GET").set_api_key_and_secret(
                     api_key, api_secret
                 ),
-                handler_type=HandlerType.ONESHOT,
+                handler_type=handler_type,
             ).respond_with_json(
                 RootModel[list[Bit2MeTradingWalletBalanceDto]](wallet_balances_objects).model_dump(
                     mode="json", by_alias=True
@@ -61,7 +62,7 @@ def prepare_httpserver_trading_wallet_balances_mock(
                 MEXCAPIRequestMatcher("/mexc-api/api/v3/account", method="GET").set_api_key_and_secret(
                     api_key, api_secret
                 ),
-                handler_type=HandlerType.ONESHOT,
+                handler_type=handler_type,
             ).respond_with_json(mexc_account_info.model_dump(mode="json", by_alias=True))
         case _:
             raise ValueError(f"Unsupported operating exchange: {operating_exchange}")
