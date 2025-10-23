@@ -97,7 +97,12 @@ class CryptoAnalyticsService:
         self, *, order_by_symbol: bool = False, client: Any | None = None
     ) -> list[SymbolTickers]:
         favourite_symbols = await self.get_favourite_symbols(client=client)
-        ret = await self._operating_exchange_service.get_tickers_by_symbols(symbols=favourite_symbols, client=client)
+        if favourite_symbols:
+            ret = await self._operating_exchange_service.get_tickers_by_symbols(
+                symbols=favourite_symbols, client=client
+            )
+        else:
+            ret = []
         if order_by_symbol:
             ret = pydash.order_by(ret, ["symbol"])
         return ret

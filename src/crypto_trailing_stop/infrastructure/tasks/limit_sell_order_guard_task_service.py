@@ -167,7 +167,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         )
         if auto_exit_reason.is_exit:
             # Cancel current take-profit sell limit order
-            await self._operating_exchange_service.cancel_order_by_id(sell_order.id, client=client)
+            await self._operating_exchange_service.cancel_order(sell_order, client=client)
             if auto_exit_reason.percent_to_sell < 100:
                 final_amount_to_sell = self._floor_round(
                     sell_order.amount * (auto_exit_reason.percent_to_sell / 100),

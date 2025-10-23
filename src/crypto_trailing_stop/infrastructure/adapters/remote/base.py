@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
+from urllib.parse import urlencode
 
 from httpx import URL, AsyncClient, Response
 
@@ -108,3 +109,10 @@ class AbstractHttpRemoteAsyncService(ABC):
         Returns:
             AsyncClient: httpx.AsyncClient new instance
         """
+
+    def _build_full_url(self, path: str, query_params: dict[str, any]) -> str:
+        full_url = path
+        if query_params:
+            query_string = urlencode(query_params, doseq=True)
+            full_url += "?" + query_string
+        return full_url

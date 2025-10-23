@@ -2,28 +2,22 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
-from urllib.parse import urlencode
 
+import ccxt.async_support as ccxt
 import pytest
 from aiogram import Bot
 from faker import Faker
-from pydantic import RootModel
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
-from werkzeug import Response
 
-from crypto_trailing_stop.commons.constants import (
-    BIT2ME_RETRYABLE_HTTP_STATUS_CODES,
-    BIT2ME_TAKER_FEES,
-    PERCENT_TO_SELL_LIST,
-)
+from crypto_trailing_stop.commons.constants import BIT2ME_RETRYABLE_HTTP_STATUS_CODES, PERCENT_TO_SELL_LIST
 from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trading_wallet_balance import (
-    Bit2MeTradingWalletBalanceDto,
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import MEXCOrderDto
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import (
+    OperatingExchangeEnum,
+    OrderTypeEnum,
 )
 from crypto_trailing_stop.infrastructure.database.models.push_notification import PushNotification
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
@@ -37,15 +31,23 @@ from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_ite
 from crypto_trailing_stop.infrastructure.services.vo.immediate_sell_order_item import ImmediateSellOrderItem
 from crypto_trailing_stop.infrastructure.tasks.limit_sell_order_guard_task_service import LimitSellOrderGuardTaskService
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
-from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
+from tests.helpers.httpserver_pytest.utils import (
+    prepare_httpserver_delete_order_mock,
+    prepare_httpserver_fetch_ohlcv_mock,
+    prepare_httpserver_open_sell_orders_mock,
+    prepare_httpserver_sell_order_created_mock,
+    prepare_httpserver_tickers_list_mock,
+    prepare_httpserver_trades_mock,
+    prepare_httpserver_trading_wallet_balances_mock,
+)
 from tests.helpers.object_mothers import (
     Bit2MeOrderDtoObjectMother,
     Bit2MeTickersDtoObjectMother,
-    Bit2MeTradingWalletBalanceDtoObjectMother,
+    MEXCOrderDtoObjectMother,
+    MEXCTickerPriceAndBookDtoObjectMother,
     SignalsEvaluationResultObjectMother,
 )
-from tests.helpers.ohlcv_test_utils import get_fetch_ohlcv_random_result
-from tests.helpers.sell_orders_test_utils import generate_trades
+from tests.helpers.operating_exchange_utils import get_random_symbol_by_operating_exchange
 
 logger = logging.getLogger(__name__)
 
@@ -59,15 +61,16 @@ async def should_create_market_sell_order_when_market_for_immediate_sell_order(
     Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
     """
     # Mock the Bit2Me API
-    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+    _, httpserver, api_key, api_secret, operating_exchange, *_ = integration_test_env
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
 
-    *_, buy_prices = _prepare_httpserver_mock(
+    _, buy_prices, fetch_ohlcv_return_value, *_ = _prepare_httpserver_mock(
         faker,
         httpserver,
-        bit2me_api_key,
-        bit2me_api_secret,
+        operating_exchange,
+        api_key,
+        api_secret,
         closing_crypto_currency_price_multipler=0.495,
         percent_to_sell=percent_to_sell,
     )
@@ -90,7 +93,10 @@ async def should_create_market_sell_order_when_market_for_immediate_sell_order(
     await _create_fake_market_signals(first_order, closing_price_sell_1h_signal=buy_price)
     limit_sell_order_guard_cache_service = LimitSellOrderGuardCacheService()
     limit_sell_order_guard_cache_service.mark_immediate_sell_order(
-        ImmediateSellOrderItem(sell_order_id=first_order.id, percent_to_sell=percent_to_sell)
+        ImmediateSellOrderItem(
+            sell_order_id=first_order.id if isinstance(first_order, Bit2MeOrderDto) else first_order.order_id,
+            percent_to_sell=percent_to_sell,
+        )
     )
     # Provoke send a notification via Telegram
     telegram_chat_id = faker.random_number(digits=9, fix_len=True)
@@ -110,9 +116,14 @@ async def should_create_market_sell_order_when_market_for_immediate_sell_order(
         LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
     ) as notify_fatal_error_via_telegram_mock:
         with patch.object(Bot, "send_message"):
-            await limit_sell_order_guard_task_service.run()
-            notify_fatal_error_via_telegram_mock.assert_not_called()
-            httpserver.check_assertions()
+            if operating_exchange == OperatingExchangeEnum.MEXC:
+                with patch.object(ccxt.mexc, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
+                    await limit_sell_order_guard_task_service.run()
+            else:
+                await limit_sell_order_guard_task_service.run()
+
+        notify_fatal_error_via_telegram_mock.assert_not_called()
+    httpserver.check_assertions()
 
 
 @pytest.mark.asyncio
@@ -123,15 +134,15 @@ async def should_create_market_sell_order_when_take_profit_reached(
     Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
     """
     # Mock the Bit2Me API
-    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+    _, httpserver, api_key, api_secret, operating_exchange, *_ = integration_test_env
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
 
-    *_, buy_prices = _prepare_httpserver_mock(
-        faker, httpserver, bit2me_api_key, bit2me_api_secret, closing_crypto_currency_price_multipler=1.5
+    _, buy_prices, fetch_ohlcv_return_value, *_ = _prepare_httpserver_mock(
+        faker, httpserver, operating_exchange, api_key, api_secret, closing_crypto_currency_price_multipler=1.5
     )
     first_order_and_price, *_ = buy_prices
-    first_order, buy_price = first_order_and_price
+    first_order, *_ = first_order_and_price
     crypto_currency, *_ = first_order.symbol.split("/")
 
     task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
@@ -163,10 +174,15 @@ async def should_create_market_sell_order_when_take_profit_reached(
         LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
     ) as notify_fatal_error_via_telegram_mock:
         with patch.object(Bot, "send_message"):
-            await limit_sell_order_guard_task_service.run()
+            if operating_exchange == OperatingExchangeEnum.MEXC:
+                with patch.object(ccxt.mexc, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
+                    await limit_sell_order_guard_task_service.run()
+            else:
+                await limit_sell_order_guard_task_service.run()
 
-            notify_fatal_error_via_telegram_mock.assert_not_called()
-            httpserver.check_assertions()
+        notify_fatal_error_via_telegram_mock.assert_not_called()
+
+    httpserver.check_assertions()
 
 
 @pytest.mark.parametrize(
@@ -184,19 +200,20 @@ async def should_create_market_sell_order_when_auto_exit_sell_or_bearish_diverge
     Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
     """
     # Mock the Bit2Me API
-    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+    _, httpserver, api_key, api_secret, operating_exchange, *_ = integration_test_env
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
 
-    opened_sell_bit2me_orders, *_ = _prepare_httpserver_mock(
+    opened_sell_orders, _, fetch_ohlcv_return_value, *_ = _prepare_httpserver_mock(
         faker,
         httpserver,
-        bit2me_api_key,
-        bit2me_api_secret,
+        operating_exchange,
+        api_key,
+        api_secret,
         closing_crypto_currency_price_multipler=1.5,
         simulate_future_sell_orders=simulate_future_sell_orders,
     )
-    first_order, *_ = opened_sell_bit2me_orders
+    first_order, *_ = opened_sell_orders
     crypto_currency, *_ = first_order.symbol.split("/")
     task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
     buy_sell_signals_config_service: BuySellSignalsConfigService = (
@@ -230,9 +247,13 @@ async def should_create_market_sell_order_when_auto_exit_sell_or_bearish_diverge
         LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
     ) as notify_fatal_error_via_telegram_mock:
         with patch.object(Bot, "send_message"):
-            await limit_sell_order_guard_task_service.run()
-            notify_fatal_error_via_telegram_mock.assert_not_called()
-            httpserver.check_assertions()
+            if operating_exchange == OperatingExchangeEnum.MEXC:
+                with patch.object(ccxt.mexc, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
+                    await limit_sell_order_guard_task_service.run()
+            else:
+                await limit_sell_order_guard_task_service.run()
+        notify_fatal_error_via_telegram_mock.assert_not_called()
+    httpserver.check_assertions()
 
 
 @pytest.mark.asyncio
@@ -243,15 +264,16 @@ async def should_ignore_sell_1h_signal_and_not_sell_when_price_is_lower_than_bre
     Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
     """
     # Mock the Bit2Me API
-    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+    _, httpserver, api_key, api_secret, operating_exchange, *_ = integration_test_env
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
 
-    *_, buy_prices = _prepare_httpserver_mock(
+    _, buy_prices, fetch_ohlcv_return_value, *_ = _prepare_httpserver_mock(
         faker,
         httpserver,
-        bit2me_api_key,
-        bit2me_api_secret,
+        operating_exchange,
+        api_key,
+        api_secret,
         closing_crypto_currency_price_multipler=0.495,
         simulate_future_sell_orders=False,
         sell_1h_signals_behind_break_even=True,
@@ -292,29 +314,34 @@ async def should_ignore_sell_1h_signal_and_not_sell_when_price_is_lower_than_bre
         LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
     ) as notify_fatal_error_via_telegram_mock:
         with patch.object(Bot, "send_message"):
-            await limit_sell_order_guard_task_service.run()
-            notify_fatal_error_via_telegram_mock.assert_not_called()
-            httpserver.check_assertions()
+            if operating_exchange == OperatingExchangeEnum.MEXC:
+                with patch.object(ccxt.mexc, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
+                    await limit_sell_order_guard_task_service.run()
+            else:
+                await limit_sell_order_guard_task_service.run()
+        notify_fatal_error_via_telegram_mock.assert_not_called()
+    httpserver.check_assertions()
 
 
-@pytest.mark.parametrize("bit2me_error_status_code", BIT2ME_RETRYABLE_HTTP_STATUS_CODES + [500])
+@pytest.mark.parametrize("operating_exchange_error_status_code", BIT2ME_RETRYABLE_HTTP_STATUS_CODES + [500])
 @pytest.mark.asyncio
 async def should_create_market_sell_order_when_stop_loss_triggered(
-    faker: Faker, bit2me_error_status_code: int, integration_test_env: tuple[HTTPServer, str]
+    faker: Faker, operating_exchange_error_status_code: int, integration_test_env: tuple[HTTPServer, str]
 ) -> None:
     """
     Test that all expected calls to Bit2Me are made when a limit sell order has to be filled
     """
     # Mock the Bit2Me API
-    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_env
+    _, httpserver, api_key, api_secret, operating_exchange, *_ = integration_test_env
     # Disable all jobs by default for test purposes!
     await disable_all_background_jobs_except()
-    opened_sell_bit2me_orders, *_ = _prepare_httpserver_mock(
+    opened_sell_orders, _, fetch_ohlcv_return_value, *_ = _prepare_httpserver_mock(
         faker,
         httpserver,
-        bit2me_api_key,
-        bit2me_api_secret,
-        bit2me_error_status_code=bit2me_error_status_code,
+        operating_exchange,
+        api_key,
+        api_secret,
+        operating_exchange_error_status_code=operating_exchange_error_status_code,
         closing_crypto_currency_price_multipler=0.2,
     )
     task_manager = get_application_container().infrastructure_container().tasks_container().task_manager()
@@ -322,7 +349,7 @@ async def should_create_market_sell_order_when_stop_loss_triggered(
         get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
     )
 
-    for current_order in opened_sell_bit2me_orders:
+    for current_order in opened_sell_orders:
         crypto_currency, *_ = current_order.symbol.split("/")
         buy_sell_signals_config_item: BuySellSignalsConfigItem = (
             buy_sell_signals_config_service._get_defaults_by_symbol(symbol=crypto_currency)
@@ -349,173 +376,178 @@ async def should_create_market_sell_order_when_stop_loss_triggered(
         LimitSellOrderGuardTaskService, "_notify_fatal_error_via_telegram"
     ) as notify_fatal_error_via_telegram_mock:
         with patch.object(Bot, "send_message"):
-            await limit_sell_order_guard_task_service.run()
-            notify_fatal_error_via_telegram_mock.assert_not_called()
-            httpserver.check_assertions()
+            if operating_exchange == OperatingExchangeEnum.MEXC:
+                with patch.object(ccxt.mexc, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
+                    await limit_sell_order_guard_task_service.run()
+            else:
+                await limit_sell_order_guard_task_service.run()
+        notify_fatal_error_via_telegram_mock.assert_not_called()
+    httpserver.check_assertions()
 
 
 def _prepare_httpserver_mock(
     faker: Faker,
     httpserver: HTTPServer,
-    bit2me_api_key: str,
-    bik2me_api_secret: str,
-    bit2me_error_status_code: int | None = None,
+    operating_exchange: OperatingExchangeEnum,
+    api_key: str,
+    api_secret: str,
+    operating_exchange_error_status_code: int | None = None,
     *,
     closing_crypto_currency_price_multipler: float,
     simulate_future_sell_orders: bool = False,
     sell_1h_signals_behind_break_even: bool = False,
     percent_to_sell: float = 100.0,
 ) -> tuple[list[Bit2MeOrderDto], list[Bit2MeOrderDto, float]]:
-    symbol = faker.random_element(["ETH/EUR", "SOL/EUR"])
+    symbol = get_random_symbol_by_operating_exchange(faker, operating_exchange)
     crypto_currency, *_ = symbol.split("/")
     # Mock OHLCV /v1/trading/candle
-    fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
-    # Simulate that some times the Bit2Me API returns an empty list
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/trading/candle",
-            method="GET",
-            query_string=Bit2MeAPIQueryMatcher(
-                {"symbol": symbol, "interval": 60, "limit": 251},
-                additional_required_query_params=["startTime", "endTime"],
-            ),
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json([])
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/trading/candle",
-            method="GET",
-            query_string=Bit2MeAPIQueryMatcher(
-                {"symbol": symbol, "interval": 60, "limit": 251},
-                additional_required_query_params=["startTime", "endTime"],
-            ),
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(fetch_ohlcv_return_value)
-
+    fetch_ohlcv_return_value = prepare_httpserver_fetch_ohlcv_mock(
+        faker, httpserver, operating_exchange, api_key, api_secret, symbol, simulate_empty_ohlcv=True
+    )
     orders_price = faker.pyfloat(positive=True, min_value=500, max_value=1_000)
-    orders_create_at = datetime.now(UTC) + timedelta(days=2) if simulate_future_sell_orders else None
-    opened_sell_bit2me_orders = [
-        Bit2MeOrderDtoObjectMother.create(
-            created_at=orders_create_at,
-            side="sell",
-            symbol=symbol,
-            order_type="stop-limit",
-            price=orders_price,
-            status=faker.random_element(["open", "inactive"]),
-        ),
-        Bit2MeOrderDtoObjectMother.create(
-            created_at=orders_create_at,
-            side="sell",
-            symbol=symbol,
-            order_type="limit",
-            price=orders_price,
-            status=faker.random_element(["open", "inactive"]),
-        ),
-    ]
-    tickers = Bit2MeTickersDtoObjectMother.create(
-        symbol=symbol, close=orders_price * closing_crypto_currency_price_multipler
+    _prepare_httpserver_tickers_list_mock(
+        faker,
+        httpserver,
+        operating_exchange,
+        api_key,
+        api_secret,
+        closing_crypto_currency_price_multipler,
+        symbol,
+        orders_price,
     )
-    rest_tickers = Bit2MeTickersDtoObjectMother.list(exclude_symbols=symbol)
-    tickers_list = [tickers] + rest_tickers
-    buy_trades, buy_prices = generate_trades(faker, opened_sell_bit2me_orders)
     # Mock call to /v1/trading/order to get opened sell orders
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/trading/order",
-            method="GET",
-            query_string=urlencode({"direction": "desc", "status_in": "open,inactive", "side": "sell"}, doseq=False),
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(
-        RootModel[list[Bit2MeOrderDto]](opened_sell_bit2me_orders).model_dump(mode="json", by_alias=True)
+    opened_sell_orders = _prepare_httpserver_open_sell_orders_mock(
+        faker, httpserver, operating_exchange, api_key, api_secret, simulate_future_sell_orders, symbol, orders_price
     )
-    # Mock call to /v2/trading/tickers
-    httpserver.expect(
-        Bit2MeAPIRequestMacher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
-            bit2me_api_key, bik2me_api_secret
-        ),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
-
-    for sell_order in opened_sell_bit2me_orders:
-        # Mock call to /v1/trading/trade to get closed buy trades
-        if bit2me_error_status_code is not None:
-            httpserver.expect(
-                Bit2MeAPIRequestMacher(
-                    "/bit2me-api/v1/trading/trade",
-                    method="GET",
-                    query_string=urlencode({"direction": "desc", "side": "buy", "symbol": symbol}, doseq=False),
-                ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-                handler_type=HandlerType.ONESHOT,
-            ).respond_with_response(Response(status=bit2me_error_status_code))
-        # Mock trades /v1/trading/trade
-        httpserver.expect(
-            Bit2MeAPIRequestMacher(
-                "/bit2me-api/v1/trading/trade",
-                method="GET",
-                query_string=urlencode({"direction": "desc", "side": "buy", "symbol": symbol}, doseq=False),
-            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-            handler_type=HandlerType.ONESHOT,
-        ).respond_with_json(
-            Bit2MePaginationResultDto[Bit2MeTradeDto](
-                data=buy_trades, total=faker.pyint(min_value=len(buy_trades), max_value=len(buy_trades) * 10)
-            ).model_dump(mode="json", by_alias=True)
-        )
+    # Mock trades /v1/trading/trade
+    *_, buy_prices = prepare_httpserver_trades_mock(
+        faker,
+        httpserver,
+        operating_exchange,
+        api_key,
+        api_secret,
+        opened_sell_orders,
+        operating_exchange_error_status_code=operating_exchange_error_status_code,
+    )
+    for sell_order in opened_sell_orders:
         if not simulate_future_sell_orders and not sell_1h_signals_behind_break_even:
             # Mock call to DELETE /v1/trading/order/{id}
-            httpserver.expect(
-                Bit2MeAPIRequestMacher(
-                    f"/bit2me-api/v1/trading/order/{str(sell_order.id)}", method="DELETE"
-                ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-                handler_type=HandlerType.ONESHOT,
-            ).respond_with_response(Response(status=204))
-
-            # Mock call to POST /v1/trading/order
-            httpserver.expect(
-                Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
-                    bit2me_api_key, bik2me_api_secret
-                ),
-                handler_type=HandlerType.ONESHOT,
-            ).respond_with_json(
-                Bit2MeOrderDtoObjectMother.create(
-                    side="sell", order_type="market", status=faker.random_element(["open", "inactive"])
-                ).model_dump(by_alias=True, mode="json")
+            prepare_httpserver_delete_order_mock(
+                httpserver, operating_exchange, api_key, api_secret, open_sell_order=sell_order
             )
-
+            prepare_httpserver_sell_order_created_mock(faker, httpserver, operating_exchange, api_key, api_secret)
             if percent_to_sell < 100:
-                httpserver.expect(
-                    Bit2MeAPIRequestMacher(
-                        "/bit2me-api/v1/trading/wallet/balance",
-                        query_string=urlencode({"symbols": crypto_currency.upper()}, doseq=False),
-                        method="GET",
-                    ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-                    handler_type=HandlerType.ONESHOT,
-                ).respond_with_json(
-                    RootModel[list[Bit2MeTradingWalletBalanceDto]](
-                        [
-                            Bit2MeTradingWalletBalanceDtoObjectMother.create(
-                                currency=crypto_currency,
-                                balance=round(
-                                    sell_order.order_amount * ((percent_to_sell - BIT2ME_TAKER_FEES) / 100), ndigits=2
-                                ),
-                            )
-                        ]
-                    ).model_dump(mode="json", by_alias=True)
+                operating_exchange_service: AbstractOperatingExchangeService = (
+                    get_application_container().adapters_container().operating_exchange_service()
                 )
-                httpserver.expect(
-                    Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/order", method="POST").set_bit2me_api_key_and_secret(
-                        bit2me_api_key, bik2me_api_secret
+                prepare_httpserver_trading_wallet_balances_mock(
+                    faker,
+                    httpserver,
+                    operating_exchange,
+                    api_key,
+                    api_secret,
+                    wallet_balances_crypto_currencies=[crypto_currency.upper()],
+                    fixed_balance=round(
+                        sell_order.order_amount
+                        if isinstance(sell_order, Bit2MeOrderDto)
+                        else float(sell_order.qty)
+                        * ((percent_to_sell - operating_exchange_service.get_taker_fee()) / 100),
+                        ndigits=2,
                     ),
-                    handler_type=HandlerType.ONESHOT,
-                ).respond_with_json(
-                    Bit2MeOrderDtoObjectMother.create(side="sell", order_type="limit", status="open").model_dump(
-                        by_alias=True, mode="json"
-                    )
                 )
+                prepare_httpserver_sell_order_created_mock(
+                    faker, httpserver, operating_exchange, api_key, api_secret, order_type=OrderTypeEnum.LIMIT
+                )
+    return opened_sell_orders, buy_prices, fetch_ohlcv_return_value
 
-    return opened_sell_bit2me_orders, buy_prices
+
+def _prepare_httpserver_tickers_list_mock(
+    faker: Faker,
+    httpserver: HTTPServer,
+    operating_exchange: OperatingExchangeEnum,
+    api_key: str,
+    api_secret: str,
+    closing_crypto_currency_price_multipler: float,
+    symbol: str,
+    orders_price: float,
+) -> None:
+    if operating_exchange == OperatingExchangeEnum.BIT2ME:
+        tickers = Bit2MeTickersDtoObjectMother.create(
+            symbol=symbol, close=orders_price * closing_crypto_currency_price_multipler
+        )
+        rest_tickers = Bit2MeTickersDtoObjectMother.list(exclude_symbols=symbol)
+        tickers_list = [tickers] + rest_tickers
+    elif operating_exchange == OperatingExchangeEnum.MEXC:
+        tickers = MEXCTickerPriceAndBookDtoObjectMother.create(
+            symbol=symbol, close=orders_price * closing_crypto_currency_price_multipler
+        )
+        rest_tickers = MEXCTickerPriceAndBookDtoObjectMother.list(exclude_symbols=symbol)
+        tickers_list = [tickers] + rest_tickers
+    prepare_httpserver_tickers_list_mock(
+        faker,
+        httpserver,
+        operating_exchange,
+        api_key,
+        api_secret,
+        tickers_list=tickers_list,
+        handler_type=HandlerType.ONESHOT,
+    )
+
+
+def _prepare_httpserver_open_sell_orders_mock(
+    faker: Faker,
+    httpserver: HTTPServer,
+    operating_exchange: OperatingExchangeEnum,
+    api_key: str,
+    api_secret: str,
+    simulate_future_sell_orders: bool,
+    symbol: str,
+    orders_price: float,
+) -> list[Bit2MeOrderDto] | list[MEXCOrderDto]:
+    orders_create_at = datetime.now(UTC) + timedelta(days=2) if simulate_future_sell_orders else None
+    if operating_exchange == OperatingExchangeEnum.BIT2ME:
+        opened_sell_orders = [
+            Bit2MeOrderDtoObjectMother.create(
+                created_at=orders_create_at,
+                side="sell",
+                symbol=symbol,
+                order_type="stop-limit",
+                price=orders_price,
+                status=faker.random_element(["open", "inactive"]),
+            ),
+            Bit2MeOrderDtoObjectMother.create(
+                created_at=orders_create_at,
+                side="sell",
+                symbol=symbol,
+                order_type="limit",
+                price=orders_price,
+                status=faker.random_element(["open", "inactive"]),
+            ),
+        ]
+    elif operating_exchange == OperatingExchangeEnum.MEXC:
+        opened_sell_orders = [
+            MEXCOrderDtoObjectMother.create(
+                created_at=orders_create_at,
+                side="SELL",
+                symbol=symbol,
+                order_type="STOP_LIMIT",
+                price=orders_price,
+                status="NEW",
+            ),
+            MEXCOrderDtoObjectMother.create(
+                created_at=orders_create_at,
+                side="SELL",
+                symbol=symbol,
+                order_type="LIMIT",
+                price=orders_price,
+                status="NEW",
+            ),
+        ]
+    prepare_httpserver_open_sell_orders_mock(
+        faker, httpserver, operating_exchange, api_key, api_secret, symbol, opened_sell_orders=opened_sell_orders
+    )
+
+    return opened_sell_orders
 
 
 async def _create_fake_market_signals(

@@ -4,7 +4,7 @@ from typing import List  # noqa: UP035
 from faker import Faker
 
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from tests.helpers.constants import MOCK_SYMBOLS
+from tests.helpers.constants import MOCK_SYMBOLS_EUR
 
 
 class Bit2MeTickersDtoObjectMother:
@@ -17,7 +17,7 @@ class Bit2MeTickersDtoObjectMother:
         """
         Create a list of Bit2MeTickersDto objects with random values.
         """
-        symbols = symbols or MOCK_SYMBOLS
+        symbols = symbols or MOCK_SYMBOLS_EUR
         exclude_symbols = exclude_symbols or []
         exclude_symbols = (
             list(exclude_symbols) if isinstance(exclude_symbols, (list, set, tuple, frozenset)) else [exclude_symbols]
@@ -32,7 +32,7 @@ class Bit2MeTickersDtoObjectMother:
         close = close or cls._faker.pyfloat(positive=True)
         return Bit2MeTickersDto(
             timestamp=int(time()),
-            symbol=symbol or cls._faker.random_element(MOCK_SYMBOLS),
+            symbol=symbol or cls._faker.random_element(MOCK_SYMBOLS_EUR),
             close=close,
             ask=close + cls._faker.pyfloat(positive=True, min_value=0.01, max_value=0.1),
             bid=close,

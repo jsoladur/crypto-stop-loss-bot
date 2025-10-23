@@ -1,25 +1,27 @@
 import logging
-from urllib.parse import urlencode
+from unittest.mock import patch
 
+import ccxt.async_support as ccxt
 import pytest
 from faker import Faker
-from pydantic import RootModel
 from pytest_httpserver import HTTPServer
-from pytest_httpserver.httpserver import HandlerType
-from werkzeug import Response
 
 from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import MEXCOrderDto, MEXCOrderStatus
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import (
+    OperatingExchangeEnum,
+    OrderStatusEnum,
+)
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
-from tests.helpers.httpserver_pytest import Bit2MeAPIQueryMatcher, Bit2MeAPIRequestMacher
-from tests.helpers.object_mothers import Bit2MeOrderDtoObjectMother, Bit2MeTickersDtoObjectMother
-from tests.helpers.ohlcv_test_utils import get_fetch_ohlcv_random_result
-from tests.helpers.sell_orders_test_utils import generate_trades
+from tests.helpers.httpserver_pytest.utils import (
+    prepare_httpserver_fetch_ohlcv_mock,
+    prepare_httpserver_open_sell_orders_mock,
+    prepare_httpserver_tickers_list_mock,
+    prepare_httpserver_trades_mock,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,19 +33,52 @@ async def should_calculate_all_limit_sell_order_guard_metrics_properly(
     previous_stored_buy_sell_signals_config: bool,
     integration_test_jobs_disabled_env: tuple[HTTPServer, str],
 ) -> None:
-    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
+    _, httpserver, api_key, api_secret, operating_exchange, *_ = integration_test_jobs_disabled_env
     buy_sell_signals_config_service: BuySellSignalsConfigService = (
         get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
     )
     orders_analytics_service: OrdersAnalyticsService = (
         get_application_container().infrastructure_container().services_container().orders_analytics_service()
     )
-    opened_sell_bit2me_orders, *_ = _prepare_httpserver_mock(faker, httpserver, bit2me_api_key, bit2me_api_secret)
-    first_sell_order, *_ = opened_sell_bit2me_orders
+    fetch_ohlcv_return_value, opened_sell_orders, symbol = _prepare_httpserver_mock(
+        faker, httpserver, operating_exchange, api_key, api_secret
+    )
+    if operating_exchange == OperatingExchangeEnum.MEXC:
+        with patch.object(ccxt.mexc, "fetch_ohlcv", return_value=fetch_ohlcv_return_value):
+            await _exec_test(
+                faker,
+                httpserver,
+                buy_sell_signals_config_service,
+                orders_analytics_service,
+                opened_sell_orders,
+                symbol,
+                previous_stored_buy_sell_signals_config=previous_stored_buy_sell_signals_config,
+            )
+    else:
+        await _exec_test(
+            faker,
+            httpserver,
+            buy_sell_signals_config_service,
+            orders_analytics_service,
+            opened_sell_orders,
+            symbol,
+            previous_stored_buy_sell_signals_config=previous_stored_buy_sell_signals_config,
+        )
 
+
+async def _exec_test(
+    faker: Faker,
+    httpserver: HTTPServer,
+    buy_sell_signals_config_service: BuySellSignalsConfigService,
+    orders_analytics_service: OrdersAnalyticsService,
+    opened_sell_orders: list[Bit2MeOrderDto] | list[MEXCOrderDto],
+    symbol,
+    *,
+    previous_stored_buy_sell_signals_config: bool,
+) -> None:
     if previous_stored_buy_sell_signals_config:
         expected_buy_sell_signals_config_item = BuySellSignalsConfigItem(
-            symbol=first_sell_order.symbol.split("/")[0],
+            symbol=symbol.split("/")[0],
             ema_short_value=faker.pyint(min_value=5, max_value=9),
             ema_mid_value=faker.pyint(min_value=18, max_value=30),
             ema_long_value=faker.pyint(min_value=200, max_value=250),
@@ -59,19 +94,33 @@ async def should_calculate_all_limit_sell_order_guard_metrics_properly(
         await buy_sell_signals_config_service.save_or_update(expected_buy_sell_signals_config_item)
 
     limit_sell_order_guard_metrics = await orders_analytics_service.calculate_all_limit_sell_order_guard_metrics(
-        symbol=first_sell_order.symbol
+        symbol=symbol
     )
-    for idx, sell_order in enumerate(opened_sell_bit2me_orders):
+    for idx, sell_order in enumerate(opened_sell_orders):
         logger.info(repr(limit_sell_order_guard_metrics))
         metrics = limit_sell_order_guard_metrics[idx]
-        assert metrics.sell_order.id == sell_order.id
-        assert metrics.sell_order.status == sell_order.status
-        assert metrics.sell_order.amount == sell_order.order_amount
-        assert metrics.sell_order.stop_price == sell_order.stop_price
-        assert metrics.sell_order.price == sell_order.price
-        assert metrics.sell_order.side == sell_order.side
-        assert metrics.sell_order.symbol == sell_order.symbol
-        assert metrics.sell_order.order_type == sell_order.order_type
+        if isinstance(sell_order, Bit2MeOrderDto):
+            assert metrics.sell_order.id == sell_order.id
+            assert metrics.sell_order.amount == sell_order.order_amount
+            assert metrics.sell_order.order_type == sell_order.order_type
+            assert metrics.sell_order.status == sell_order.status
+            assert metrics.sell_order.price == sell_order.price
+            assert metrics.sell_order.stop_price == sell_order.stop_price
+        else:
+            assert metrics.sell_order.id == str(sell_order.order_id)
+            assert metrics.sell_order.amount == float(sell_order.qty)
+            assert metrics.sell_order.amount == float(sell_order.executed_qty)
+            assert metrics.sell_order.order_type.name.upper() == sell_order.type.upper()
+            assert metrics.sell_order.status == _map_mexc_status(sell_order.status)
+            assert metrics.sell_order.price == float(sell_order.price)
+            assert (
+                metrics.sell_order.stop_price is None
+                and sell_order.stop_price is None
+                or metrics.sell_order.stop_price == float(sell_order.stop_price)
+            )
+
+        assert metrics.sell_order.side.value.lower() == sell_order.side.lower()
+        assert metrics.sell_order.symbol == symbol
 
         assert metrics.avg_buy_price is not None and metrics.avg_buy_price > 0
         assert metrics.current_price is not None and metrics.current_price > 0
@@ -94,72 +143,31 @@ async def should_calculate_all_limit_sell_order_guard_metrics_properly(
 
 
 def _prepare_httpserver_mock(
-    faker: Faker, httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str
-) -> tuple[list[Bit2MeOrderDto]]:
-    tickers_list = Bit2MeTickersDtoObjectMother.list()
-    symbol = faker.random_element([ticker.symbol for ticker in tickers_list])
-    httpserver.expect(
-        Bit2MeAPIRequestMacher("/bit2me-api/v2/trading/tickers", method="GET").set_bit2me_api_key_and_secret(
-            bit2me_api_key, bik2me_api_secret
-        ),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(RootModel[list[Bit2MeTickersDto]](tickers_list).model_dump(mode="json", by_alias=True))
-    # Mock OHLCV /v1/trading/candle
-    fetch_ohlcv_return_value = get_fetch_ohlcv_random_result(faker)
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/trading/candle",
-            method="GET",
-            query_string=Bit2MeAPIQueryMatcher(
-                {"symbol": symbol, "interval": 60, "limit": 251},
-                additional_required_query_params=["startTime", "endTime"],
-            ),
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(fetch_ohlcv_return_value)
-
-    opened_sell_bit2me_orders = [
-        Bit2MeOrderDtoObjectMother.create(
-            side="sell", order_type="stop-limit", symbol=symbol, status=faker.random_element(["open", "inactive"])
-        ),
-        Bit2MeOrderDtoObjectMother.create(
-            side="sell", order_type="limit", symbol=symbol, status=faker.random_element(["open", "inactive"])
-        ),
-    ]
-    buy_trades, *_ = generate_trades(faker, opened_sell_bit2me_orders)
-    # Mock call to /v1/trading/order to get opened sell orders
-    httpserver.expect(
-        Bit2MeAPIRequestMacher(
-            "/bit2me-api/v1/trading/order",
-            method="GET",
-            query_string=urlencode({"direction": "desc", "status_in": "open,inactive", "side": "sell"}, doseq=False),
-        ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-        handler_type=HandlerType.ONESHOT,
-    ).respond_with_json(
-        RootModel[list[Bit2MeOrderDto]](opened_sell_bit2me_orders).model_dump(mode="json", by_alias=True)
+    faker: Faker, httpserver: HTTPServer, operating_exchange: OperatingExchangeEnum, api_key: str, api_secret: str
+) -> tuple[list[Bit2MeOrderDto] | list[MEXCOrderDto]]:
+    *_, symbol = prepare_httpserver_tickers_list_mock(faker, httpserver, operating_exchange, api_key, api_secret)
+    fetch_ohlcv_return_value = prepare_httpserver_fetch_ohlcv_mock(
+        faker, httpserver, operating_exchange, api_key, api_secret, symbol
     )
+    opened_sell_orders = prepare_httpserver_open_sell_orders_mock(
+        faker, httpserver, operating_exchange, api_key, api_secret, symbol
+    )
+    prepare_httpserver_trades_mock(faker, httpserver, operating_exchange, api_key, api_secret, opened_sell_orders)
+    return (fetch_ohlcv_return_value, opened_sell_orders, symbol)
 
-    for sell_order in opened_sell_bit2me_orders:
-        # Mock call to /v1/trading/trade to get closed buy trades
-        httpserver.expect(
-            Bit2MeAPIRequestMacher(
-                "/bit2me-api/v1/trading/trade",
-                method="GET",
-                query_string=urlencode({"direction": "desc", "side": "buy", "symbol": sell_order.symbol}, doseq=False),
-            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-            handler_type=HandlerType.ONESHOT,
-        ).respond_with_response(Response(status=403))
-        # Mock trades /v1/trading/trade
-        httpserver.expect(
-            Bit2MeAPIRequestMacher(
-                "/bit2me-api/v1/trading/trade",
-                method="GET",
-                query_string=urlencode({"direction": "desc", "side": "buy", "symbol": sell_order.symbol}, doseq=False),
-            ).set_bit2me_api_key_and_secret(bit2me_api_key, bik2me_api_secret),
-            handler_type=HandlerType.ONESHOT,
-        ).respond_with_json(
-            Bit2MePaginationResultDto[Bit2MeTradeDto](
-                data=buy_trades, total=faker.pyint(min_value=len(buy_trades), max_value=len(buy_trades) * 10)
-            ).model_dump(mode="json", by_alias=True)
-        )
-    return (opened_sell_bit2me_orders,)
+
+def _map_mexc_status(mexc_status: MEXCOrderStatus) -> OrderStatusEnum:
+    match mexc_status:
+        case "NEW":
+            ret = OrderStatusEnum.OPEN
+        case "FILLED":
+            ret = OrderStatusEnum.FILLED
+        case "PARTIALLY_FILLED":
+            ret = OrderStatusEnum.PARTIALLY_FILLED
+        case "CANCELED":
+            ret = OrderStatusEnum.CANCELLED
+        case "PARTIALLY_CANCELED":
+            ret = OrderStatusEnum.PARTIALLY_CANCELLED
+        case _:
+            raise ValueError(f"Unknown MEXC order status: {mexc_status}")
+    return ret

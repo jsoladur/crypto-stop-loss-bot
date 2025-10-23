@@ -19,7 +19,7 @@ repos:
       - id: check-toml
       - id: check-merge-conflict
       - id: check-added-large-files
-        exclude: package-lock.json
+        exclude: ^tests/helpers/resources/
       - id: check-xml
       - id: check-json
         exclude: .vscode

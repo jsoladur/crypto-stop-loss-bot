@@ -6,26 +6,26 @@ source .venv/bin/activate
 # Define the "SYMBOL:EXCHANGE" pairs you want to test.
 PAIRS=(
     # Current trading
-    "DOGE/EUR:binance"
-    "LINK/EUR:binance"
-    "SOL/EUR:binance"
-    "SUI/EUR:binance"
-    "DOT/EUR:binance"
-    "ADA/EUR:binance"
-    "ETH/EUR:binance"
-    "PEPE/EUR:binance"
+    "DOGE/USDT:mexc"
+    "LINK/USDT:mexc"
+    "SOL/USDT:mexc"
+    "SUI/USDT:mexc"
+    "DOT/USDT:mexc"
+    "ADA/USDT:mexc"
+    "ETH/USDT:mexc"
+    "PEPE/USDT:mexc"
     # New coins
-    "PENGU/EUR:binance"
-    "NEAR/EUR:binance"
-    "EGLD/EUR:binance"
-    "BNB/EUR:binance"
+    "PENGU/USDT:mexc"
+    "NEAR/USDT:mexc"
+    "EGLD/USDT:mexc"
+    "BNB/USDT:mexc"
     # Divergence coins
-    "GALA/EUR:binance"
-    "SHIB/EUR:binance"
-    "XLM/EUR:binance"
+    "GALA/USDT:mexc"
+    "SHIB/USDT:mexc"
+    "XLM/USDT:mexc"
     # Deprecated
-    "XRP/EUR:binance"
-    "RENDER/EUR:binance"
+    "XRP/USDT:mexc"
+    "RENDER/USDT:mexc"
 )
 
 # Define the directory where the result logs will be saved.

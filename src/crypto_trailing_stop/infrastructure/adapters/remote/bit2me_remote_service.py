@@ -7,30 +7,18 @@ import time
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlencode
 
 import backoff
 import cachebox
-from httpx import (
-    URL,
-    AsyncClient,
-    HTTPStatusError,
-    NetworkError,
-    ReadError,
-    ReadTimeout,
-    Response,
-    Timeout,
-    TimeoutException,
-)
+from httpx import URL, AsyncClient, HTTPStatusError, NetworkError, Response, Timeout, TimeoutException
 from pandas import Timedelta
 from pydantic import RootModel
 
 from crypto_trailing_stop.commons.constants import (
     BIT2ME_RETRYABLE_HTTP_STATUS_CODES,
     DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS,
-    IDEMPOTENT_HTTP_METHODS,
 )
-from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler
+from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler, prepare_backoff_giveup_handler_fn
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_account_info_dto import Bit2MeAccountInfoDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_market_config_dto import Bit2MeMarketConfigDto
@@ -64,25 +52,6 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         self._api_secret = self._configuration_properties.bit2me_api_secret
         if not self._base_url or not self._api_key or not self._api_secret:
             raise ValueError("Bit2Me API configuration is missing or incomplete.")
-
-    @staticmethod
-    def _backoff_giveup_handler(e: Exception) -> bool:
-        should_give_up = False
-        if isinstance(e, (ReadTimeout, ReadError)):
-            method = getattr(e.request, "method", "GET").upper()
-            should_give_up = method != "GET"
-        elif isinstance(e, ValueError):
-            cause = e.__cause__
-            if not isinstance(cause, HTTPStatusError):
-                should_give_up = True
-            else:
-                method = getattr(getattr(cause, "request", None), "method", "GET").upper()
-                status_code = getattr(getattr(cause, "response", None), "status_code", None)
-                if method not in IDEMPOTENT_HTTP_METHODS:
-                    should_give_up = status_code not in BIT2ME_RETRYABLE_HTTP_STATUS_CODES
-                else:
-                    should_give_up = status_code not in (*BIT2ME_RETRYABLE_HTTP_STATUS_CODES, 500)
-        return should_give_up
 
     async def get_account_info(self, *, client: AsyncClient | None = None) -> Bit2MeAccountInfoDto:
         response = await self._perform_http_request(url="/v1/account", client=client)
@@ -126,15 +95,10 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             ret, *_ = tickers
         return ret
 
-    async def get_tickers_by_symbols(
-        self, symbols: list[str] | str = [], *, client: AsyncClient | None = None
-    ) -> list[Bit2MeTickersDto]:
-        symbols = list(symbols) if isinstance(symbols, (list, set, tuple, frozenset)) else [symbols]
+    async def get_tickers_by_symbols(self, *, client: AsyncClient | None = None) -> list[Bit2MeTickersDto]:
         response = await self._perform_http_request(url="/v2/trading/tickers", client=client)
         tickers_list = RootModel[list[Bit2MeTickersDto]].model_validate_json(response.content).root
         ret = [tickers for tickers in tickers_list if tickers.close is not None]
-        if symbols:
-            ret = [tickers for tickers in ret if tickers.symbol in symbols]
         return ret
 
     async def get_orders(
@@ -230,18 +194,13 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
             base_url=self._base_url, headers={"X-API-KEY": self._api_key}, timeout=Timeout(10, connect=5, read=60)
         )
 
-    # XXX: [JMSOLA] Add backoff to retry when:
-    # - 403 (Invalid signature Bit2Me API error)
-    # - 429 (Too many requests)
-    # - 502 Bad Gateway
-    # - Any unexpected timeout
     @backoff.on_exception(
         backoff.fibo,
         exception=(ValueError, NetworkError, TimeoutException),
         max_value=5,
         max_tries=7,
         jitter=backoff.random_jitter,
-        giveup=_backoff_giveup_handler,
+        giveup=prepare_backoff_giveup_handler_fn(BIT2ME_RETRYABLE_HTTP_STATUS_CODES),
         on_backoff=backoff_on_backoff_handler,
     )
     async def _perform_http_request(
@@ -318,10 +277,3 @@ class Bit2MeRemoteService(AbstractHttpRemoteAsyncService):
         td = Timedelta(timeframe)
         ret = int(td.total_seconds() // 60)
         return ret
-
-    def _build_full_url(self, path: str, query_params: dict[str, any]) -> str:
-        full_url = path
-        if query_params:
-            query_string = urlencode(query_params, doseq=True)
-            full_url += "?" + query_string
-        return full_url
