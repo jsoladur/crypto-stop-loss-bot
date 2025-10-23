@@ -147,9 +147,12 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
 
     @override
     async def get_order_by_id(self, id: str, *, client: Any | None = None) -> Order | None:
-        mexc_order = await self._mexc_remote_service.get_order_by_id(order_id=id, client=client)
-        symbol_config = await self._get_single_mexc_exchange_symbol_config(symbol=mexc_order.symbol, client=client)
-        ret = self._map_mexc_order(mexc_order, symbol_config)
+        mexc_open_orders = await self._mexc_remote_service.get_open_orders(client=client)
+        mexc_order = next((mexc_order for mexc_order in mexc_open_orders if str(mexc_order.order_id) == str(id)), None)
+        ret: Order | None = None
+        if mexc_order:
+            symbol_config = await self._get_single_mexc_exchange_symbol_config(symbol=mexc_order.symbol, client=client)
+            ret = self._map_mexc_order(mexc_order, symbol_config)
         return ret
 
     @override
@@ -198,7 +201,10 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
             price=order.price,
             stop_price=order.stop_price,
         )
-        mexc_order = await self._mexc_remote_service.create_order(create_order_obj, client=client)
+        created_mexc_order = await self._mexc_remote_service.create_order(create_order_obj, client=client)
+        mexc_order = await self._mexc_remote_service.get_order(
+            symbol=created_mexc_order.symbol, order_id=created_mexc_order.order_id, client=client
+        )
         symbol_config = await self._get_single_mexc_exchange_symbol_config(symbol=mexc_order.symbol, client=client)
         ret = self._map_mexc_order(mexc_order, symbol_config)
         return ret

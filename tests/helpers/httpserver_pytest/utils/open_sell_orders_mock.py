@@ -8,7 +8,11 @@ from pytest_httpserver.httpserver import HandlerType
 from werkzeug import Response
 
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import CreateNewMEXCOrderDto, MEXCOrderDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import (
+    CreateNewMEXCOrderDto,
+    MEXCOrderCreatedDto,
+    MEXCOrderDto,
+)
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import (
     OperatingExchangeEnum,
     OrderTypeEnum,
@@ -76,6 +80,8 @@ def prepare_httpserver_sell_order_created_mock(
     operating_exchange: OperatingExchangeEnum,
     api_key: str,
     api_secret: str,
+    *,
+    order_symbol: str,
     order_type: OrderTypeEnum = OrderTypeEnum.MARKET,
 ) -> None:
     match operating_exchange:
@@ -92,6 +98,17 @@ def prepare_httpserver_sell_order_created_mock(
             )
         case OperatingExchangeEnum.MEXC:
             additional_required_query_params = [*CreateNewMEXCOrderDto.model_fields.keys(), "signature", "timestamp"]
+            open_sell_order = MEXCOrderDtoObjectMother.create(
+                side="SELL", symbol=order_symbol, order_type=pydash.snake_case(order_type.value).upper(), status="NEW"
+            )
+            mexc_order_created = MEXCOrderCreatedDto(
+                order_id=open_sell_order.order_id,
+                price=open_sell_order.price,
+                orig_qty=str(open_sell_order.qty),
+                side=open_sell_order.side,
+                symbol=open_sell_order.symbol,
+                type=open_sell_order.type,
+            )
             httpserver.expect(
                 MEXCAPIRequestMatcher(
                     "/mexc-api/api/v3/order",
@@ -101,11 +118,17 @@ def prepare_httpserver_sell_order_created_mock(
                     method="POST",
                 ).set_api_key_and_secret(api_key, api_secret),
                 handler_type=HandlerType.ONESHOT,
-            ).respond_with_json(
-                MEXCOrderDtoObjectMother.create(
-                    side="SELL", order_type=pydash.snake_case(order_type.value).upper(), status="NEW"
-                ).model_dump(by_alias=True, mode="json")
-            )
+            ).respond_with_json(mexc_order_created.model_dump(by_alias=True, mode="json"))
+            httpserver.expect(
+                MEXCAPIRequestMatcher(
+                    "/mexc-api/api/v3/order",
+                    query_string=CustomAPIQueryMatcher(
+                        {"symbol": open_sell_order.symbol, "orderId": open_sell_order.order_id},
+                        additional_required_query_params=additional_required_query_params,
+                    ),
+                ).set_api_key_and_secret(api_key, api_secret),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(open_sell_order.model_dump(by_alias=True, mode="json"))
         case _:
             raise ValueError(f"Unknown operating exchange: {operating_exchange}")
 

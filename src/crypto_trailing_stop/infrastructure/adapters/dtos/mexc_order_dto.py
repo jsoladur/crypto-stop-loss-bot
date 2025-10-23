@@ -20,10 +20,18 @@ class CreateNewMEXCOrderDto(_AbstractMECXOrderDto):
     stop_price: float | int | None = Field(alias="stopPrice", default=None)
 
 
+class MEXCOrderCreatedDto(_AbstractMECXOrderDto):
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+    order_id: str | int = Field(..., alias="orderId")
+    price: str
+    orig_qty: str = Field(..., alias="origQty")
+
+
 class MEXCOrderDto(_AbstractMECXOrderDto):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
-    order_id: int = Field(..., alias="orderId")
+    order_id: str | int = Field(..., alias="orderId")
     time: int
     update_time: int | None = Field(alias="updateTime", default=None)
     status: MEXCOrderStatus
