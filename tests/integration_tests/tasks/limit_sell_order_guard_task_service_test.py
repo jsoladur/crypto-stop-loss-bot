@@ -435,7 +435,9 @@ def _prepare_httpserver_mock(
             prepare_httpserver_delete_order_mock(
                 httpserver, operating_exchange, api_key, api_secret, open_sell_order=sell_order
             )
-            prepare_httpserver_sell_order_created_mock(faker, httpserver, operating_exchange, api_key, api_secret)
+            prepare_httpserver_sell_order_created_mock(
+                faker, httpserver, operating_exchange, api_key, api_secret, order_symbol=sell_order.symbol
+            )
             if percent_to_sell < 100:
                 operating_exchange_service: AbstractOperatingExchangeService = (
                     get_application_container().adapters_container().operating_exchange_service()
@@ -450,13 +452,19 @@ def _prepare_httpserver_mock(
                     fixed_balance=round(
                         sell_order.order_amount
                         if isinstance(sell_order, Bit2MeOrderDto)
-                        else float(sell_order.qty)
+                        else float(sell_order.orig_qty)
                         * ((percent_to_sell - operating_exchange_service.get_taker_fee()) / 100),
                         ndigits=2,
                     ),
                 )
                 prepare_httpserver_sell_order_created_mock(
-                    faker, httpserver, operating_exchange, api_key, api_secret, order_type=OrderTypeEnum.LIMIT
+                    faker,
+                    httpserver,
+                    operating_exchange,
+                    api_key,
+                    api_secret,
+                    order_symbol=sell_order.symbol,
+                    order_type=OrderTypeEnum.LIMIT,
                 )
     return opened_sell_orders, buy_prices, fetch_ohlcv_return_value
 

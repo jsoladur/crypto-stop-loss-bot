@@ -19,7 +19,11 @@ from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler, prepa
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_account_info_dto import MEXCAccountInfoDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_exchange_info_dto import MEXCExchangeInfoDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import CreateNewMEXCOrderDto, MEXCOrderDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import (
+    CreateNewMEXCOrderDto,
+    MEXCOrderCreatedDto,
+    MEXCOrderDto,
+)
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_book_dto import MEXCTickerBookDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_price_dto import MEXCTickerPriceDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_trade_dto import MEXCTradeDto
@@ -86,9 +90,9 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
         ret = RootModel[list[MEXCOrderDto]].model_validate_json(response.content).root
         return ret
 
-    async def get_order_by_id(self, order_id: str, *, client: AsyncClient | None = None) -> MEXCOrderDto:
+    async def get_order(self, symbol: str, order_id: str, *, client: AsyncClient | None = None) -> MEXCOrderDto:
         response = await self._perform_http_request(
-            method="GET", url="/api/v3/order", params={"orderId": order_id}, client=client
+            method="GET", url="/api/v3/order", params={"symbol": symbol, "orderId": order_id}, client=client
         )
         ret = MEXCOrderDto.model_validate_json(response.content)
         return ret
@@ -98,13 +102,15 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
         ret = RootModel[list[MEXCTradeDto]].model_validate_json(response.content).root
         return ret
 
-    async def create_order(self, order: CreateNewMEXCOrderDto, *, client: AsyncClient | None = None) -> MEXCOrderDto:
+    async def create_order(
+        self, order: CreateNewMEXCOrderDto, *, client: AsyncClient | None = None
+    ) -> MEXCOrderCreatedDto:
         order_as_dict: dict[str, Any] = order.model_dump(mode="json", by_alias=True, exclude_none=True)
         response = await self._perform_http_request(
             method="POST", url="/api/v3/order", params=order_as_dict, client=client
         )
-        order = MEXCOrderDto.model_validate_json(response.content)
-        return order
+        created_order = MEXCOrderCreatedDto.model_validate_json(response.content)
+        return created_order
 
     async def cancel_order(self, symbol: str, order_id: str, *, client: AsyncClient | None = None) -> None:
         await self._perform_http_request(
