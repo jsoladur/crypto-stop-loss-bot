@@ -43,7 +43,7 @@ def generate_mexc_trades(
                 is_buyer=True,
                 symbol=sell_order.symbol,
                 price=float(sell_order.price) * 0.5,
-                amount=float(sell_order.executed_qty) / number_of_trades,
+                amount=float(sell_order.orig_qty) / number_of_trades,
             )
             buy_trades.append(current_buy_trade)
             numerator += current_buy_trade.price * current_buy_trade.qty

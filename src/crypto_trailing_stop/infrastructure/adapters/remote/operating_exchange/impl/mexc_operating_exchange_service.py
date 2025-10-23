@@ -273,7 +273,7 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
             symbol=f"{symbol_config.base_asset}/{symbol_config.quote_asset}",
             order_type=OrderTypeEnum(pydash.kebab_case(mexc_order.type).lower()),
             side=OrderSideEnum(mexc_order.side.lower()),
-            amount=float(mexc_order.qty)
+            amount=float(mexc_order.orig_qty)
             if status in [OrderStatusEnum.OPEN, OrderStatusEnum.INACTIVE] or not mexc_order.executed_qty
             else float(mexc_order.executed_qty),
             status=self._map_mexc_status(mexc_order.status),

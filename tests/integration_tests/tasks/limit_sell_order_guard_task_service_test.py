@@ -452,7 +452,7 @@ def _prepare_httpserver_mock(
                     fixed_balance=round(
                         sell_order.order_amount
                         if isinstance(sell_order, Bit2MeOrderDto)
-                        else float(sell_order.qty)
+                        else float(sell_order.orig_qty)
                         * ((percent_to_sell - operating_exchange_service.get_taker_fee()) / 100),
                         ndigits=2,
                     ),

@@ -104,7 +104,7 @@ def prepare_httpserver_sell_order_created_mock(
             mexc_order_created = MEXCOrderCreatedDto(
                 order_id=open_sell_order.order_id,
                 price=open_sell_order.price,
-                orig_qty=str(open_sell_order.qty),
+                orig_qty=str(open_sell_order.orig_qty),
                 side=open_sell_order.side,
                 symbol=open_sell_order.symbol,
                 type=open_sell_order.type,

@@ -36,8 +36,6 @@ class MEXCOrderDto(_AbstractMECXOrderDto):
     update_time: int | None = Field(alias="updateTime", default=None)
     status: MEXCOrderStatus
     price: str
-    qty: str = Field(..., alias="Qty")
-    executed_qty: str = Field(..., alias="executedQty")
-    cummulative_quote_qty: str | None = Field(alias="cummulativeQuoteQty", default=None)
+    orig_qty: str = Field(..., alias="origQty")
+    executed_qty: str | None = Field(alias="executedQty", default=None)
     stop_price: str | None = Field(alias="stopPrice", default=None)
-    orig_quote_order_qty: str | None = Field(alias="origQuoteOrderQty", default=None)

@@ -108,7 +108,7 @@ async def _exec_test(
             assert metrics.sell_order.stop_price == sell_order.stop_price
         else:
             assert metrics.sell_order.id == str(sell_order.order_id)
-            assert metrics.sell_order.amount == float(sell_order.qty)
+            assert metrics.sell_order.amount == float(sell_order.orig_qty)
             assert metrics.sell_order.amount == float(sell_order.executed_qty)
             assert metrics.sell_order.order_type.name.upper() == sell_order.type.upper()
             assert metrics.sell_order.status == _map_mexc_status(sell_order.status)

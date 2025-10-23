@@ -56,7 +56,7 @@ class MEXCOrderDtoObjectMother:
             time=int((created_at or cls._faker.past_datetime(tzinfo=UTC)).timestamp() * 1000),
             status=status or cls._faker.random_element(list(get_args(MEXCOrderStatus))),
             price=str(price) if price else None,
-            qty=qty,
+            orig_qty=qty,
             executed_qty=qty,
             stop_price=str(stop_price) if stop_price else None,
         )

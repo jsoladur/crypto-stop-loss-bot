@@ -497,7 +497,7 @@ def _prepare_httpserver_mock_order_created_successfully(
             mexc_order_created = MEXCOrderCreatedDto(
                 order_id=buy_order_created.order_id,
                 price=buy_order_created.price,
-                orig_qty=buy_order_created.qty,
+                orig_qty=buy_order_created.orig_qty,
                 side=buy_order_created.side,
                 symbol=buy_order_created.symbol,
                 type=buy_order_created.type,
@@ -565,7 +565,7 @@ def _prepare_httpserver_limit_sell_order_created_mock(
             mexc_order_created = MEXCOrderCreatedDto(
                 order_id=open_sell_order.order_id,
                 price=open_sell_order.price,
-                orig_qty=open_sell_order.qty,
+                orig_qty=open_sell_order.orig_qty,
                 side=open_sell_order.side,
                 symbol=open_sell_order.symbol,
                 type=open_sell_order.type,
