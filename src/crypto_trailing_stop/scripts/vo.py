@@ -1,9 +1,18 @@
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from typing import Literal
 
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 
 TakeProfitFilter = Literal["all", "enabled", "disabled"]
+
+
+@dataclass
+class ParametersRefinementResult:
+    ema_short: int
+    ema_mid: int
+    buy_min_volume_threshold_values: list[float] = field(default_factory=list)
+    buy_max_volume_threshold_values: list[float] = field(default_factory=list)
+    sell_min_volume_threshold_values: list[float] = field(default_factory=list)
 
 
 @dataclass
