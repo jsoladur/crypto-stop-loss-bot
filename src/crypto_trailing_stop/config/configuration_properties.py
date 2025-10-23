@@ -45,12 +45,12 @@ class ConfigurationProperties(BaseSettings):
     operating_exchange: OperatingExchangeEnum = OperatingExchangeEnum.BIT2ME
     # MEXC API configuration
     mexc_api_base_url: AnyUrl = MEXC_API_BASE_URL
-    mexc_api_key: str = ""
-    mexc_api_secret: str = ""
+    mexc_api_key: str | None = None
+    mexc_api_secret: str | None = None
     # Bit2Me API configuration
     bit2me_api_base_url: AnyUrl = BIT2ME_API_BASE_URL
-    bit2me_api_key: str = ""
-    bit2me_api_secret: str = ""
+    bit2me_api_key: str | None = None
+    bit2me_api_secret: str | None = None
     # Buy Sell Signals configuration
     buy_sell_signals_run_via_cron_pattern: bool = True
     # XXX: Better after backtesting in TradingView
