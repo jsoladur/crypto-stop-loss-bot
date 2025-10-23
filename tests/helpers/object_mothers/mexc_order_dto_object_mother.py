@@ -47,14 +47,16 @@ class MEXCOrderDtoObjectMother:
         order_amount = order_amount or cls._faker.pyfloat(positive=True, min_value=1_000, max_value=10_000)
         qty = str(order_amount) if order_amount else None
         ret = MEXCOrderDto(
-            order_id=cls._faker.pyint(min_value=1_000_000, max_value=9_999_999),
+            order_id=cls._faker.pyint(min_value=1_000_000, max_value=9_999_999)
+            if cls._faker.pybool()
+            else cls._faker.uuid4(),
             side=side or cls._faker.random_element(["buy", "sell"]),
             symbol=symbol,
             type=order_type,
             time=int((created_at or cls._faker.past_datetime(tzinfo=UTC)).timestamp() * 1000),
             status=status or cls._faker.random_element(list(get_args(MEXCOrderStatus))),
             price=str(price) if price else None,
-            qty=qty,
+            orig_qty=qty,
             executed_qty=qty,
             stop_price=str(stop_price) if stop_price else None,
         )

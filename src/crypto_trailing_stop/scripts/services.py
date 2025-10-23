@@ -318,6 +318,7 @@ class BacktestingCliService:
         # 2.4 Run second iteration with refinmement
         second_executions_results = self._apply_cartesian_production_execution(
             symbol=symbol,
+            exchange=exchange,
             initial_cash=initial_cash,
             ema_short_mid_pairs_as_tuples=best_emas,
             buy_min_volume_threshold_values=buy_min_volume_threshold_values_second_iteration,

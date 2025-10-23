@@ -111,7 +111,13 @@ def _prepare_httpserver_mock(
             httpserver, operating_exchange, api_key, api_secret, open_sell_order=opened_sell_order
         )
         prepare_httpserver_sell_order_created_mock(
-            faker, httpserver, operating_exchange, api_key, api_secret, order_type=OrderTypeEnum.STOP_LIMIT
+            faker,
+            httpserver,
+            operating_exchange,
+            api_key,
+            api_secret,
+            order_symbol=opened_sell_order.symbol,
+            order_type=OrderTypeEnum.STOP_LIMIT,
         )
 
 

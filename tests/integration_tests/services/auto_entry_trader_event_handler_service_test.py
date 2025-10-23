@@ -9,6 +9,7 @@ import ccxt.async_support as ccxt
 import pytest
 from aiogram import Bot
 from faker import Faker
+from pydantic import RootModel
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
@@ -16,7 +17,11 @@ from crypto_trailing_stop.commons.constants import TRIGGER_BUY_ACTION_EVENT_NAME
 from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
-from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import CreateNewMEXCOrderDto, MEXCOrderDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import (
+    CreateNewMEXCOrderDto,
+    MEXCOrderCreatedDto,
+    MEXCOrderDto,
+)
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_book_dto import MEXCTickerBookDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_ticker_price_dto import MEXCTickerPriceDto
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.base import AbstractOperatingExchangeService
@@ -489,6 +494,14 @@ def _prepare_httpserver_mock_order_created_successfully(
             ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
         case OperatingExchangeEnum.MEXC:
             additional_required_query_params = [*CreateNewMEXCOrderDto.model_fields.keys(), "signature", "timestamp"]
+            mexc_order_created = MEXCOrderCreatedDto(
+                order_id=buy_order_created.order_id,
+                price=buy_order_created.price,
+                orig_qty=buy_order_created.orig_qty,
+                side=buy_order_created.side,
+                symbol=buy_order_created.symbol,
+                type=buy_order_created.type,
+            )
             httpserver.expect(
                 MEXCAPIRequestMatcher(
                     "/mexc-api/api/v3/order",
@@ -496,6 +509,16 @@ def _prepare_httpserver_mock_order_created_successfully(
                         additional_required_query_params=additional_required_query_params
                     ),
                     method="POST",
+                ).set_api_key_and_secret(api_key, api_secret),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(mexc_order_created.model_dump(by_alias=True, mode="json"))
+            httpserver.expect(
+                MEXCAPIRequestMatcher(
+                    "/mexc-api/api/v3/order",
+                    query_string=CustomAPIQueryMatcher(
+                        {"symbol": buy_order_created.symbol, "orderId": buy_order_created.order_id},
+                        additional_required_query_params=additional_required_query_params,
+                    ),
                 ).set_api_key_and_secret(api_key, api_secret),
                 handler_type=HandlerType.ONESHOT,
             ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
@@ -539,6 +562,14 @@ def _prepare_httpserver_limit_sell_order_created_mock(
                 status="NEW",
                 price=ticker_price.price * 2,
             )
+            mexc_order_created = MEXCOrderCreatedDto(
+                order_id=open_sell_order.order_id,
+                price=open_sell_order.price,
+                orig_qty=open_sell_order.orig_qty,
+                side=open_sell_order.side,
+                symbol=open_sell_order.symbol,
+                type=open_sell_order.type,
+            )
             httpserver.expect(
                 MEXCAPIRequestMatcher(
                     "/mexc-api/api/v3/order",
@@ -546,6 +577,16 @@ def _prepare_httpserver_limit_sell_order_created_mock(
                         additional_required_query_params=additional_required_query_params
                     ),
                     method="POST",
+                ).set_api_key_and_secret(api_key, api_secret),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(mexc_order_created.model_dump(by_alias=True, mode="json"))
+            httpserver.expect(
+                MEXCAPIRequestMatcher(
+                    "/mexc-api/api/v3/order",
+                    query_string=CustomAPIQueryMatcher(
+                        {"symbol": open_sell_order.symbol, "orderId": open_sell_order.order_id},
+                        additional_required_query_params=additional_required_query_params,
+                    ),
                 ).set_api_key_and_secret(api_key, api_secret),
                 handler_type=HandlerType.ONESHOT,
             ).respond_with_json(open_sell_order.model_dump(by_alias=True, mode="json"))
@@ -642,30 +683,22 @@ def _prepare_httpserver_mock_for_simulate_waiting_for_buy_order_filled(
             # Simulating waiting for FILLED
             for _ in range(faker.pyint(min_value=1, max_value=3)):
                 httpserver.expect(
-                    MEXCAPIRequestMatcher(
-                        "/mexc-api/api/v3/order",
-                        query_string=CustomAPIQueryMatcher(
-                            {"orderId": str(buy_order_created.order_id)},
-                            additional_required_query_params=["signature", "timestamp"],
-                        ),
-                        method="GET",
-                    ).set_api_key_and_secret(api_key, api_secret),
-                    handler_type=HandlerType.ONESHOT,
-                ).respond_with_json(buy_order_created.model_dump(by_alias=True, mode="json"))
-            httpserver.expect(
-                MEXCAPIRequestMatcher(
-                    "/mexc-api/api/v3/order",
-                    query_string=CustomAPIQueryMatcher(
-                        {"orderId": str(buy_order_created.order_id)},
-                        additional_required_query_params=["signature", "timestamp"],
+                    MEXCAPIRequestMatcher("/mexc-api/api/v3/openOrders", method="GET").set_api_key_and_secret(
+                        api_key, api_secret
                     ),
-                    method="GET",
-                ).set_api_key_and_secret(api_key, api_secret),
+                    handler_type=HandlerType.ONESHOT,
+                ).respond_with_json(
+                    RootModel[list[MEXCOrderDto]]([buy_order_created]).model_dump(by_alias=True, mode="json")
+                )
+            httpserver.expect(
+                MEXCAPIRequestMatcher("/mexc-api/api/v3/openOrders", method="GET").set_api_key_and_secret(
+                    api_key, api_secret
+                ),
                 handler_type=HandlerType.ONESHOT,
             ).respond_with_json(
-                buy_order_created.model_copy(deep=True, update={"status": "FILLED"}).model_dump(
-                    by_alias=True, mode="json"
-                )
+                RootModel[list[MEXCOrderDto]](
+                    [buy_order_created.model_copy(deep=True, update={"status": "FILLED"})]
+                ).model_dump(by_alias=True, mode="json")
             )
         case _:
             raise ValueError(f"Unknown operating exchange: {operating_exchange}")

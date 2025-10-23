@@ -12,4 +12,4 @@ class MEXCTradeDto(BaseModel):
     is_buyer: bool = Field(..., alias="isBuyer")
     order_id: str | None = Field(alias="orderId", default=None)
     quote_qty: float | int | None = Field(alias="quoteQty", default=None)
-    commission_asset: float | int | None = Field(alias="commissionAsset", default=None)
+    commission_asset: str | None = Field(alias="commissionAsset", default=None)
