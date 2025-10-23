@@ -5,6 +5,7 @@ from io import BytesIO
 import pandas as pd
 
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
 from crypto_trailing_stop.infrastructure.services.vo.global_summary import GlobalSummary
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,10 @@ class GlobalSummaryService:
         This method currently processes local Excel files to calculate total deposits,
         withdrawals, and current value.
         """
+        if (
+            operating_exchange := self._operating_exchange_service.get_operating_exchange()
+        ) != OperatingExchangeEnum.BIT2ME:
+            raise ValueError(f"Unsupported operating exchange: {operating_exchange}")
         total_deposits = 0.0
         withdrawls = 0.0
         async with await self._operating_exchange_service.get_client() as client:

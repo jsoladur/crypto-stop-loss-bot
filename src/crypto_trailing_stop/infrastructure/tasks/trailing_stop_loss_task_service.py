@@ -115,7 +115,7 @@ class TrailingStopLossTaskService(AbstractTaskService):
         )
         if sell_order.stop_price < new_stop_price:
             logger.info(f"Updating order {repr(sell_order)} to new stop price {new_stop_price} {sell_order.symbol}.")
-            await self._operating_exchange_service.cancel_order_by_id(sell_order.id, client=client)
+            await self._operating_exchange_service.cancel_order(sell_order, client=client)
             new_order = await self._operating_exchange_service.create_order(
                 order=Order(
                     order_type=sell_order.order_type,

@@ -236,11 +236,11 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         )
         remaining_to_invest = portfolio_assigned_amount - already_invested_amount
 
-        eur_wallet_balance, *_ = await self._operating_exchange_service.get_trading_wallet_balances(
+        fiat_wallet_balance, *_ = await self._operating_exchange_service.get_trading_wallet_balances(
             symbols=fiat_currency.upper(), client=client
         )
         amount_to_invest = min(
-            math.floor(eur_wallet_balance.balance), math.floor(remaining_to_invest) if remaining_to_invest > 0 else 0
+            math.floor(fiat_wallet_balance.balance), math.floor(remaining_to_invest) if remaining_to_invest > 0 else 0
         )
         return amount_to_invest
 
@@ -258,10 +258,10 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         last_exception: Exception | None = None
         attemps = 1
         while new_buy_market_order is None and attemps <= AUTO_ENTRY_TRADER_MAX_ATTEMPS_TO_BUY:
+            tickers = await self._operating_exchange_service.get_single_tickers_by_symbol(
+                market_signal_item.symbol, client=client
+            )
             try:
-                tickers = await self._operating_exchange_service.get_single_tickers_by_symbol(
-                    market_signal_item.symbol, client=client
-                )
                 # XXX: [JMSOLA] Get the current tickers.ask price for calculate the order_amount
                 buy_order_amount = self._floor_round(
                     amount_with_buffer / tickers.ask_or_close, ndigits=trading_market_config.amount_precision

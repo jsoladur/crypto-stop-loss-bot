@@ -3,7 +3,6 @@ import logging
 import pytest
 from faker import Faker
 from pytest_httpserver import HTTPServer
-from pytest_httpserver.httpserver import HandlerType
 
 from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
@@ -11,19 +10,15 @@ from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_serv
     FavouriteCryptoCurrencyService,
 )
 from tests.helpers.constants import MOCK_CRYPTO_CURRENCIES
-from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMacher
-from tests.helpers.market_config_utils import load_raw_market_config_list
 
 logger = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def should_set_buy_sell_signals_config_properly(
+async def should_add_and_remove_favourite_crypto_currency_properly(
     faker: Faker, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
 ) -> None:
-    _, httpserver, bit2me_api_key, bit2me_api_secret, *_ = integration_test_jobs_disabled_env
-
-    _prepare_httpserver_mock(httpserver, bit2me_api_key, bit2me_api_secret)
+    _, httpserver, *_ = integration_test_jobs_disabled_env
 
     operating_exchange_service: AbstractOperatingExchangeService = (
         get_application_container().adapters_container().operating_exchange_service()
@@ -62,13 +57,3 @@ async def should_set_buy_sell_signals_config_properly(
         assert selected_crypto_currency_to_add in non_favourite_crypto_currencies
 
         httpserver.check_assertions()
-
-
-def _prepare_httpserver_mock(httpserver: HTTPServer, bit2me_api_key: str, bik2me_api_secret: str) -> list[str]:
-    raw_market_config_list = load_raw_market_config_list()
-    httpserver.expect(
-        Bit2MeAPIRequestMacher("/bit2me-api/v1/trading/market-config", method="GET").set_bit2me_api_key_and_secret(
-            bit2me_api_key, bik2me_api_secret
-        ),
-        handler_type=HandlerType.PERMANENT,
-    ).respond_with_json(raw_market_config_list)

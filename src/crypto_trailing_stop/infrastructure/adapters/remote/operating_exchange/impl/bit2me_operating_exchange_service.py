@@ -93,8 +93,8 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
     async def get_tickers_by_symbols(
         self, symbols: list[str] | str = [], *, client: Any | None = None
     ) -> list[SymbolTickers]:
-        bit2me_tickers_list = await self._bit2me_remote_service.get_tickers_by_symbols(symbols=symbols, client=client)
-        return [
+        bit2me_tickers_list = await self._bit2me_remote_service.get_tickers_by_symbols(client=client)
+        ret = [
             SymbolTickers(
                 timestamp=tickers.timestamp,
                 symbol=tickers.symbol,
@@ -104,6 +104,10 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
             )
             for tickers in bit2me_tickers_list
         ]
+        symbols = list(symbols) if isinstance(symbols, (list, set, tuple, frozenset)) else [symbols]
+        if symbols:
+            ret = [tickers for tickers in ret if tickers.symbol in symbols]
+        return ret
 
     @override
     async def get_orders(
@@ -161,22 +165,6 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
         )
 
     @override
-    async def get_trading_crypto_currencies(self, *, client: Any | None = None) -> list[str]:
-        market_config_list = await self.get_trading_market_config_list(client=client)
-        ret = list({symbol.split("/")[0].strip().upper() for symbol in market_config_list.keys()})
-        return ret
-
-    @override
-    async def get_trading_market_config_by_symbol(
-        self, symbol: str, *, client: Any | None = None
-    ) -> SymbolMarketConfig:
-        market_config_list = await self.get_trading_market_config_list(client=client)
-        if symbol not in market_config_list:
-            raise ValueError(f"Market config for symbol '{symbol}' not found in Bit2Me API.")
-        ret = market_config_list[symbol]
-        return ret
-
-    @override
     async def get_trading_market_config_list(self, *, client: Any | None = None) -> dict[str, SymbolMarketConfig]:
         bit2me_market_config_list = await self._bit2me_remote_service.get_trading_market_config_list(client=client)
         return {
@@ -203,8 +191,8 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
         return ret
 
     @override
-    async def cancel_order_by_id(self, id: str, *, client: Any | None = None) -> None:
-        await self._bit2me_remote_service.cancel_order_by_id(id=id, client=client)
+    async def cancel_order(self, order: Order, *, client: Any | None = None) -> None:
+        await self._bit2me_remote_service.cancel_order_by_id(id=order.id, client=client)
 
     @override
     async def get_client(self) -> Any:

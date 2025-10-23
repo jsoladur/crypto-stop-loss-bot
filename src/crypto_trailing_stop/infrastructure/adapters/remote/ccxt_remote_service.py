@@ -6,12 +6,19 @@ import cachebox
 import ccxt.async_support as ccxt
 
 from crypto_trailing_stop.commons.constants import DEFAULT_IN_MEMORY_CACHE_TTL_IN_SECONDS
+from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.operating_exchange_enum import (
+    OperatingExchangeEnum,
+)
 from crypto_trailing_stop.infrastructure.tasks.vo.types import Timeframe
 
 logger = logging.getLogger(__name__)
 
 
 class CcxtRemoteService:
+    def __init__(self, configuration_properties: ConfigurationProperties) -> None:
+        self._configuration_properties = configuration_properties
+
     @backoff.on_exception(
         backoff.constant,
         exception=ccxt.BaseError,
@@ -78,5 +85,8 @@ class CcxtRemoteService:
         return ret
 
     def get_exchange(self) -> ccxt.Exchange:
-        exchange = ccxt.binance()
+        if self._configuration_properties.operating_exchange == OperatingExchangeEnum.MEXC:
+            exchange = ccxt.mexc()
+        else:
+            exchange = ccxt.binance()
         return exchange

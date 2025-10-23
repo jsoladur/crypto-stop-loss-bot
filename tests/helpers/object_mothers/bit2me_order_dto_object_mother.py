@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import get_args
 
 from faker import Faker
 
@@ -8,6 +9,7 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import (
     Bit2MeOrderStatus,
     Bit2MeOrderType,
 )
+from tests.helpers.constants import MOCK_SYMBOLS_EUR
 
 
 class Bit2MeOrderDtoObjectMother:
@@ -44,10 +46,10 @@ class Bit2MeOrderDtoObjectMother:
         return Bit2MeOrderDto(
             id=cls._faker.uuid4(),
             created_at=created_at or cls._faker.past_datetime(tzinfo=UTC),
-            side=side or cls._faker.random_element(["buy", "sell"]),
-            symbol=symbol or cls._faker.random_element(["ETH/EUR", "SOL/EUR"]),
+            side=side or cls._faker.random_element(list(get_args(Bit2MeOrderSide))),
+            symbol=symbol or cls._faker.random_element(MOCK_SYMBOLS_EUR),
             order_type=order_type,
-            status=status or cls._faker.random_element(["open", "filled", "cancelled", "inactive"]),
+            status=status or cls._faker.random_element(list(get_args(Bit2MeOrderStatus))),
             order_amount=order_amount or cls._faker.pyfloat(positive=True, min_value=1_000, max_value=10_000),
             stop_price=stop_price,
             price=price,

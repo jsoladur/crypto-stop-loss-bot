@@ -22,6 +22,37 @@ if TYPE_CHECKING:
 
 
 class AbstractOperatingExchangeService(ABC):
+    async def get_trading_crypto_currencies(self, *, client: Any | None = None) -> list[str]:
+        """Fetches a list of trading cryptocurrencies available on the exchange.
+
+        Args:
+            client (Any | None, optional): Client to connect with the exchange. Defaults to None.
+
+        Returns:
+            list[str]: A list of trading cryptocurrency symbols.
+        """
+        market_config_list = await self.get_trading_market_config_list(client=client)
+        ret = list({symbol.split("/")[0].strip().upper() for symbol in market_config_list.keys()})
+        return ret
+
+    async def get_trading_market_config_by_symbol(
+        self, symbol: str, *, client: Any | None = None
+    ) -> SymbolMarketConfig | None:
+        """Fetches trading market configuration for a given symbol.
+
+        Args:
+            symbol (str): The trading pair symbol (e.g., 'BTC/USD').
+            client (Any | None, optional): Client to connect with the exchange. Defaults to None.
+
+        Returns:
+            SymbolMarketConfig | None: A SymbolMarketConfig object if found, otherwise None.
+        """
+        market_config_list = await self.get_trading_market_config_list(client=client)
+        if symbol not in market_config_list:
+            raise ValueError(f"Market config for symbol '{symbol}' not found in {type(self).__name__}.")
+        ret = market_config_list[symbol]
+        return ret
+
     async def get_pending_sell_orders(
         self, *, order_type: OrderTypeEnum | None = None, client: Any | None = None
     ) -> list[Order]:
@@ -202,31 +233,6 @@ class AbstractOperatingExchangeService(ABC):
         """
 
     @abstractmethod
-    async def get_trading_crypto_currencies(self, *, client: Any | None = None) -> list[str]:
-        """Fetches a list of trading cryptocurrencies available on the exchange.
-
-        Args:
-            client (Any | None, optional): Client to connect with the exchange. Defaults to None.
-
-        Returns:
-            list[str]: A list of trading cryptocurrency symbols.
-        """
-
-    @abstractmethod
-    async def get_trading_market_config_by_symbol(
-        self, symbol: str, *, client: Any | None = None
-    ) -> SymbolMarketConfig | None:
-        """Fetches trading market configuration for a given symbol.
-
-        Args:
-            symbol (str): The trading pair symbol (e.g., 'BTC/USD').
-            client (Any | None, optional): Client to connect with the exchange. Defaults to None.
-
-        Returns:
-            SymbolMarketConfig | None: A SymbolMarketConfig object if found, otherwise None.
-        """
-
-    @abstractmethod
     async def get_trading_market_config_list(self, *, client: Any | None = None) -> dict[str, SymbolMarketConfig]:
         """Fetches trading market configurations for all symbols.
 
@@ -250,11 +256,11 @@ class AbstractOperatingExchangeService(ABC):
         """
 
     @abstractmethod
-    async def cancel_order_by_id(self, id: str, *, client: Any | None = None) -> None:
-        """Cancels an order by its ID on the exchange.
+    async def cancel_order(self, order: Order, *, client: Any | None = None) -> None:
+        """Cancels an order
 
         Args:
-            id (str): The ID of the order to cancel.
+            order (Order): The order object to cancel.
             client (Any | None, optional): Client to connect with the exchange. Defaults to None.
 
         Returns:
