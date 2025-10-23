@@ -5,7 +5,11 @@ from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult
 
 
 def run_single_backtest_combination(
-    simulated_bs_config: BuySellSignalsConfigItem, initial_cash: float, df: pd.DataFrame, timeframe: str = "1h"
+    exchange: str,
+    simulated_bs_config: BuySellSignalsConfigItem,
+    initial_cash: float,
+    df: pd.DataFrame,
+    timeframe: str = "1h",
 ) -> BacktestingExecutionResult | None:
     """
     Runs a single backtest for one combination of parameters. Designed to be called in parallel.
@@ -23,6 +27,7 @@ def run_single_backtest_combination(
     try:
         # We use df.copy() to ensure each process gets its own data
         ret, *_ = backtesting_cli_service.execute_backtesting(
+            exchange=exchange,
             simulated_bs_config=simulated_bs_config,
             initial_cash=initial_cash,
             df=df.copy(),

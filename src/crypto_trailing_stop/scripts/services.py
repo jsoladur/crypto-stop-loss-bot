@@ -4,6 +4,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from itertools import product
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import ccxt
@@ -20,6 +21,7 @@ from crypto_trailing_stop.commons.constants import (
     BIT2ME_TAKER_FEES,
     EMA_SHORT_MID_PAIRS_AS_TUPLES,
     MAX_VOLUME_THRESHOLD_STEP_VALUE,
+    MEXC_TAKER_FEES,
     MIN_VOLUME_THRESHOLD_STEP_VALUE,
     SP_TP_PAIRS_AS_TUPLES,
 )
@@ -49,9 +51,10 @@ from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult, Backtest
 
 class BacktestingCliService:
     def __init__(self) -> None:
+        ccxt_remote_service = CcxtRemoteService(configuration_properties=SimpleNamespace(operating_exchange="mexc"))
         self._analytics_service = CryptoAnalyticsService(
             operating_exchange_service=None,
-            ccxt_remote_service=CcxtRemoteService(),
+            ccxt_remote_service=ccxt_remote_service,
             favourite_crypto_currency_service=None,
             buy_sell_signals_config_service=None,
         )
@@ -62,7 +65,7 @@ class BacktestingCliService:
             telegram_service=None,
             event_emitter=None,
             scheduler=AsyncIOScheduler(),
-            ccxt_remote_service=CcxtRemoteService(),
+            ccxt_remote_service=ccxt_remote_service,
             global_flag_service=None,
             favourite_crypto_currency_service=None,
             crypto_analytics_service=None,
@@ -123,6 +126,7 @@ class BacktestingCliService:
         self,
         *,
         symbol: str,
+        exchange: str,
         timeframe: str,
         initial_cash: float,
         downloaded_months_back: int = DEFAULT_MONTHS_BACK,
@@ -142,6 +146,7 @@ class BacktestingCliService:
         if from_parquet is None:
             ret = self._find_out_best_parameters_in_real_time(
                 symbol=symbol,
+                exchange=exchange,
                 timeframe=timeframe,
                 initial_cash=initial_cash,
                 downloaded_months_back=downloaded_months_back,
@@ -172,6 +177,7 @@ class BacktestingCliService:
     def execute_backtesting(
         self,
         *,
+        exchange: str,
         simulated_bs_config: BuySellSignalsConfigItem,
         initial_cash: float,
         df: pd.DataFrame,
@@ -214,7 +220,12 @@ class BacktestingCliService:
                 columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"},
                 inplace=True,
             )
-            bt = backtesting.Backtest(df, SignalStrategy, cash=initial_cash, commission=BIT2ME_TAKER_FEES)
+            bt = backtesting.Backtest(
+                df,
+                SignalStrategy,
+                cash=initial_cash,
+                commission=MEXC_TAKER_FEES if exchange == "mexc" else BIT2ME_TAKER_FEES,
+            )
             if not use_tqdm:
                 backtesting._tqdm = lambda iterable=None, *args, **kwargs: iterable
             stats = bt.run(
@@ -233,6 +244,7 @@ class BacktestingCliService:
         self,
         *,
         symbol: str,
+        exchange: str,
         timeframe: str,
         initial_cash: float,
         downloaded_months_back: int = DEFAULT_MONTHS_BACK,
@@ -250,6 +262,7 @@ class BacktestingCliService:
         # 2.1 Run first iteration for backtesting in order to find out best candidates
         first_executions_results = self._apply_cartesian_production_execution(
             symbol=symbol,
+            exchange=exchange,
             initial_cash=initial_cash,
             ema_short_mid_pairs_as_tuples=EMA_SHORT_MID_PAIRS_AS_TUPLES,
             buy_min_volume_threshold_values=MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION,
@@ -457,6 +470,7 @@ class BacktestingCliService:
         self,
         *,
         symbol: str,
+        exchange: str,
         initial_cash: float,
         ema_short_mid_pairs_as_tuples: list[tuple[int, int]],
         tp_filter: TakeProfitFilter,
@@ -482,7 +496,7 @@ class BacktestingCliService:
         # Use joblib to run the backtests in parallel across all available CPU cores
         # tqdm is now wrapped around the parallel execution
         results = Parallel(n_jobs=-1)(
-            delayed(run_single_backtest_combination)(params, initial_cash, df, timeframe)
+            delayed(run_single_backtest_combination)(exchange, params, initial_cash, df, timeframe)
             for params in (tqdm(cartesian_product) if not disable_progress_bar else cartesian_product)
         )
         # Filter out any runs that failed (they will return None)

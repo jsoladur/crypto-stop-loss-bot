@@ -44,7 +44,7 @@ backtesting_cli_service = BacktestingCliService()
 @app.command()
 def download_data(
     symbol: str = typer.Argument(..., help="The symbol to download, e.g., ETH/EUR"),
-    exchange: str = typer.Option("binance", help="The name of the exchange to use."),
+    exchange: str = typer.Option("mexc", help="The name of the exchange to use."),
     timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
     months_back: int = typer.Option(DEFAULT_MONTHS_BACK, help="The number of months of data to download."),
 ):
@@ -53,7 +53,7 @@ def download_data(
     """
     symbol = symbol.strip().upper()
     try:
-        typer.secho(f"📥 Starting download for {symbol} on 1h timeframe...", fg=typer.colors.BLUE)
+        typer.secho(f"📥 Starting download for {exchange.upper()} :: {symbol} on 1h timeframe...", fg=typer.colors.BLUE)
         all_ohlcv = backtesting_cli_service.download_backtesting_data(
             symbol, exchange, timeframe, months_back, echo_fn=typer.secho
         )
@@ -71,6 +71,7 @@ def download_data(
 @app.command()
 def backtesting(
     symbol: str = typer.Argument(..., help="The symbol to backtest, e.g., ETH/EUR"),
+    exchange: str = typer.Option("mexc", help="The name of the exchange to use."),
     timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
     # EMA/ADX parameters
     ema_short: int = typer.Option(9, help="Length of the short EMA."),
@@ -123,6 +124,7 @@ def backtesting(
             enable_exit_on_take_profit=enable_tp,
         )
         current_execution_result, bt, stats = backtesting_cli_service.execute_backtesting(
+            exchange=exchange,
             simulated_bs_config=simulated_bs_config,
             initial_cash=initial_cash,
             df=df,
@@ -153,7 +155,7 @@ def backtesting(
 def research(
     symbol: str = typer.Argument(..., help="The symbol to backtest, e.g., ETH/EUR"),
     initial_cash: float = typer.Option(3_000, help="Intial cash for the backtest."),
-    exchange: str = typer.Option("binance", help="The name of the exchange to use."),
+    exchange: str = typer.Option("mexc", help="The name of the exchange to use."),
     timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
     months_back: int = typer.Option(DEFAULT_MONTHS_BACK, help="The number of months of data to download."),
     disable_minimal_trades: bool = typer.Option(False, help="Disable the minimal trades threshold."),
@@ -209,6 +211,7 @@ def research(
 
         execution_summary = backtesting_cli_service.find_out_best_parameters(
             symbol=symbol,
+            exchange=exchange,
             timeframe=timeframe,
             initial_cash=initial_cash,
             downloaded_months_back=months_back,
