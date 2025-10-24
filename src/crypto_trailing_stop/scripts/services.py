@@ -553,6 +553,30 @@ class BacktestingCliService:
         executions_results: list[BacktestingExecutionResult],
     ) -> BacktestingExecutionSummary:
         ret: BacktestingExecutionSummary = None
+        # Try first to iterative over decent win rate
+        attemps = 0
+        current_decent_win_rate = None
+        while attemps < ITERATE_OVER_EXEC_RESULTS_MAX_ATTEMPS and (ret is None or len(ret.all) <= 0):
+            attemps += 1
+            current_decent_win_rate = (
+                decent_win_rate if current_decent_win_rate is None else (current_decent_win_rate - 1)
+            )
+            current_decent_win_rate = (
+                round(current_decent_win_rate, ndigits=2) if current_decent_win_rate is not None else None
+            )
+            ret = self._get_backtesting_result_summary(
+                downloaded_months_back=downloaded_months_back,
+                disable_minimal_trades=disable_minimal_trades,
+                disable_decent_win_rate=disable_decent_win_rate,
+                decent_win_rate=current_decent_win_rate
+                if current_decent_win_rate is not None and current_decent_win_rate > 0
+                else None,
+                min_profit_factor=min_profit_factor,
+                min_sqn=min_sqn,
+                executions_results=executions_results,
+            )
+
+        # Iterate over min SQN
         attemps = 0
         current_min_sqn = None
         while attemps < ITERATE_OVER_EXEC_RESULTS_MAX_ATTEMPS and (ret is None or len(ret.all) <= 0):
@@ -568,6 +592,7 @@ class BacktestingCliService:
                 min_sqn=current_min_sqn if current_min_sqn is not None and current_min_sqn > 0 else None,
                 executions_results=executions_results,
             )
+        # Iterate over min profit factor
         attemps = 0
         current_min_profit = None
         while attemps < ITERATE_OVER_EXEC_RESULTS_MAX_ATTEMPS and (ret is None or len(ret.all) <= 0):
@@ -582,6 +607,49 @@ class BacktestingCliService:
                 min_profit_factor=current_min_profit
                 if current_min_profit is not None and current_min_profit > 0
                 else None,
+                min_sqn=None,
+                executions_results=executions_results,
+            )
+        # Iterate over decent win rate second time, without min profit factor and min_sqn
+        attemps = 0
+        current_decent_win_rate = None
+        while attemps < ITERATE_OVER_EXEC_RESULTS_MAX_ATTEMPS and (ret is None or len(ret.all) <= 0):
+            attemps += 1
+            current_decent_win_rate = (
+                decent_win_rate if current_decent_win_rate is None else (current_decent_win_rate - 1)
+            )
+            current_decent_win_rate = (
+                round(current_decent_win_rate, ndigits=2) if current_decent_win_rate is not None else None
+            )
+            ret = self._get_backtesting_result_summary(
+                downloaded_months_back=downloaded_months_back,
+                disable_minimal_trades=disable_minimal_trades,
+                disable_decent_win_rate=disable_decent_win_rate,
+                decent_win_rate=current_decent_win_rate
+                if current_decent_win_rate is not None and current_decent_win_rate > 0
+                else None,
+                min_profit_factor=None,
+                min_sqn=None,
+                executions_results=executions_results,
+            )
+        # Disable decent win rate
+        if ret is None:
+            ret = self._get_backtesting_result_summary(
+                downloaded_months_back=downloaded_months_back,
+                disable_minimal_trades=disable_minimal_trades,
+                disable_decent_win_rate=True,
+                decent_win_rate=0.0,
+                min_profit_factor=None,
+                min_sqn=None,
+                executions_results=executions_results,
+            )
+        if ret is None:
+            ret = self._get_backtesting_result_summary(
+                downloaded_months_back=downloaded_months_back,
+                disable_minimal_trades=True,
+                disable_decent_win_rate=True,
+                decent_win_rate=0.0,
+                min_profit_factor=None,
                 min_sqn=None,
                 executions_results=executions_results,
             )
