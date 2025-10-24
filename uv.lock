@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.13"
 
 [[package]]
@@ -533,7 +533,7 @@ wheels = [
 
 [[package]]
 name = "crypto-trailing-stop"
-version = "0.47.4"
+version = "0.47.5"
 source = { editable = "." }
 dependencies = [
     { name = "aiogram" },
