@@ -84,7 +84,7 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
                 if trading_wallet_balance.is_effective
             ]
         )
-        ret = PortfolioBalance(total_balance=total_balance)
+        ret = PortfolioBalance(total_balance=round(total_balance, ndigits=4))
         return ret
 
     @override
