@@ -101,7 +101,8 @@ class BacktestingCliService:
         supported_symbols = [
             market["symbol"]
             for market in markets.values()
-            if market.get("active", False) and str(market["quote"]).upper() == str(fiat_currency).upper()
+            if (market.get("active", False) or market.get("spot", False))
+            and str(market["quote"]).upper() == str(fiat_currency).upper()
         ]
         if symbol not in supported_symbols:
             raise ValueError(
