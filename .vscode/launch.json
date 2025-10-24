@@ -25,7 +25,7 @@
       "type": "debugpy",
       "request": "launch",
       "program": "src/crypto_trailing_stop/scripts/cli.py",
-      "args": ["download-data", "ENA/EUR", "--exchange=kraken"],
+      "args": ["download-data", "ETH/USDT", "--exchange=mexc"],
       "console": "integratedTerminal",
       "justMyCode": false
     },
@@ -36,7 +36,7 @@
       "program": "src/crypto_trailing_stop/scripts/cli.py",
       "args": [
         "backtesting",
-        "SUI/EUR",
+        "ETH/USDT",
         "--adx-threshold=15",
         "--enable-tp",
         "--sl-multiplier=2.5",
