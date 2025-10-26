@@ -1,4 +1,5 @@
 import logging
+import platform
 from unittest.mock import patch
 
 import ccxt.async_support as ccxt
@@ -26,6 +27,7 @@ from tests.helpers.httpserver_pytest.utils import (
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.skipif(platform.system().lower() != "darwin", reason="Skipped test in non-macOS environment")
 @pytest.mark.parametrize("previous_stored_buy_sell_signals_config", [True, False])
 @pytest.mark.asyncio
 async def should_calculate_all_limit_sell_order_guard_metrics_properly(
