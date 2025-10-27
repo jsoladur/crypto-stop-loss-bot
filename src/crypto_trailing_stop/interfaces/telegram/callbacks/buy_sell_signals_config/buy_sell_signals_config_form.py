@@ -97,7 +97,7 @@ class BuySellSignalsConfigForm(Form):
     #     reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
     # )
     enable_exit_on_divergence_signal: str = FormField(
-        enter_message_text="🎯 Enable Exit on BEARISH Divergence?",
+        enter_message_text="💀 Enable Exit on BEARISH Divergence?",
         error_message_text=f"❌ Invalid value. Valid values: {', '.join(YES_NO_VALUES)}",
         filter=F.text.in_(YES_NO_VALUES) & F.text,
         reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
