@@ -22,6 +22,7 @@ class BuySellSignalsConfigItem:
     sell_min_volume_threshold: float
     # Exit Parameters
     enable_exit_on_sell_signal: bool = True
+    enable_exit_on_divergence_signal: bool = True
     enable_exit_on_take_profit: bool = False
 
     def __post_init__(self):

@@ -20,7 +20,6 @@ class SignalStrategy(Strategy):
     """
 
     # Parameters that will be set by the backtest engine
-    enable_tp: bool = False
     simulated_bs_config: BuySellSignalsConfigItem = None
     analytics_service: CryptoAnalyticsService = None
 
@@ -85,7 +84,7 @@ class SignalStrategy(Strategy):
 
             # --- Check 1: Dynamic Take-Profit Exit ---
             exit_on_take_profit = False
-            if self.enable_tp:
+            if self.simulated_bs_config.enable_exit_on_take_profit:
                 tp_price = self._orders_analytics_service._calculate_suggested_take_profit_limit_price(
                     self.trades[-1].entry_price,
                     buy_sell_signals_config=self.simulated_bs_config,
@@ -100,11 +99,15 @@ class SignalStrategy(Strategy):
             exit_on_signal = False
             if self.data.Close[-1] >= break_even_price:
                 # Proactive exit on a NEW divergence
-                exit_on_divergence = self.data.bearish_divergence[-1]
-
+                exit_on_divergence = (
+                    self.simulated_bs_config.enable_exit_on_divergence_signal and self.data.bearish_divergence[-1]
+                )
                 # Exit if our SELL SIGNAL STATE is active AND momentum is confirmed
                 exit_on_sell_signal_state = (
-                    self.sell_signal_active and self.macd_hist[-1] < 0 and self.macd_hist[-1] < self.prev_macd_hist[-1]
+                    self.simulated_bs_config.enable_exit_on_sell_signal
+                    and self.sell_signal_active
+                    and self.macd_hist[-1] < 0
+                    and self.macd_hist[-1] < self.prev_macd_hist[-1]
                 )
 
                 if exit_on_divergence or exit_on_sell_signal_state:

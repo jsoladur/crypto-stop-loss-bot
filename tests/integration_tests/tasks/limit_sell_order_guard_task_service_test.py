@@ -356,6 +356,7 @@ async def should_create_market_sell_order_when_stop_loss_triggered(
         )
         buy_sell_signals_config_item.enable_exit_on_take_profit = False
         buy_sell_signals_config_item.enable_exit_on_sell_signal = True
+        buy_sell_signals_config_item.enable_exit_on_divergence_signal = True
         await buy_sell_signals_config_service.save_or_update(buy_sell_signals_config_item)
 
     # Provoke send a notification via Telegram

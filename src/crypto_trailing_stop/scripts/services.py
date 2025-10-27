@@ -234,11 +234,7 @@ class BacktestingCliService:
             )
             if not use_tqdm:
                 backtesting._tqdm = lambda iterable=None, *args, **kwargs: iterable
-            stats = bt.run(
-                enable_tp=simulated_bs_config.enable_exit_on_take_profit,
-                simulated_bs_config=simulated_bs_config,
-                analytics_service=self._analytics_service,
-            )
+            stats = bt.run(simulated_bs_config=simulated_bs_config, analytics_service=self._analytics_service)
             current_execution_result = self._to_execution_result(
                 simulated_bs_config, initial_cash, stats, timeframe=timeframe
             )
@@ -317,6 +313,7 @@ class BacktestingCliService:
             echo_fn(f"---- Buy Min Volume Thresholds:      {str(current.buy_min_volume_threshold_values)}")
             echo_fn(f"---- Buy Max Volume Thresholds:      {str(current.buy_max_volume_threshold_values)}")
             echo_fn(f"---- Sell Min Volume Thresholds:     {str(current.sell_min_volume_threshold_values)}")
+            echo_fn(f"---- Exit on Divergence Signal values:     {str(current.exit_on_divergence_signal_values)}")
             echo_fn("-----------------------------")
         echo_fn("=============================")
         # 2.4 Run second iteration with refinmement
@@ -328,6 +325,7 @@ class BacktestingCliService:
                 buy_min_volume_threshold_values=current.buy_min_volume_threshold_values,
                 buy_max_volume_threshold_values=current.buy_max_volume_threshold_values,
                 sell_min_volume_threshold_values=current.sell_min_volume_threshold_values,
+                enable_exit_on_divergence_signal_values=current.exit_on_divergence_signal_values,
                 tp_filter=tp_filter,
                 # FIXME: Check if would make sense to apply heuristics or not
                 apply_heuristics=True,
@@ -407,6 +405,13 @@ class BacktestingCliService:
             if result.parameters.enable_sell_volume_filter:
                 parameters_refinement.sell_min_volume_threshold_values.append(
                     result.parameters.sell_min_volume_threshold
+                )
+            if (
+                result.parameters.enable_exit_on_divergence_signal
+                not in parameters_refinement.exit_on_divergence_signal_values
+            ):
+                parameters_refinement.exit_on_divergence_signal_values.append(
+                    result.parameters.enable_exit_on_divergence_signal
                 )
 
         ret: list[ParametersRefinementResult] = []
@@ -721,6 +726,7 @@ class BacktestingCliService:
         buy_min_volume_threshold_values: list[float],
         buy_max_volume_threshold_values: list[float],
         sell_min_volume_threshold_values: list[float],
+        enable_exit_on_divergence_signal_values: list[bool] = [True, False],
         tp_filter: TakeProfitFilter = "all",
         apply_heuristics: bool = True,
         echo_fn: Callable[[str], None] | None = None,
@@ -751,7 +757,14 @@ class BacktestingCliService:
 
         # Now, create the full cartesian product considering all combinations
         full_cartesian_product = list(
-            product(ema_short_mid_pairs_as_tuples, sp_tp_tuples, adx_threshold_values, vol_buy_cases, vol_sell_cases)
+            product(
+                ema_short_mid_pairs_as_tuples,
+                sp_tp_tuples,
+                adx_threshold_values,
+                vol_buy_cases,
+                vol_sell_cases,
+                enable_exit_on_divergence_signal_values,
+            )
         )
         if echo_fn:
             echo_fn(f"FULL RAW COMBINATIONS TO TEST: {len(full_cartesian_product)}")
@@ -792,6 +805,7 @@ class BacktestingCliService:
                 adx_threshold,
                 (enable_buy_volume_filter, buy_min_volume_threshold, buy_max_volume_threshold),
                 (enable_sell_volume_filter, sell_min_volume_threshold),
+                enable_exit_on_divergence_signal,
             ) = params
             config = BuySellSignalsConfigItem(
                 symbol=symbol,
@@ -807,6 +821,8 @@ class BacktestingCliService:
                 buy_max_volume_threshold=buy_max_volume_threshold,
                 enable_sell_volume_filter=enable_sell_volume_filter,
                 sell_min_volume_threshold=sell_min_volume_threshold,
+                enable_exit_on_sell_signal=True,
+                enable_exit_on_divergence_signal=enable_exit_on_divergence_signal,
                 enable_exit_on_take_profit=enable_exit_on_take_profit,
             )
             if not apply_heuristics or self._apply_heuristics(config):

@@ -30,4 +30,5 @@ class BuySellSignalsConfig(Table):
 
     # Exit Parameters
     enable_exit_on_sell_signal: bool = Boolean(required=True)
+    enable_exit_on_divergence_signal: bool = Boolean(required=True)
     enable_exit_on_take_profit: bool = Boolean(required=True)

@@ -305,18 +305,25 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         last_candle_market_metrics: CryptoMarketMetrics,
     ) -> tuple[bool, bool]:
         exit_on_sell_signal, exit_on_bearish_divergence = False, False
-        if buy_sell_signals_config.enable_exit_on_sell_signal:
+        if (
+            buy_sell_signals_config.enable_exit_on_sell_signal
+            or buy_sell_signals_config.enable_exit_on_divergence_signal
+        ):
             last_market_1h_signal = await self._market_signal_service.find_last_market_signal(sell_order.symbol)
             if (
                 last_market_1h_signal is not None
                 and last_market_1h_signal.timestamp > sell_order.created_at
                 and tickers.bid_or_close >= guard_metrics.break_even_price
             ):  # Use bid for break-even check
-                exit_on_bearish_divergence = bool(last_market_1h_signal.signal_type == "bearish_divergence")
                 exit_on_sell_signal = bool(
-                    last_market_1h_signal.signal_type == "sell"
+                    buy_sell_signals_config.enable_exit_on_sell_signal
+                    and last_market_1h_signal.signal_type == "sell"
                     and last_candle_market_metrics.macd_hist < 0
                     and last_candle_market_metrics.macd_hist < prev_candle_market_metrics.macd_hist
+                )
+                exit_on_bearish_divergence = bool(
+                    buy_sell_signals_config.enable_exit_on_divergence_signal
+                    and last_market_1h_signal.signal_type == "bearish_divergence"
                 )
         return exit_on_sell_signal, exit_on_bearish_divergence
 
