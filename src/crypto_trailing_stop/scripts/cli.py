@@ -84,6 +84,7 @@ def backtesting(
     buy_max_volume_threshold: float = typer.Option(3.5, help="Enable/disable the buy maximum volume filter."),
     enable_sell_volume_filter: bool = typer.Option(False, help="Enable/disable SELL volume filter."),
     sell_min_volume_threshold: float = typer.Option(1.0, help="Enable/disable the sell minimum volume filter."),
+    sell_on_divergence: bool = typer.Option(True, help="Enable/disable the sell on Bearish divergence filter."),
     enable_tp: bool = typer.Option(False, "--enable-tp", help="Enable the ATR-based Take Profit."),
     sl_multiplier: float = typer.Option(2.5, help="ATR multiplier for Stop Loss."),
     tp_multiplier: float = typer.Option(3.5, help="ATR multiplier for Take Profit."),
@@ -121,6 +122,7 @@ def backtesting(
             enable_sell_volume_filter=enable_sell_volume_filter,
             sell_min_volume_threshold=sell_min_volume_threshold,
             enable_exit_on_sell_signal=True,
+            enable_exit_on_divergence_signal=sell_on_divergence,
             enable_exit_on_take_profit=enable_tp,
         )
         current_execution_result, bt, stats = backtesting_cli_service.execute_backtesting(

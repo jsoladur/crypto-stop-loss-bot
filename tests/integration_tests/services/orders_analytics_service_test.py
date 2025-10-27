@@ -85,6 +85,7 @@ async def _exec_test(
             ema_mid_value=faker.pyint(min_value=18, max_value=30),
             ema_long_value=faker.pyint(min_value=200, max_value=250),
             enable_exit_on_sell_signal=faker.pybool(),
+            enable_exit_on_divergence_signal=faker.pybool(),
             enable_exit_on_take_profit=faker.pybool(),
             stop_loss_atr_multiplier=faker.pyfloat(min_value=2.5, max_value=6.5),
             take_profit_atr_multiplier=faker.pyfloat(min_value=2.5, max_value=6.5),

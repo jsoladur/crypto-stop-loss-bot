@@ -155,6 +155,7 @@ class MessagesFormatter:
             f"💣 SELL Volume Filter enabled? = {'🟢' if item.enable_sell_volume_filter else '🟥'}\n"
             f"🔊 SELL Min Volume Threshold = {html.code(item.sell_min_volume_threshold) if item.enable_sell_volume_filter else html.italic('(n/a)')}\n"  # noqa: E501
             f"🚨 Exit on SELL Signal enabled? = {'🟢' if item.enable_exit_on_sell_signal else '🟥'}\n"
+            f"💀 Exit on BEARISH Divergence enabled? = {'🟢' if item.enable_exit_on_divergence_signal else '🟥'}\n"
             f"🎯 Exit on Take Profit enabled? = {'🟢' if item.enable_exit_on_take_profit else '🟥'}\n\n"
         )
 

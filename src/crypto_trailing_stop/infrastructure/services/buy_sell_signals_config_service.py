@@ -78,6 +78,7 @@ class BuySellSignalsConfigService:
             config.enable_sell_volume_filter = item.enable_sell_volume_filter
             config.sell_min_volume_threshold = item.sell_min_volume_threshold
             config.enable_exit_on_sell_signal = item.enable_exit_on_sell_signal
+            config.enable_exit_on_divergence_signal = item.enable_exit_on_divergence_signal
             config.enable_exit_on_take_profit = item.enable_exit_on_take_profit
         else:
             config = BuySellSignalsConfig(
@@ -96,6 +97,7 @@ class BuySellSignalsConfigService:
                     BuySellSignalsConfig.enable_sell_volume_filter: item.enable_sell_volume_filter,
                     BuySellSignalsConfig.sell_min_volume_threshold: item.sell_min_volume_threshold,
                     BuySellSignalsConfig.enable_exit_on_sell_signal: item.enable_exit_on_sell_signal,
+                    BuySellSignalsConfig.enable_exit_on_divergence_signal: item.enable_exit_on_divergence_signal,
                     BuySellSignalsConfig.enable_exit_on_take_profit: item.enable_exit_on_take_profit,
                 }
             )
@@ -117,6 +119,7 @@ class BuySellSignalsConfigService:
             enable_sell_volume_filter=buy_sell_signals_config.enable_sell_volume_filter,
             sell_min_volume_threshold=buy_sell_signals_config.sell_min_volume_threshold,
             enable_exit_on_sell_signal=buy_sell_signals_config.enable_exit_on_sell_signal,
+            enable_exit_on_divergence_signal=buy_sell_signals_config.enable_exit_on_divergence_signal,
             enable_exit_on_take_profit=buy_sell_signals_config.enable_exit_on_take_profit,
         )
 

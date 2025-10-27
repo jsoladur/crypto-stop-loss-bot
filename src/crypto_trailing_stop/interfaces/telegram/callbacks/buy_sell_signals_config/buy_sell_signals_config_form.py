@@ -96,6 +96,12 @@ class BuySellSignalsConfigForm(Form):
     #     filter=F.text.in_(YES_NO_VALUES) & F.text,
     #     reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
     # )
+    enable_exit_on_divergence_signal: str = FormField(
+        enter_message_text="🎯 Enable Exit on BEARISH Divergence?",
+        error_message_text=f"❌ Invalid value. Valid values: {', '.join(YES_NO_VALUES)}",
+        filter=F.text.in_(YES_NO_VALUES) & F.text,
+        reply_markup=ReplyKeyboardBuilder().add(*(KeyboardButton(text=text) for text in YES_NO_VALUES)).as_markup(),
+    )
     enable_exit_on_take_profit: str = FormField(
         enter_message_text="🎯 Enable Exit on Take Profit?",
         error_message_text=f"❌ Invalid value. Valid values: {', '.join(YES_NO_VALUES)}",
@@ -127,6 +133,7 @@ class BuySellSignalsConfigForm(Form):
             # NOTE: [JMSOLA] Always is enabled in the strategy, so no need to configure it for now
             # enable_exit_on_sell_signal=bool(self.enable_exit_on_sell_signal.lower() == "yes"),
             enable_exit_on_sell_signal=True,
+            enable_exit_on_divergence_signal=bool(self.enable_exit_on_divergence_signal.lower() == "yes"),
             enable_exit_on_take_profit=bool(self.enable_exit_on_take_profit.lower() == "yes"),
         )
         return ret

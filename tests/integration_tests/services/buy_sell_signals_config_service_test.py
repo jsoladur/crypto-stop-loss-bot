@@ -69,6 +69,7 @@ async def should_set_buy_sell_signals_config_properly(
         == configuration_properties.buy_sell_signals_min_volume_threshold
     )
     assert returned_buy_sell_signals_config_item.enable_exit_on_sell_signal is True
+    assert returned_buy_sell_signals_config_item.enable_exit_on_divergence_signal is True
     assert returned_buy_sell_signals_config_item.enable_exit_on_take_profit is False
 
     expected_buy_sell_signals_config_item = BuySellSignalsConfigItem(
@@ -85,6 +86,7 @@ async def should_set_buy_sell_signals_config_properly(
         buy_min_volume_threshold=faker.pyfloat(min_value=0.25, max_value=0.75),
         buy_max_volume_threshold=faker.pyfloat(min_value=2.5, max_value=5.0),
         enable_exit_on_sell_signal=faker.pybool(truth_probability=1),
+        enable_exit_on_divergence_signal=faker.pybool(truth_probability=1),
         sell_min_volume_threshold=faker.pyfloat(min_value=1.0, max_value=3.0),
         enable_exit_on_take_profit=faker.pybool(truth_probability=99),
     )
@@ -132,6 +134,10 @@ async def should_set_buy_sell_signals_config_properly(
     assert (
         returned_buy_sell_signals_config_item.enable_exit_on_sell_signal
         is expected_buy_sell_signals_config_item.enable_exit_on_sell_signal
+    )
+    assert (
+        returned_buy_sell_signals_config_item.enable_exit_on_divergence_signal
+        is expected_buy_sell_signals_config_item.enable_exit_on_divergence_signal
     )
     assert (
         returned_buy_sell_signals_config_item.sell_min_volume_threshold
