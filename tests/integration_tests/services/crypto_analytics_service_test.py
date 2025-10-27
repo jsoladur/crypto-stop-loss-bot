@@ -1,4 +1,5 @@
 import logging
+import platform
 
 import pytest
 from faker import Faker
@@ -18,6 +19,7 @@ from tests.helpers.object_mothers import Bit2MeTickersDtoObjectMother, MEXCTicke
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.skipif(platform.system().lower() != "darwin", reason="Skipped test in non-macOS environment")
 @pytest.mark.asyncio
 async def should_get_favourite_symbols_properly(
     faker: Faker, integration_test_jobs_disabled_env: tuple[HTTPServer, str]
