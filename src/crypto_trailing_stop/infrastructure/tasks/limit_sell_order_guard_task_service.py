@@ -347,13 +347,21 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         auto_exit_reason: AutoExitReason,
     ) -> None:
         crypto_currency, fiat_currency = new_market_order.symbol.split("/")
-        icon = "🚨" if auto_exit_reason.stop_loss_triggered else "🟢"
-        text_message = f"{icon} {html.bold('MARKET SELL ORDER FILLED')} {icon}\n\n"
-        text_message += f"{new_market_order.amount} {crypto_currency} (Buy Price: {guard_metrics.avg_buy_price} {fiat_currency}) HAS BEEN SOLD due to:\n"  # noqa: E501
+        amount_message = f"{new_market_order.amount} {crypto_currency}"
+        buy_price_message = f"{guard_metrics.avg_buy_price} {fiat_currency}"
+        net_revenue_message = f"{guard_metrics.net_revenue} {fiat_currency}"
+
+        title_icon = "🚨" if guard_metrics.net_revenue < 0 else "🟢"
+        reason_icon = "💥" if guard_metrics.net_revenue < 0 else "✳️"
+        text_message = f"{title_icon} {html.bold('MARKET SELL ORDER FILLED')} {title_icon}\n\n"
+        text_message += f"{html.bold(amount_message)} {html.bold('HAS BEEN SOLD')} 💰\n"  # noqa: E501
+        text_message += f"💳 Buy Price: {html.code(buy_price_message)}\n"
+        text_message += f"🏦 Net Revenue: {html.code(net_revenue_message)}\n\n"
+        text_message += f"{reason_icon} Reason:\n"
         details = self._get_notification_message_details(
             tickers, last_candle_market_metrics, guard_metrics, auto_exit_reason, crypto_currency, fiat_currency
         )
-        text_message += f"* {html.italic(details)}"
+        text_message += f"- {details}\n"
         await self._notify_alert_by_type(
             PushNotificationTypeEnum.LIMIT_SELL_ORDER_GUARD_EXECUTED_ALERT, message=text_message
         )
@@ -367,31 +375,34 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         crypto_currency: str,
         fiat_currency: str,
     ) -> str:
+        current_price_message = f"{tickers.bid_or_close} {fiat_currency}"
         if auto_exit_reason.is_marked_for_immediate_sell:
             details = (
                 "Order was marked for immediate sell. Executing market order immediately at "
-                + f"current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency})."
+                + f"current {crypto_currency} price ({html.code(current_price_message)})."
             )
         elif auto_exit_reason.stop_loss_triggered:
-            price_message = f"Current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency})"
-            stop_price_message = (
-                f"safeguard stop price calculated ({guard_metrics.safeguard_stop_price} {fiat_currency})"
-            )
+            safeguard_stop_price_message = f"{guard_metrics.safeguard_stop_price} {fiat_currency}"
+            price_message = f"Current {crypto_currency} price ({html.code(current_price_message)})"
+            stop_price_message = f"safeguard stop price calculated ({html.code(safeguard_stop_price_message)})"
             details = f"{price_message} is lower than the {stop_price_message}."
         elif auto_exit_reason.exit_on_bearish_divergence:
             details = (
-                f"At current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency}), "
+                f"At current {crypto_currency} price ({html.code(current_price_message)}), "
                 + "a BEARISH DIVERGENCE signal has suddenly appeared."
             )
         elif auto_exit_reason.exit_on_sell_signal:
             details = (
-                f"At current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency}), "
+                f"At current {crypto_currency} price ({html.code(current_price_message)}), "
                 + "a SELL 1H signal has suddenly appeared."
             )
         elif auto_exit_reason.take_profit_reached:
+            suggested_take_profit_limit_price_message = (
+                f"{guard_metrics.suggested_take_profit_limit_price} {fiat_currency}"
+            )
             details = (
-                f"Current {crypto_currency} price ({tickers.bid_or_close} {fiat_currency}) "
-                + f"is higher than the ATR-based take profit calculated ({guard_metrics.suggested_take_profit_limit_price} {fiat_currency})."  # noqa: E501
+                f"Current {crypto_currency} price ({html.code(current_price_message)}) "
+                + f"is higher than the ATR-based take profit calculated ({html.code(suggested_take_profit_limit_price_message)})."  # noqa: E501
             )
         return details
 
