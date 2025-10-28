@@ -499,6 +499,7 @@ def _prepare_httpserver_tickers_list_mock(
         api_key,
         api_secret,
         tickers_list=tickers_list,
+        unique_tickers=[tickers],
         handler_type=HandlerType.ONESHOT,
     )
 
