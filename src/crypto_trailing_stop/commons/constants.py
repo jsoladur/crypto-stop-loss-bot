@@ -33,7 +33,10 @@ AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST = np.arange(0, 105, 5).tolist()
 AUTO_ENTRY_TRADER_MAX_ATTEMPS_TO_BUY = 5
 AUTO_ENTRY_MARKET_ORDER_SAFETY_FACTOR = 0.995  # 0.5% less to avoid insufficient balance errors
 # Limit Sell Order Guard
-LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR = 0.98  # 2% security gap to avoid slippage
+# 2% security gap to avoid slippage
+INITIAL_LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR = 0.98
+# 0.1% to increment and avoid "Order price exceeds allowed range" errors in MEXC
+LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR_STEP = 0.002
 # Order Analytics magic numbers
 STOP_LOSS_PERCENT_BUFFER = 0.75
 # Buy Sell Signals Config

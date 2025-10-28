@@ -323,7 +323,7 @@ async def should_ignore_sell_1h_signal_and_not_sell_when_price_is_lower_than_bre
     httpserver.check_assertions()
 
 
-@pytest.mark.parametrize("operating_exchange_error_status_code", BIT2ME_RETRYABLE_HTTP_STATUS_CODES + [500])
+@pytest.mark.parametrize("operating_exchange_error_status_code", [400] + BIT2ME_RETRYABLE_HTTP_STATUS_CODES + [500])
 @pytest.mark.asyncio
 async def should_create_market_sell_order_when_stop_loss_triggered(
     faker: Faker, operating_exchange_error_status_code: int, integration_test_env: tuple[HTTPServer, str]
@@ -437,7 +437,13 @@ def _prepare_httpserver_mock(
                 httpserver, operating_exchange, api_key, api_secret, open_sell_order=sell_order
             )
             prepare_httpserver_sell_order_created_mock(
-                faker, httpserver, operating_exchange, api_key, api_secret, order_symbol=sell_order.symbol
+                faker,
+                httpserver,
+                operating_exchange,
+                api_key,
+                api_secret,
+                order_symbol=sell_order.symbol,
+                operating_exchange_error_status_code=operating_exchange_error_status_code,
             )
             if percent_to_sell < 100:
                 operating_exchange_service: AbstractOperatingExchangeService = (
@@ -499,6 +505,7 @@ def _prepare_httpserver_tickers_list_mock(
         api_key,
         api_secret,
         tickers_list=tickers_list,
+        unique_tickers=[tickers],
         handler_type=HandlerType.ONESHOT,
     )
 

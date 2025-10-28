@@ -167,6 +167,9 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
         params, headers = await super()._apply_request_interceptor(
             method=method, url=url, params=params, headers=headers, body=body
         )
+        params = {
+            name: value for name, value in params.items() if name not in ("signature", "timestamp") and bool(value)
+        }
         params["timestamp"] = str(int(time.time() * 1000))  # UTC timestamp in milliseconds
         params["signature"] = await self._generate_signature_query_param(params, body)
         return params, headers
@@ -195,9 +198,13 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
                 response,
             ) from e
 
-    async def _generate_signature_query_param(self, params: dict[str, Any] | None, body: Any) -> str:
+    async def _generate_signature_query_param(
+        self, params: dict[str, Any] | None, body: dict[str, Any] | str | None
+    ) -> str:
         if body:  # pragma: no cover
-            params.update(json.loads(body) if isinstance(body, str) else body)
+            params = params.copy() if params else {}
+            body_dict = json.loads(body) if isinstance(body, str) else body
+            params.update({key: value for key, value in body_dict.items() if bool(value)})
         query_string = urlencode(params, doseq=True)
         signature = hmac.new(self._api_secret.encode("utf-8"), query_string.encode("utf-8"), hashlib.sha256).hexdigest()
         return signature
