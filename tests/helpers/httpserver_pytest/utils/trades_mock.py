@@ -6,7 +6,7 @@ from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 from werkzeug import Response
 
-from crypto_trailing_stop.commons.constants import BIT2ME_RETRYABLE_HTTP_STATUS_CODES
+from crypto_trailing_stop.commons.constants import BIT2ME_RETRYABLE_HTTP_STATUS_CODES, MEXC_RETRYABLE_HTTP_STATUS_CODES
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_pagination_result_dto import Bit2MePaginationResultDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_trade_dto import Bit2MeTradeDto
@@ -77,6 +77,21 @@ def prepare_httpserver_trades_mock(
                     faker, opened_sell_orders, number_of_trades=number_of_trades
                 )
             for sell_order in opened_sell_orders:
+                if (
+                    operating_exchange_error_status_code is not None
+                    and operating_exchange_error_status_code in MEXC_RETRYABLE_HTTP_STATUS_CODES
+                ):
+                    httpserver.expect(
+                        MEXCAPIRequestMatcher(
+                            "/mexc-api/api/v3/myTrades",
+                            method="GET",
+                            query_string=CustomAPIQueryMatcher(
+                                {"symbol": sell_order.symbol},
+                                additional_required_query_params=["signature", "timestamp"],
+                            ),
+                        ).set_api_key_and_secret(api_key, api_secret),
+                        handler_type=handler_type,
+                    ).respond_with_response(Response(status=operating_exchange_error_status_code))
                 httpserver.expect(
                     MEXCAPIRequestMatcher(
                         "/mexc-api/api/v3/myTrades",

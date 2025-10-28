@@ -83,6 +83,7 @@ def prepare_httpserver_sell_order_created_mock(
     *,
     order_symbol: str,
     order_type: OrderTypeEnum = OrderTypeEnum.MARKET,
+    operating_exchange_error_status_code: int | None = None,
 ) -> None:
     match operating_exchange:
         case OperatingExchangeEnum.BIT2ME:
@@ -109,6 +110,21 @@ def prepare_httpserver_sell_order_created_mock(
                 symbol=open_sell_order.symbol,
                 type=open_sell_order.type,
             )
+            if operating_exchange_error_status_code is not None and operating_exchange_error_status_code == 400:
+                for _ in range(7):
+                    httpserver.expect(
+                        MEXCAPIRequestMatcher(
+                            "/mexc-api/api/v3/order",
+                            query_string=CustomAPIQueryMatcher(
+                                additional_required_query_params=additional_required_query_params
+                            ),
+                            method="POST",
+                        ).set_api_key_and_secret(api_key, api_secret),
+                        handler_type=HandlerType.ONESHOT,
+                    ).respond_with_json(
+                        {"msg": "Order price exceeds allowed range", "code": 30087},
+                        status=operating_exchange_error_status_code,
+                    )
             httpserver.expect(
                 MEXCAPIRequestMatcher(
                     "/mexc-api/api/v3/order",

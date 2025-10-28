@@ -7,13 +7,19 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from httpx import AsyncClient
 
-from crypto_trailing_stop.commons.constants import LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR
+from crypto_trailing_stop.commons.constants import (
+    INITIAL_LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR,
+    LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR_STEP,
+)
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.remote.ccxt_remote_service import CcxtRemoteService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.order_side_enum import OrderSideEnum
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums.order_type_enum import OrderTypeEnum
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.order import Order
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_market_config import (
+    SymbolMarketConfig,
+)
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.symbol_tickers import SymbolTickers
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo.trade import Trade
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
@@ -166,68 +172,16 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             last_candle_market_metrics=last_candle_market_metrics,
         )
         if auto_exit_reason.is_exit:
-            # Cancel current take-profit sell limit order
-            await self._operating_exchange_service.cancel_order(sell_order, client=client)
-            if auto_exit_reason.percent_to_sell < 100:
-                final_amount_to_sell = self._floor_round(
-                    sell_order.amount * (auto_exit_reason.percent_to_sell / 100),
-                    ndigits=trading_market_config.price_precision,
-                )
-            else:
-                final_amount_to_sell = sell_order.amount
-            # Create new market order
-            new_market_order = await self._operating_exchange_service.create_order(
-                order=Order(
-                    order_type=OrderTypeEnum.LIMIT,
-                    side=sell_order.side,
-                    symbol=sell_order.symbol,
-                    price=self._floor_round(
-                        # XXX: [JMSOLA] Limit Sell order will be immediately filled
-                        # since the price is less than the current bid/close one.
-                        tickers.bid_or_close * LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR,
-                        ndigits=trading_market_config.price_precision,
-                    ),
-                    amount=final_amount_to_sell,
-                ),
+            new_sell_market_order = await self._execute_market_exit(
+                sell_order=sell_order,
+                tickers=tickers,
+                crypto_currency=crypto_currency,
+                trading_market_config=trading_market_config,
+                auto_exit_reason=auto_exit_reason,
                 client=client,
             )
-            logger.info(
-                f"[LIMIT SELL ORDER GUARD] NEW MARKET ORDER Id: '{new_market_order.id}', "
-                + f"for selling {auto_exit_reason.percent_to_sell}% "
-                + f"of {sell_order.amount} {crypto_currency} immediately!"  # noqa: E501
-            )
-            if (remaining_amount := sell_order.amount - final_amount_to_sell) > 0:
-                # NOTE: If we sold a percent less than 100.0%,
-                #  we have to create again the sell order with the remaining order amount
-                crypto_currency_wallet, *_ = await self._operating_exchange_service.get_trading_wallet_balances(
-                    symbols=crypto_currency, client=client
-                )
-                new_limit_sell_order_amount = self._floor_round(
-                    min(crypto_currency_wallet.balance, remaining_amount),
-                    ndigits=trading_market_config.amount_precision,
-                )
-                new_limit_sell_order = await self._operating_exchange_service.create_order(
-                    order=Order(
-                        order_type=OrderTypeEnum.LIMIT,
-                        side=OrderSideEnum.SELL,
-                        symbol=sell_order.symbol,
-                        price=self._floor_round(
-                            # XXX: [JMSOLA] Price is unreachable in purpose,
-                            # for giving to the Limit Sell Order Guard the chance to
-                            # operate properly
-                            tickers.close * 2,
-                            ndigits=trading_market_config.price_precision,
-                        ),
-                        amount=new_limit_sell_order_amount,
-                    ),
-                    client=client,
-                )
-                logger.info(
-                    f"[LIMIT SELL ORDER GUARD] NEW LIMIT SELL ORDER Id: '{new_limit_sell_order.id}', "
-                    + f"for selling continue monitoring the remaining {remaining_amount} {crypto_currency}!"
-                )
             await self._notify_new_market_sell_order_created_via_telegram(
-                new_market_order,
+                new_sell_market_order,
                 tickers=tickers,
                 last_candle_market_metrics=last_candle_market_metrics,
                 guard_metrics=guard_metrics,
@@ -285,6 +239,90 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             take_profit_reached=take_profit_reached,
             percent_to_sell=percent_to_sell,
         )
+
+    async def _execute_market_exit(
+        self,
+        *,
+        sell_order: Order,
+        tickers: SymbolTickers,
+        crypto_currency: str,
+        trading_market_config: SymbolMarketConfig,
+        auto_exit_reason: AutoExitReason,
+        client,
+    ) -> Order:
+        final_amount_to_sell = self._get_final_amount_to_sell(sell_order, trading_market_config, auto_exit_reason)
+        # Cancel current take-profit sell limit order
+        await self._operating_exchange_service.cancel_order(sell_order, client=client)
+        # Create new market SELL order
+        new_sell_market_order = await self._ensure_market_sell_order_creation(
+            sell_order=sell_order,
+            trading_market_config=trading_market_config,
+            final_amount_to_sell=final_amount_to_sell,
+            client=client,
+        )
+        logger.info(
+            f"[LIMIT SELL ORDER GUARD] NEW MARKET ORDER Id: '{new_sell_market_order.id}', "
+            + f"for selling {auto_exit_reason.percent_to_sell}% "
+            + f"of {sell_order.amount} {crypto_currency} immediately!"  # noqa: E501
+        )
+        if (remaining_amount := sell_order.amount - final_amount_to_sell) > 0:
+            # NOTE: If we sold a percent less than 100.0%,
+            #  we have to create again the sell order with the remaining order amount
+            await self._create_sell_order_for_remaining_amount(
+                sell_order=sell_order,
+                tickers=tickers,
+                crypto_currency=crypto_currency,
+                trading_market_config=trading_market_config,
+                remaining_amount=remaining_amount,
+                client=client,
+            )
+        return new_sell_market_order
+
+    async def _ensure_market_sell_order_creation(
+        self,
+        *,
+        sell_order: Order,
+        trading_market_config: SymbolMarketConfig,
+        final_amount_to_sell: float,
+        client: AsyncClient,
+    ):
+        new_sell_market_order: Order | None = None
+        last_exception: Exception | None = None
+        current_limit_sell_order_guard_safety_factor = INITIAL_LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR
+        attemps = 1
+        while new_sell_market_order is None and current_limit_sell_order_guard_safety_factor < 1:
+            try:
+                tickers = await self._operating_exchange_service.get_single_tickers_by_symbol(
+                    sell_order.symbol, client=client
+                )
+                new_sell_market_order = await self._operating_exchange_service.create_order(
+                    order=Order(
+                        order_type=OrderTypeEnum.LIMIT,
+                        side=sell_order.side,
+                        symbol=sell_order.symbol,
+                        price=self._floor_round(
+                            # XXX: [JMSOLA] Limit Sell order will be immediately filled
+                            # since the price is less than the current bid/close one.
+                            tickers.bid_or_close * current_limit_sell_order_guard_safety_factor,
+                            ndigits=trading_market_config.price_precision,
+                        ),
+                        amount=final_amount_to_sell,
+                    ),
+                    client=client,
+                )
+            except Exception as e:  # pragma: no cover
+                last_exception = e
+                logger.warning(
+                    f"[Limit Sell Order Guard][Attempt {attemps}] An error ocurred when creating the SELL MARKET ORDER for {sell_order.symbol}, "  # noqa: E501
+                    + f"Re-calculating sell order amount and trying again... :: {str(e)}"
+                )
+            finally:
+                current_limit_sell_order_guard_safety_factor += LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR_STEP
+                attemps += 1
+
+        if new_sell_market_order is None and last_exception is not None:  # pragma: no cover
+            raise last_exception
+        return new_sell_market_order
 
     def _is_stop_loss_triggered(
         self, *, tickers: SymbolTickers, guard_metrics: LimitSellOrderGuardMetrics
@@ -344,17 +382,54 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             )
         return take_profit_reached
 
+    async def _create_sell_order_for_remaining_amount(
+        self,
+        *,
+        sell_order: Order,
+        tickers: SymbolTickers,
+        crypto_currency: str,
+        trading_market_config: SymbolMarketConfig,
+        remaining_amount: float,
+        client: AsyncClient,
+    ) -> None:
+        crypto_currency_wallet, *_ = await self._operating_exchange_service.get_trading_wallet_balances(
+            symbols=crypto_currency, client=client
+        )
+        new_limit_sell_order_amount = self._floor_round(
+            min(crypto_currency_wallet.balance, remaining_amount), ndigits=trading_market_config.amount_precision
+        )
+        new_limit_sell_order = await self._operating_exchange_service.create_order(
+            order=Order(
+                order_type=OrderTypeEnum.LIMIT,
+                side=OrderSideEnum.SELL,
+                symbol=sell_order.symbol,
+                price=self._floor_round(
+                    # XXX: [JMSOLA] Price is unreachable in purpose,
+                    # for giving to the Limit Sell Order Guard the chance to
+                    # operate properly
+                    tickers.close * 2,
+                    ndigits=trading_market_config.price_precision,
+                ),
+                amount=new_limit_sell_order_amount,
+            ),
+            client=client,
+        )
+        logger.info(
+            f"[LIMIT SELL ORDER GUARD] NEW LIMIT SELL ORDER Id: '{new_limit_sell_order.id}', "
+            + f"for selling continue monitoring the remaining {remaining_amount} {crypto_currency}!"
+        )
+
     async def _notify_new_market_sell_order_created_via_telegram(
         self,
-        new_market_order: Order,
+        new_sell_market_order: Order,
         *,
         tickers: SymbolTickers,
         last_candle_market_metrics: SymbolTickers,
         guard_metrics: LimitSellOrderGuardMetrics,
         auto_exit_reason: AutoExitReason,
     ) -> None:
-        crypto_currency, fiat_currency = new_market_order.symbol.split("/")
-        amount_message = f"{new_market_order.amount} {crypto_currency}"
+        crypto_currency, fiat_currency = new_sell_market_order.symbol.split("/")
+        amount_message = f"{new_sell_market_order.amount} {crypto_currency}"
         buy_price_message = f"{guard_metrics.avg_buy_price} {fiat_currency}"
         net_revenue_message = f"{guard_metrics.net_revenue} {fiat_currency}"
 
@@ -430,3 +505,15 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                     self._technical_indicators_by_symbol_cache[symbol] = TechnicalIndicatorsCacheItem(
                         technical_indicators=technical_indicators
                     )
+
+    def _get_final_amount_to_sell(
+        self, sell_order: Order, trading_market_config: SymbolMarketConfig, auto_exit_reason: AutoExitReason
+    ) -> float:
+        if auto_exit_reason.percent_to_sell < 100:
+            final_amount_to_sell = self._floor_round(
+                sell_order.amount * (auto_exit_reason.percent_to_sell / 100),
+                ndigits=trading_market_config.price_precision,
+            )
+        else:
+            final_amount_to_sell = sell_order.amount
+        return final_amount_to_sell

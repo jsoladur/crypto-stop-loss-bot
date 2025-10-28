@@ -13,7 +13,6 @@ class ParametersRefinementResult:
     buy_min_volume_threshold_values: list[float] = field(default_factory=list)
     buy_max_volume_threshold_values: list[float] = field(default_factory=list)
     sell_min_volume_threshold_values: list[float] = field(default_factory=list)
-    exit_on_divergence_signal_values: list[bool] = field(default_factory=list)
 
 
 @dataclass

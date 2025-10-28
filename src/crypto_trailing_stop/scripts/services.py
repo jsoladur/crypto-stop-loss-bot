@@ -274,8 +274,6 @@ class BacktestingCliService:
             disable_progress_bar=disable_progress_bar,
             df=df,
             timeframe=timeframe,
-            # FIXME: Check if would make sense to apply heuristics or not
-            apply_heuristics=True,
             echo_fn=echo_fn,
         )
         # 2.2 Store the all execution results in a parquet file
@@ -313,7 +311,6 @@ class BacktestingCliService:
             echo_fn(f"---- Buy Min Volume Thresholds:      {str(current.buy_min_volume_threshold_values)}")
             echo_fn(f"---- Buy Max Volume Thresholds:      {str(current.buy_max_volume_threshold_values)}")
             echo_fn(f"---- Sell Min Volume Thresholds:     {str(current.sell_min_volume_threshold_values)}")
-            echo_fn(f"---- Exit on Divergence Signal values:     {str(current.exit_on_divergence_signal_values)}")
             echo_fn("-----------------------------")
         echo_fn("=============================")
         # 2.4 Run second iteration with refinmement
@@ -325,10 +322,7 @@ class BacktestingCliService:
                 buy_min_volume_threshold_values=current.buy_min_volume_threshold_values,
                 buy_max_volume_threshold_values=current.buy_max_volume_threshold_values,
                 sell_min_volume_threshold_values=current.sell_min_volume_threshold_values,
-                enable_exit_on_divergence_signal_values=current.exit_on_divergence_signal_values,
                 tp_filter=tp_filter,
-                # FIXME: Check if would make sense to apply heuristics or not
-                apply_heuristics=True,
                 echo_fn=echo_fn,
             )
             second_full_cartesian_product.extend(current_cartesian_product)
@@ -405,13 +399,6 @@ class BacktestingCliService:
             if result.parameters.enable_sell_volume_filter:
                 parameters_refinement.sell_min_volume_threshold_values.append(
                     result.parameters.sell_min_volume_threshold
-                )
-            if (
-                result.parameters.enable_exit_on_divergence_signal
-                not in parameters_refinement.exit_on_divergence_signal_values
-            ):
-                parameters_refinement.exit_on_divergence_signal_values.append(
-                    result.parameters.enable_exit_on_divergence_signal
                 )
 
         ret: list[ParametersRefinementResult] = []
@@ -726,11 +713,11 @@ class BacktestingCliService:
         buy_min_volume_threshold_values: list[float],
         buy_max_volume_threshold_values: list[float],
         sell_min_volume_threshold_values: list[float],
-        enable_exit_on_divergence_signal_values: list[bool] = [True, False],
         tp_filter: TakeProfitFilter = "all",
         apply_heuristics: bool = True,
         echo_fn: Callable[[str], None] | None = None,
     ) -> list[BuySellSignalsConfigItem]:
+        enable_exit_on_divergence_signal_values: list[bool] = [True, False]
         # Group SL/TP pairs by SL value to ensure we have unique SL values when TP is disabled
         sp_tp_tuples = self._get_sp_tp_tuples(tp_filter=tp_filter)
 
