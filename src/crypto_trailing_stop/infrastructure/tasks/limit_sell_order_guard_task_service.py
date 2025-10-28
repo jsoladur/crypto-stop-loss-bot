@@ -289,6 +289,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         new_sell_market_order: Order | None = None
         last_exception: Exception | None = None
         current_limit_sell_order_guard_safety_factor = INITIAL_LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR
+        attemps = 1
         while new_sell_market_order is None and current_limit_sell_order_guard_safety_factor < 1:
             try:
                 tickers = await self._operating_exchange_service.get_single_tickers_by_symbol(
@@ -311,8 +312,13 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                 )
             except Exception as e:  # pragma: no cover
                 last_exception = e
+                logger.warning(
+                    f"[Limit Sell Order Guard][Attempt {attemps}] An error ocurred when creating the SELL MARKET ORDER for {sell_order.symbol}, "  # noqa: E501
+                    + f"Re-calculating sell order amount and trying again... :: {str(e)}"
+                )
             finally:
                 current_limit_sell_order_guard_safety_factor += LIMIT_SELL_ORDER_GUARD_SAFETY_FACTOR_STEP
+                attemps += 1
 
         if new_sell_market_order is None and last_exception is not None:  # pragma: no cover
             raise last_exception
