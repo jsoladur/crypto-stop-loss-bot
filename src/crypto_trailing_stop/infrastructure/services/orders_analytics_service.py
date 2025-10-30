@@ -319,11 +319,11 @@ class OrdersAnalyticsService(AbstractService):
         last_candle_market_metrics: CryptoMarketMetrics,
         trading_market_config: SymbolMarketConfig,
     ) -> float:
-        suggested_safeguard_stop_price = round(
+        suggested_take_profit_limit_price = round(
             avg_buy_price + (last_candle_market_metrics.atr * buy_sell_signals_config.take_profit_atr_multiplier),
             ndigits=trading_market_config.price_precision,
         )
-        return suggested_safeguard_stop_price
+        return suggested_take_profit_limit_price
 
     async def _calculate_buy_sell_signals_config_by_opened_sell_orders(
         self, opened_sell_orders: list[Order]

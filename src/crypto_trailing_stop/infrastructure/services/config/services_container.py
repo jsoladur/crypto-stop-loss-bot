@@ -19,6 +19,7 @@ from crypto_trailing_stop.infrastructure.services.market_signal_service import M
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
+from crypto_trailing_stop.infrastructure.services.trade_now_hints_service import TradeNowHintsService
 
 
 class ServicesContainer(containers.DeclarativeContainer):
@@ -112,3 +113,5 @@ class ServicesContainer(containers.DeclarativeContainer):
         push_notification_service=push_notification_service,
         telegram_service=telegram_service,
     )
+
+    trade_now_hints_service = providers.Singleton(TradeNowHintsService)
