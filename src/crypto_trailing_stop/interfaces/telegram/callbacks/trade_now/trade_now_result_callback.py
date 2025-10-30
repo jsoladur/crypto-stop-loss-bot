@@ -37,12 +37,12 @@ async def trade_now_result_callback_handler(callback_query: CallbackQuery, state
     is_user_logged = await session_storage_service.is_user_logged(state)
     if is_user_logged:
         try:
-            match = re.match(r"^persist_stop_loss\$\$(.+?)\$\$(.+)$", callback_query.data)
+            match = re.match(REGEX, callback_query.data)
             symbol = match.group(1).strip().upper()
             leverage_value = int(match.group(2).strip())
             item = await trade_now_hints_service.get_trade_now_hints(symbol, leverage_value)
-            message = messages_formatter.format_buy_sell_signals_config_message(item)
-            await callback_query.message.answer(message, reply_markup=keyboards_builder.get_home_keyboard())
+            message = messages_formatter.format_trade_now_hints(item)
+            await callback_query.message.answer(message, reply_markup=keyboards_builder.get_go_back_home_keyboard())
         except Exception as e:
             logger.error(f"Error calculating trade now hints: {str(e)}", exc_info=True)
             await callback_query.message.answer(

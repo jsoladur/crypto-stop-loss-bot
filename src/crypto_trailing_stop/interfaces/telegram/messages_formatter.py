@@ -18,6 +18,7 @@ from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics impor
 from crypto_trailing_stop.infrastructure.services.vo.global_summary import GlobalSummary
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
+from crypto_trailing_stop.infrastructure.services.vo.trade_now_hints import LeveragedPositionHints, TradeNowHints
 
 
 class MessagesFormatter:
@@ -254,6 +255,60 @@ class MessagesFormatter:
                 message_lines.append(line)
         ret = header + "\n\n".join(message_lines)
         return ret
+
+    def format_trade_now_hints(self, hints: TradeNowHints) -> str:
+        tickers = hints.tickers
+        metrics = hints.crypto_market_metrics
+        *_, fiat_currency = hints.symbol.split("/")
+        header = f"🔀 {html.bold('TRADE CALCULATOR HINTS')} for {html.bold(hints.symbol)} 🔀"
+        market_status_lines = [
+            "\n" + html.bold("📊 Current Market Status:"),
+            f"  - 🔥 Current Price: {html.code(f'{tickers.close:.4f} {fiat_currency}')}",
+            f"  - 🎢 ATR (Volatility): ±{html.code(f'{metrics.atr:.4f} {fiat_currency}')} (±{metrics.atr_percent:.2f}%)",  # noqa: E501
+        ]
+        params_lines = [
+            "\n" + html.bold("⚙️ Technical Parameters (ATR-based):"),
+            f"  - 🛡️ Stop Loss (%): {hints.stop_loss_percent_value}%",
+            f"  - 🎯 Take Profit (%): {hints.take_profit_percent_value}%",
+            f"  - ⚖️ Profit Factor: {html.bold(hints.profit_factor)}",
+        ]
+        risk_data = hints.long
+        risk_lines = [
+            "\n" + html.bold("💰 Capital & Risk (@ " + str(hints.leverage_value) + "x Leverage):"),
+            f"  - 💵 Capital as Margin: {html.code(f'{risk_data.required_margin_eur:.2f} {fiat_currency}')} ({hints.fiat_wallet_percent_assigned}%)",  # noqa: E501
+            f"  - 📦 Total Position Size: {html.code(f'{risk_data.position_size_eur:.2f} {fiat_currency}')}",
+            f"  - 💸 Losses if SL is triggered: {html.code(f'{risk_data.loss_at_stop_loss_eur:.2f} {fiat_currency}')}",
+            f"  - 💼 Risk from Total Capital: {html.bold(f'{risk_data.risk_as_percent_of_total_capital:.2f}%')}",
+        ]
+        long_lines = self._format_position_hints(hints.long, fiat_currency)
+        short_lines = self._format_position_hints(hints.short, fiat_currency)
+        message = "\n".join([header] + market_status_lines + params_lines + risk_lines + long_lines + short_lines)
+        return message
+
+    def _format_position_hints(self, pos: LeveragedPositionHints, fiat_currency) -> list[str]:
+        if pos.position_type == "Long":
+            icon = "🟢"
+            title = "LONG Position"
+            entry_price_label = "Entry (Ask)"
+        else:
+            icon = "🔴"
+            title = "SHORT Position"
+            entry_price_label = "Entry (Bid)"
+        lines = [
+            f"\n{icon} {html.bold(title)}:",
+            f"  - ▶️ {entry_price_label}: {html.code(f'{pos.entry_price:.4f} {fiat_currency}')}",
+            f"  - 🎯 Take Profit: {html.code(f'{pos.take_profit_price:.4f} {fiat_currency}')}",
+            f"  - 🛡️ Stop Loss: {html.code(f'{pos.stop_loss_price:.4f} {fiat_currency}')}",
+        ]
+        if pos.is_safe_from_liquidation:
+            lines.append(f"  - ✅ {html.italic('Safety: SL is before Liquidation Price.')}")
+        else:
+            lines.append(
+                f"  - 🚨 {html.bold('DANGER: LIQUIDATION')}\n"
+                f"    {html.italic('Your SL is BEYOND your Liquidation Price of')} {html.code(f'~{pos.liquidation_price:.4f} {fiat_currency}')}."  # noqa: E501
+                f" {html.bold('Your position will be liquidated BEFORE the SL is hit.')}"
+            )
+        return lines
 
     def _format_limit_sell_order_guard_metrics_list(
         self, limit_sell_order_guard_metrics_list: list[LimitSellOrderGuardMetrics]

@@ -114,4 +114,11 @@ class ServicesContainer(containers.DeclarativeContainer):
         telegram_service=telegram_service,
     )
 
-    trade_now_hints_service = providers.Singleton(TradeNowHintsService)
+    trade_now_hints_service = providers.Singleton(
+        TradeNowHintsService,
+        buy_sell_signals_config_service=buy_sell_signals_config_service,
+        auto_buy_trader_config_service=auto_buy_trader_config_service,
+        operating_exchange_service=operating_exchange_service,
+        crypto_analytics_service=crypto_analytics_service,
+        orders_analytics_service=orders_analytics_service,
+    )

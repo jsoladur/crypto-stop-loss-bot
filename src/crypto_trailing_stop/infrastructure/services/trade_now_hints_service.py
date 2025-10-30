@@ -6,7 +6,7 @@ from crypto_trailing_stop.infrastructure.services.crypto_analytics_service impor
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
-from crypto_trailing_stop.infrastructure.services.vo.trade_now_hints import LeveragedPositionHits, TradeNowHints
+from crypto_trailing_stop.infrastructure.services.vo.trade_now_hints import LeveragedPositionHints, TradeNowHints
 
 
 class TradeNowHintsService:
@@ -44,11 +44,11 @@ class TradeNowHintsService:
             trading_market_config = await self._operating_exchange_service.get_trading_market_config_by_symbol(
                 symbol, client=client
             )
-            tickers = self._operating_exchange_service.get_single_tickers_by_symbol(symbol, client=client)
+            tickers = await self._operating_exchange_service.get_single_tickers_by_symbol(symbol, client=client)
             crypto_market_metrics = await self._crypto_analytics_service.get_crypto_market_metrics(
                 symbol, client=client
             )
-            stop_loss_percent_value = self._orders_analytics_service._calculate_suggested_stop_loss_percent_value(
+            stop_loss_percent_value = self._orders_analytics_service.calculate_suggested_stop_loss_percent_value(
                 avg_buy_price=tickers.ask_or_close,
                 buy_sell_signals_config=buy_sell_signals_config,
                 last_candle_market_metrics=crypto_market_metrics,
@@ -90,6 +90,9 @@ class TradeNowHintsService:
             ret = TradeNowHints(
                 symbol=symbol,
                 leverage_value=leverage_value,
+                tickers=tickers,
+                crypto_market_metrics=crypto_market_metrics,
+                fiat_wallet_percent_assigned=fiat_wallet_percent_assigned,
                 stop_loss_percent_value=stop_loss_percent_value,
                 take_profit_percent_value=take_profit_percent_value,
                 profit_factor=round(take_profit_percent_value / stop_loss_percent_value, ndigits=2),
@@ -109,7 +112,7 @@ class TradeNowHintsService:
         leverage: int,
         *,
         is_short_position: bool = False,
-    ) -> LeveragedPositionHits:
+    ) -> LeveragedPositionHints:
         """
         Helper function that calculates all risk metrics for one direction (Long or Short).
         """
@@ -136,7 +139,7 @@ class TradeNowHintsService:
         loss_at_stop_loss_eur = position_size_nocional * sl_percent_decimal
         risk_as_percent_of_total_capital = (loss_at_stop_loss_eur / total_capital) * 100
 
-        return LeveragedPositionHits(
+        return LeveragedPositionHints(
             position_type="Short" if is_short_position else "Long",
             entry_price=entry_price,
             stop_loss_price=stop_loss_price,
