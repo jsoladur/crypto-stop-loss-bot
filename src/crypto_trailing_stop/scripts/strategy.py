@@ -38,6 +38,8 @@ class SignalStrategy(Strategy):
         self.prev_macd_hist = self.I(lambda x: x, self.data.prev_macd_hist)
         # State variable to remember if a sell signal has occurred
         self.sell_signal_active = False
+        # Current trace stop loss percent
+        self.current_trade_sl_pct = None
 
     def next(self):
         # --- Calculate current candle metrics ONCE at the beginning ---
@@ -67,6 +69,7 @@ class SignalStrategy(Strategy):
                 last_candle_market_metrics=last_candle_metrics,
                 trading_market_config=DEFAULT_TRADING_MARKET_CONFIG,
             )
+            self.current_trade_sl_pct = stop_loss_pct
             sl_price = self._orders_analytics_service._calculate_suggested_safeguard_stop_price(
                 self.data.Close[-1],
                 suggested_stop_loss_percent_value=stop_loss_pct,
@@ -85,10 +88,10 @@ class SignalStrategy(Strategy):
             # --- Check 1: Dynamic Take-Profit Exit ---
             exit_on_take_profit = False
             if self.simulated_bs_config.enable_exit_on_take_profit:
-                tp_price = self._orders_analytics_service._calculate_suggested_take_profit_limit_price(
+                tp_price, *_ = self._orders_analytics_service.calculate_suggested_take_profit_limit_price(
                     self.trades[-1].entry_price,
+                    suggested_stop_loss_percent_value=self.current_trade_sl_pct,
                     buy_sell_signals_config=self.simulated_bs_config,
-                    last_candle_market_metrics=last_candle_metrics,
                     trading_market_config=DEFAULT_TRADING_MARKET_CONFIG,
                 )
                 # A TP exit is valid if the high hits the TP price AND that TP price is above break-even.
@@ -118,3 +121,4 @@ class SignalStrategy(Strategy):
                 self.position.close()
                 # Once the position is closed, reset the sell signal alert
                 self.sell_signal_active = False
+                self.current_trade_sl_pct = None
