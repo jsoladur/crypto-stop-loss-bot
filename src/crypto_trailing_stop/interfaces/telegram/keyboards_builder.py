@@ -7,6 +7,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
 from crypto_trailing_stop.commons.constants import (
     AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST,
+    LEVERAGE_VALUES_LIST,
     PERCENT_TO_SELL_LIST,
     SP_TP_PAIRS,
     STOP_LOSS_STEPS_VALUE_LIST,
@@ -73,6 +74,7 @@ class KeyboardsBuilder:
         builder.row(InlineKeyboardButton(text="🚏 Stop Loss %", callback_data="stop_loss_percent_home"))
         builder.row(InlineKeyboardButton(text="🎯 Take-Profit Toggler", callback_data="take_profit_toggler_home"))
         builder.row(InlineKeyboardButton(text="🚥 Market Signals", callback_data="last_market_signals_home"))
+        builder.row(InlineKeyboardButton(text="🔀 Trade Now", callback_data="trade_now_home"))
         if self._configuration_properties.gemini_pro_api_enabled:
             builder.row(InlineKeyboardButton(text="🪄 Gemini Generative AI", callback_data="gemini_generative_ai_home"))
         builder.row(InlineKeyboardButton(text="📴 Logout", callback_data="logout"))
@@ -88,6 +90,31 @@ class KeyboardsBuilder:
             )
         builder.row(InlineKeyboardButton(text="➕ Add New", callback_data="add_favourite_crypto_currency"))
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
+        return builder.as_markup()
+
+    def get_trade_now_keyboard(self, favourite_crypto_currencies: list[str]) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        for crypto_currency in favourite_crypto_currencies:
+            builder.row(
+                InlineKeyboardButton(
+                    text=f"🔀 {crypto_currency}", callback_data=f"trade_now_leverage_selection$${crypto_currency}"
+                )
+            )
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
+        return builder.as_markup()
+
+    def get_leverage_values_by_symbol_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        buttons = [
+            InlineKeyboardButton(
+                text=f"x{leverage_value}", callback_data=f"trade_now_result$${symbol}$${leverage_value}"
+            )
+            for leverage_value in LEVERAGE_VALUES_LIST
+        ]
+        # Add buttons in rows of 3
+        for buttons_chunk in pydash.chunk(buttons, size=5):
+            builder.row(*buttons_chunk)
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="stop_loss_percent_home"))
         return builder.as_markup()
 
     def get_stop_loss_percent_items_keyboard(

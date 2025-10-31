@@ -12,6 +12,7 @@ MEXC_RETRYABLE_HTTP_STATUS_CODES = [400, 403, 429, 502, 503, 504]
 DEFAULT_DIVERGENCE_WINDOW = 60
 DEFAULT_JOB_INTERVAL_SECONDS = 5  # 5 seconds
 DEFAULT_TRAILING_STOP_LOSS_PERCENT = 5.0  # Best Spot Loss value intra-day, based on experience
+LEVERAGE_VALUES_LIST = [1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 75, 100]
 STOP_LOSS_STEPS_VALUE_LIST = np.concatenate(
     (np.arange(0.25, 5.25, 0.25), np.arange(5.50, 10.50, 0.50), np.arange(11, 21, 1))
 ).tolist()
