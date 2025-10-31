@@ -13,6 +13,7 @@ class ParametersRefinementResult:
     buy_min_volume_threshold_values: list[float] = field(default_factory=list)
     buy_max_volume_threshold_values: list[float] = field(default_factory=list)
     sell_min_volume_threshold_values: list[float] = field(default_factory=list)
+    sp_tp_tuples: list[tuple[bool, float, float]] = field(default_factory=list)
 
 
 @dataclass

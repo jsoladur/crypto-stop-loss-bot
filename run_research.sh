@@ -7,15 +7,15 @@ source .venv/bin/activate
 PAIRS=(
     "DOGE/USDT:mexc"
     "HYPE/USDT:mexc"
+    "LINK/USDT:mexc"
+    "SUI/USDT:mexc"
+    "DOT/USDT:mexc"
+    "SOL/USDT:mexc"
     "ADA/USDT:mexc"
-    "PEPE/USDT:mexc"
-    # "ETH/USDT:mexc"
+    "ETH/USDT:mexc"
     # Current trading
-    # "LINK/USDT:mexc"
-    # "SOL/USDT:mexc"
-    # "SUI/USDT:mexc"
-    # "DOT/USDT:mexc"
     # New coins
+    # "PEPE/USDT:mexc"
     # "PENGU/USDT:mexc"
     # "NEAR/USDT:mexc"
     # "EGLD/USDT:mexc"
@@ -25,8 +25,8 @@ PAIRS=(
     # "SHIB/USDT:mexc"
     # "XLM/USDT:mexc"
     # Deprecated
-    # "XRP/USDT:mexc"
-    # "RENDER/USDT:mexc"
+    "XRP/USDT:mexc"
+    "RENDER/USDT:mexc"
 )
 
 # Define the directory where the result logs will be saved.
