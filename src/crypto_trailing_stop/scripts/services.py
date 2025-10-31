@@ -31,10 +31,10 @@ from crypto_trailing_stop.infrastructure.services.crypto_analytics_service impor
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.infrastructure.tasks.buy_sell_signals_task_service import BuySellSignalsTaskService
 from crypto_trailing_stop.scripts.constants import (
-    DECENT_WIN_RATE_THRESHOLD,
     DEFAULT_LIMIT_DOWNLOAD_BATCHES,
     DEFAULT_MONTHS_BACK,
     DEFAULT_TRADING_MARKET_CONFIG,
+    FIRST_ITERATION_DECENT_WIN_RATE_THRESHOLD,
     ITERATE_OVER_EXEC_RESULTS_MAX_ATTEMPS,
     MAX_VOLUME_THRESHOLD_STEP_FIRST_ITERATION,
     MAX_VOLUME_THRESHOLD_VALUES_FIRST_ITERATION,
@@ -42,6 +42,7 @@ from crypto_trailing_stop.scripts.constants import (
     MIN_TRADES_FOR_STATS,
     MIN_VOLUME_THRESHOLD_STEP_FIRST_ITERATION,
     MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION,
+    SECOND_ITERATION_DECENT_WIN_RATE_THRESHOLD,
 )
 from crypto_trailing_stop.scripts.jobs import run_single_backtest_combination
 from crypto_trailing_stop.scripts.serde import BacktestResultSerde
@@ -138,7 +139,7 @@ class BacktestingCliService:
         downloaded_months_back: int = DEFAULT_MONTHS_BACK,
         disable_minimal_trades: bool = False,
         disable_decent_win_rate: bool = False,
-        decent_win_rate: float = DECENT_WIN_RATE_THRESHOLD,
+        decent_win_rate: float = SECOND_ITERATION_DECENT_WIN_RATE_THRESHOLD,
         min_profit_factor: float | None = None,
         min_sqn: float | None = None,
         tp_filter: TakeProfitFilter = "all",
@@ -252,7 +253,7 @@ class BacktestingCliService:
         downloaded_months_back: int = DEFAULT_MONTHS_BACK,
         disable_minimal_trades: bool = False,
         disable_decent_win_rate: bool = False,
-        decent_win_rate: float = DECENT_WIN_RATE_THRESHOLD,
+        decent_win_rate: float = SECOND_ITERATION_DECENT_WIN_RATE_THRESHOLD,
         min_profit_factor: float | None = None,
         min_sqn: float | None = None,
         tp_filter: TakeProfitFilter = "all",
@@ -285,7 +286,7 @@ class BacktestingCliService:
             downloaded_months_back=downloaded_months_back,
             disable_minimal_trades=disable_minimal_trades,
             disable_decent_win_rate=disable_decent_win_rate,
-            decent_win_rate=decent_win_rate,
+            decent_win_rate=FIRST_ITERATION_DECENT_WIN_RATE_THRESHOLD,
             min_profit_factor=min_profit_factor,
             min_sqn=min_sqn,
             executions_results=first_executions_results,
@@ -295,7 +296,7 @@ class BacktestingCliService:
                 downloaded_months_back=downloaded_months_back,
                 disable_minimal_trades=True,
                 disable_decent_win_rate=True,
-                decent_win_rate=decent_win_rate,
+                decent_win_rate=FIRST_ITERATION_DECENT_WIN_RATE_THRESHOLD,
                 min_profit_factor=None,
                 min_sqn=None,
                 executions_results=first_executions_results,
@@ -361,7 +362,7 @@ class BacktestingCliService:
         downloaded_months_back: int = DEFAULT_MONTHS_BACK,
         disable_minimal_trades: bool = False,
         disable_decent_win_rate: bool = False,
-        decent_win_rate: float = DECENT_WIN_RATE_THRESHOLD,
+        decent_win_rate: float = SECOND_ITERATION_DECENT_WIN_RATE_THRESHOLD,
         min_profit_factor: float | None = None,
         min_sqn: float | None = None,
         tp_filter: TakeProfitFilter = "all",
@@ -500,7 +501,7 @@ class BacktestingCliService:
         disable_progress_bar: bool,
         df: pd.DataFrame,
         timeframe: str = "1h",
-        apply_heuristics: bool = False,
+        apply_heuristics: bool = True,
         echo_fn: Callable[[str], None] | None = None,
     ) -> list[BacktestingExecutionResult]:
         cartesian_product = self._calculate_cartesian_product(
@@ -549,7 +550,7 @@ class BacktestingCliService:
         downloaded_months_back: int = DEFAULT_MONTHS_BACK,
         disable_minimal_trades: bool = False,
         disable_decent_win_rate: bool = False,
-        decent_win_rate: float = DECENT_WIN_RATE_THRESHOLD,
+        decent_win_rate: float = SECOND_ITERATION_DECENT_WIN_RATE_THRESHOLD,
         min_profit_factor: float | None = None,
         min_sqn: float | None = None,
         executions_results: list[BacktestingExecutionResult],
@@ -724,7 +725,7 @@ class BacktestingCliService:
         sell_min_volume_threshold_values: list[float],
         sp_tp_tuples: list[tuple[bool, float, float]] | None = None,
         tp_filter: TakeProfitFilter = "all",
-        apply_heuristics: bool = False,
+        apply_heuristics: bool = True,
         echo_fn: Callable[[str], None] | None = None,
     ) -> list[BuySellSignalsConfigItem]:
         enable_exit_on_divergence_signal_values: list[bool] = [True, False]
@@ -792,7 +793,7 @@ class BacktestingCliService:
         return sp_tp_tuples
 
     def _convert_cartesian_product_to_config_items(
-        self, symbol: str, full_cartesian_product: list[tuple], *, apply_heuristics: bool = False
+        self, symbol: str, full_cartesian_product: list[tuple], *, apply_heuristics: bool = True
     ) -> list[BuySellSignalsConfigItem]:
         ret = []
         for params in full_cartesian_product:
