@@ -141,11 +141,13 @@ class OrdersAnalyticsService(AbstractService):
         suggested_safeguard_stop_price = self._calculate_suggested_safeguard_stop_price(
             avg_buy_price, suggested_stop_loss_percent_value, trading_market_config=trading_market_config
         )
-        suggested_take_profit_limit_price = self._calculate_suggested_take_profit_limit_price(
-            avg_buy_price,
-            buy_sell_signals_config=buy_sell_signals_config,
-            last_candle_market_metrics=last_candle_market_metrics,
-            trading_market_config=trading_market_config,
+        suggested_take_profit_limit_price, suggested_take_profit_percent_value = (
+            self.calculate_suggested_take_profit_limit_price(
+                avg_buy_price,
+                suggested_stop_loss_percent_value,
+                buy_sell_signals_config=buy_sell_signals_config,
+                trading_market_config=trading_market_config,
+            )
         )
         rounded_last_candle_market_metrics = last_candle_market_metrics.rounded(trading_market_config)
         guard_metrics = LimitSellOrderGuardMetrics(
@@ -162,6 +164,7 @@ class OrdersAnalyticsService(AbstractService):
             closing_price=last_candle_market_metrics.closing_price,
             suggested_stop_loss_percent_value=suggested_stop_loss_percent_value,
             suggested_safeguard_stop_price=suggested_safeguard_stop_price,
+            suggested_take_profit_percent_value=suggested_take_profit_percent_value,
             suggested_take_profit_limit_price=suggested_take_profit_limit_price,
         )
         return (guard_metrics, previous_used_buy_trades)
@@ -189,6 +192,27 @@ class OrdersAnalyticsService(AbstractService):
         else:  # Round to 2 decimal place if greater than the last step
             stop_loss_percent_value = self._ceil_round(stop_loss_percent_value, ndigits=2)
         return stop_loss_percent_value
+
+    def calculate_suggested_take_profit_limit_price(
+        self,
+        avg_buy_price: float,
+        suggested_stop_loss_percent_value: float,
+        buy_sell_signals_config: BuySellSignalsConfigItem,
+        *,
+        trading_market_config: SymbolMarketConfig,
+    ) -> tuple[float, float]:
+        intended_profit_factor = round(
+            buy_sell_signals_config.take_profit_atr_multiplier / buy_sell_signals_config.stop_loss_atr_multiplier,
+            ndigits=2,
+        )
+        suggested_take_profit_percent_value = round(
+            suggested_stop_loss_percent_value * intended_profit_factor, ndigits=2
+        )
+        suggested_take_profit_limit_price = round(
+            avg_buy_price * (1 + (suggested_take_profit_percent_value / 100)),
+            ndigits=trading_market_config.price_precision,
+        )
+        return suggested_take_profit_limit_price, suggested_take_profit_percent_value
 
     async def find_stop_loss_percent_by_sell_order(self, sell_order: Order) -> tuple[StopLossPercentItem, float]:
         crypto_currency_symbol = sell_order.symbol.split("/")[0].strip().upper()
@@ -310,20 +334,6 @@ class OrdersAnalyticsService(AbstractService):
             avg_buy_price * (1 - suggested_stop_loss_decimal_value), ndigits=trading_market_config.price_precision
         )
         return suggested_safeguard_stop_price
-
-    def _calculate_suggested_take_profit_limit_price(
-        self,
-        avg_buy_price: float,
-        buy_sell_signals_config: BuySellSignalsConfigItem,
-        *,
-        last_candle_market_metrics: CryptoMarketMetrics,
-        trading_market_config: SymbolMarketConfig,
-    ) -> float:
-        suggested_take_profit_limit_price = round(
-            avg_buy_price + (last_candle_market_metrics.atr * buy_sell_signals_config.take_profit_atr_multiplier),
-            ndigits=trading_market_config.price_precision,
-        )
-        return suggested_take_profit_limit_price
 
     async def _calculate_buy_sell_signals_config_by_opened_sell_orders(
         self, opened_sell_orders: list[Order]

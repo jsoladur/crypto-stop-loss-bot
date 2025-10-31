@@ -193,7 +193,7 @@ class MessagesFormatter:
             + f"   🏦 {html.bold('Net Revenue')} = {metrics.net_revenue} {fiat_currency}\n"
             + "   ---------------------------------------------------- \n"
             + f"   💳 {html.bold('Buy Price')} = {metrics.avg_buy_price} {fiat_currency}\n"
-            + f"   ⚖️ {html.bold('Break-even Price')} = {metrics.break_even_price} {fiat_currency}\n"
+            + f"   🧊 {html.bold('Break-even Price')} = {metrics.break_even_price} {fiat_currency}\n"
             + "   ---------------------------------------------------- \n"
             + f"   🚏 {html.bold('Stop Loss')} = {metrics.stop_loss_percent_value}%\n"
             + f"   🛡️ {html.bold('Stop Price = ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
@@ -205,7 +205,10 @@ class MessagesFormatter:
             + f"   🎢 {html.italic('ATR')} = ±{metrics.current_attr_value} {fiat_currency} (±{metrics.current_atr_percent}%)\n"  # noqa: E501
             + f"   🚏 {html.bold('ATR Stop Loss')} = {metrics.suggested_stop_loss_percent_value}%\n"  # noqa: E501
             + f"   💰 {html.bold('ATR Safeguard Stop Price')} = {metrics.suggested_safeguard_stop_price} {fiat_currency}\n"  # noqa: E501
+            + f"   🏆 {html.bold('ATR Take Profit')} = {metrics.suggested_take_profit_percent_value}%\n"  # noqa: E501
             + f"   🎯 {html.bold('ATR Take Profit Price')} = {metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
+            + "  ---------------------------------------------------- \n"
+            + f"   ⚖️ {html.bold('Profit Factor')} = {metrics.profit_factor}\n"
         )
         return answer_text
 
@@ -268,8 +271,8 @@ class MessagesFormatter:
         ]
         params_lines = [
             "\n" + html.bold("⚙️ Technical Parameters (ATR-based):"),
-            f"  - 🛡️ Stop Loss (%): {hints.stop_loss_percent_value}%",
-            f"  - 🎯 Take Profit (%): {hints.take_profit_percent_value}%",
+            f"  - 🚏 Stop Loss (%): {hints.stop_loss_percent_value}%",
+            f"  - 🏆 Take Profit (%): {hints.take_profit_percent_value}%",
             f"  - ⚖️ Profit Factor: {html.bold(hints.profit_factor)}",
         ]
         risk_data = hints.long
