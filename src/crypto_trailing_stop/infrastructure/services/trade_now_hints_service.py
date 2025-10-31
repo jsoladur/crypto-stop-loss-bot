@@ -25,7 +25,7 @@ class TradeNowHintsService:
         async with await self._operating_exchange_service.get_client() as client:
             account_info = await self._operating_exchange_service.get_account_info(client=client)
             porfolio_balance = await self._operating_exchange_service.retrieve_porfolio_balance(
-                account_info.currency_code.lower(), client=client
+                account_info.currency_code, client=client
             )
 
             crypto_currency, symbol = symbol, f"{symbol}/{account_info.currency_code}"

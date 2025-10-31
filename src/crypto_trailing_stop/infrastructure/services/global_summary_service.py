@@ -47,7 +47,7 @@ class GlobalSummaryService:
                 logger.info(f"Operation type found out are: {','.join(operation_types)}")
 
             portfolio_balance = await self._operating_exchange_service.retrieve_porfolio_balance(
-                user_currency=account_info.currency_code.lower(), client=client
+                user_currency=account_info.currency_code, client=client
             )
             global_summary = GlobalSummary(
                 total_deposits=total_deposits, withdrawls=withdrawls, current_value=portfolio_balance.total_balance
