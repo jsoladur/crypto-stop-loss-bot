@@ -13,11 +13,17 @@ class LimitSellOrderGuardMetrics:
     net_revenue: float | int
     # Stop loss and take profit metrics
     stop_loss_percent_value: float
-    safeguard_stop_price: float | int
-    # Suggested and dinamically calculated based on current volatility
+    safeguard_stop_price: float
+    # Current metrics that affects to 'suggested' fields
     current_attr_value: float | int
     current_atr_percent: float | int
     closing_price: float | int
+    # Suggested and dinamically calculated based on current volatility
     suggested_stop_loss_percent_value: float
     suggested_safeguard_stop_price: float
+    suggested_take_profit_percent_value: float
     suggested_take_profit_limit_price: float
+
+    @property
+    def profit_factor(self) -> float:
+        return round(self.suggested_take_profit_percent_value / self.suggested_stop_loss_percent_value, ndigits=2)

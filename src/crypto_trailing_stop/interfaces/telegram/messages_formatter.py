@@ -193,7 +193,7 @@ class MessagesFormatter:
             + f"   🏦 {html.bold('Net Revenue')} = {metrics.net_revenue} {fiat_currency}\n"
             + "   ---------------------------------------------------- \n"
             + f"   💳 {html.bold('Buy Price')} = {metrics.avg_buy_price} {fiat_currency}\n"
-            + f"   ⚖️ {html.bold('Break-even Price')} = {metrics.break_even_price} {fiat_currency}\n"
+            + f"   🧊 {html.bold('Break-even Price')} = {metrics.break_even_price} {fiat_currency}\n"
             + "   ---------------------------------------------------- \n"
             + f"   🚏 {html.bold('Stop Loss')} = {metrics.stop_loss_percent_value}%\n"
             + f"   🛡️ {html.bold('Stop Price = ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
@@ -205,7 +205,10 @@ class MessagesFormatter:
             + f"   🎢 {html.italic('ATR')} = ±{metrics.current_attr_value} {fiat_currency} (±{metrics.current_atr_percent}%)\n"  # noqa: E501
             + f"   🚏 {html.bold('ATR Stop Loss')} = {metrics.suggested_stop_loss_percent_value}%\n"  # noqa: E501
             + f"   💰 {html.bold('ATR Safeguard Stop Price')} = {metrics.suggested_safeguard_stop_price} {fiat_currency}\n"  # noqa: E501
+            + f"   🏆 {html.bold('ATR Take Profit')} = {metrics.suggested_take_profit_percent_value}%\n"  # noqa: E501
             + f"   🎯 {html.bold('ATR Take Profit Price')} = {metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
+            + "  ---------------------------------------------------- \n"
+            + f"   ⚖️ {html.bold('Profit Factor')} = {metrics.profit_factor}\n"
         )
         return answer_text
 
@@ -263,22 +266,22 @@ class MessagesFormatter:
         header = f"🔀 {html.bold('TRADE CALCULATOR HINTS')} for {html.bold(hints.symbol)} 🔀"
         market_status_lines = [
             "\n" + html.bold("📊 Current Market Status:"),
-            f"  - 🔥 Current Price: {html.code(f'{tickers.close:.4f} {fiat_currency}')}",
-            f"  - 🎢 ATR (Volatility): ±{html.code(f'{metrics.atr:.4f} {fiat_currency}')} (±{metrics.atr_percent:.2f}%)",  # noqa: E501
+            f"   🔥 {html.italic('Current Price')} = {html.code(f'{tickers.close:.4f} {fiat_currency}')}",
+            f"  🎢 {html.italic('ATR')} = ±{html.code(f'{metrics.atr:.4f} {fiat_currency}')} (±{metrics.atr_percent:.2f}%)",  # noqa: E501
         ]
         params_lines = [
             "\n" + html.bold("⚙️ Technical Parameters (ATR-based):"),
-            f"  - 🛡️ Stop Loss (%): {hints.stop_loss_percent_value}%",
-            f"  - 🎯 Take Profit (%): {hints.take_profit_percent_value}%",
-            f"  - ⚖️ Profit Factor: {html.bold(hints.profit_factor)}",
+            f"   🚏 {html.bold('ATR Stop Loss')} = {hints.stop_loss_percent_value}%",
+            f"   🏆 {html.bold('ATR Take Profit')} = {hints.take_profit_percent_value}%",
+            f"   ⚖️ {html.bold('Profit Factor')} = {html.bold(hints.profit_factor)}",
         ]
         risk_data = hints.long
         risk_lines = [
             "\n" + html.bold("💰 Capital & Risk (@ " + str(hints.leverage_value) + "x Leverage):"),
-            f"  - 💵 Capital as Margin: {html.code(f'{risk_data.required_margin_eur:.2f} {fiat_currency}')} ({hints.fiat_wallet_percent_assigned}%)",  # noqa: E501
-            f"  - 📦 Total Position Size: {html.code(f'{risk_data.position_size_eur:.2f} {fiat_currency}')}",
-            f"  - 💸 Losses if SL is triggered: {html.code(f'{risk_data.loss_at_stop_loss_eur:.2f} {fiat_currency}')}",
-            f"  - 💼 Risk from Total Capital: {html.bold(f'{risk_data.risk_as_percent_of_total_capital:.2f}%')}",
+            f"   💵 {html.bold('Capital as Margin')} = {html.code(f'{risk_data.required_margin_eur:.2f} {fiat_currency}')} ({hints.fiat_wallet_percent_assigned}%)",  # noqa: E501
+            f"   📦 {html.bold('Total Position Size')} = {html.code(f'{risk_data.position_size_eur:.2f} {fiat_currency}')}",  # noqa: E501
+            f"   💸 {html.italic('Losses if SL is triggered')} = {html.code(f'{risk_data.loss_at_stop_loss_eur:.2f} {fiat_currency}')}",  # noqa: E501
+            f"   💼 {html.italic('Risk from Total Capital')} = {html.bold(f'{risk_data.risk_as_percent_of_total_capital:.2f}%')}",  # noqa: E501
         ]
         long_lines = self._format_position_hints(hints.long, fiat_currency)
         short_lines = self._format_position_hints(hints.short, fiat_currency)
@@ -295,16 +298,16 @@ class MessagesFormatter:
             title = "SHORT Position"
             entry_price_label = "Entry (Bid)"
         lines = [
-            f"\n{icon} {html.bold(title)}:",
-            f"  - ▶️ {entry_price_label}: {html.code(f'{pos.entry_price:.4f} {fiat_currency}')}",
-            f"  - 🎯 Take Profit: {html.code(f'{pos.take_profit_price:.4f} {fiat_currency}')}",
-            f"  - 🛡️ Stop Loss: {html.code(f'{pos.stop_loss_price:.4f} {fiat_currency}')}",
+            f"\n{icon} If you open a new {html.bold(title)}:",
+            f"   ▶️ {html.bold(entry_price_label)} ={html.code(f'{pos.entry_price:.4f} {fiat_currency}')}",
+            f"   💰 {html.bold('ATR Safeguard Stop Price')} = {html.code(f'{pos.stop_loss_price:.4f} {fiat_currency}')}",  # noqa: E501
+            f"   🎯 {html.bold('ATR Take Profit Price')} = {html.code(f'{pos.take_profit_price:.4f} {fiat_currency}')}",
         ]
         if pos.is_safe_from_liquidation:
-            lines.append(f"  - ✅ {html.italic('Safety: SL is before Liquidation Price.')}")
+            lines.append(f"   ✅ {html.italic('Safety: SL is before Liquidation Price.')}")
         else:
             lines.append(
-                f"  - 🚨 {html.bold('DANGER: LIQUIDATION')}\n"
+                f"   🚨 {html.bold('DANGER: LIQUIDATION')}\n"
                 f"    {html.italic('Your SL is BEYOND your Liquidation Price of')} {html.code(f'~{pos.liquidation_price:.4f} {fiat_currency}')}."  # noqa: E501
                 f" {html.bold('Your position will be liquidated BEFORE the SL is hit.')}"
             )

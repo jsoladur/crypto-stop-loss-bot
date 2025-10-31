@@ -441,7 +441,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         text_message += f"🏦 Net Revenue: {html.code(net_revenue_message)}\n\n"
         text_message += f"{reason_icon} Reason:\n"
         details = self._get_notification_message_details(
-            tickers, last_candle_market_metrics, guard_metrics, auto_exit_reason, crypto_currency, fiat_currency
+            tickers, guard_metrics, auto_exit_reason, crypto_currency, fiat_currency
         )
         text_message += f"- {details}\n"
         await self._notify_alert_by_type(
@@ -451,7 +451,6 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
     def _get_notification_message_details(
         self,
         tickers: SymbolTickers,
-        last_candle_market_metrics: CryptoMarketMetrics,
         guard_metrics: LimitSellOrderGuardMetrics,
         auto_exit_reason: AutoExitReason,
         crypto_currency: str,
