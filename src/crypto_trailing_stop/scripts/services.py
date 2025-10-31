@@ -324,7 +324,7 @@ class BacktestingCliService:
                 buy_min_volume_threshold_values=current.buy_min_volume_threshold_values,
                 buy_max_volume_threshold_values=current.buy_max_volume_threshold_values,
                 sell_min_volume_threshold_values=current.sell_min_volume_threshold_values,
-                # sp_tp_tuples=current.sp_tp_tuples,
+                sp_tp_tuples=current.sp_tp_tuples,
                 tp_filter=tp_filter,
                 echo_fn=echo_fn,
             )
