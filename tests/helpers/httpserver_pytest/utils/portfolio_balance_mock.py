@@ -29,6 +29,7 @@ def prepare_httpserver_retrieve_portfolio_balance_mock(
     *,
     user_currency: str | None = None,
     global_portfolio_balance: float | None = None,
+    wallet_balances_crypto_currencies: list[str] | None = None,
 ) -> None:
     global_portfolio_balance = global_portfolio_balance or faker.pyfloat(min_value=1_000, max_value=3_000)
     match operating_exchange:
@@ -61,7 +62,7 @@ def prepare_httpserver_retrieve_portfolio_balance_mock(
                 operating_exchange,
                 api_key,
                 api_secret,
-                wallet_balances_crypto_currencies=["USDT"],
+                wallet_balances_crypto_currencies=wallet_balances_crypto_currencies or ["USDT"],
                 fixed_balance=global_portfolio_balance,
             )
         case _:
