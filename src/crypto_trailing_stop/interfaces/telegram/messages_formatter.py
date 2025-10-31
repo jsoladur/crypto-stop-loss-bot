@@ -55,7 +55,7 @@ class MessagesFormatter:
             ],
             "currency",
         )
-        message_lines = ["===========================", "🪙 PRO WALLET BALANCES 🪙", "==========================="]
+        message_lines = ["===========================", "🪙 SPOT BALANCES 🪙", "==========================="]
         if trading_wallet_balances:
             for wallet_balance in trading_wallet_balances:
                 balance = round(wallet_balance.balance, ndigits=4)
@@ -263,7 +263,7 @@ class MessagesFormatter:
         tickers = hints.tickers
         metrics = hints.crypto_market_metrics
         *_, fiat_currency = hints.symbol.split("/")
-        header = f"🔀 {html.bold('TRADE CALCULATOR HINTS')} for {html.bold(hints.symbol)} 🔀"
+        header = f"🔀 {html.bold('TRADE NOW CALCULATOR')} :: {html.bold(hints.symbol)} 🔀"
         market_status_lines = [
             "\n" + html.bold("📊 Current Market Status:"),
             f"   🔥 {html.italic('Current Price')} = {html.code(f'{tickers.close:.4f} {fiat_currency}')}",

@@ -30,7 +30,7 @@ async def trade_now_leverage_selection_callback_handler(callback_query: Callback
         match = re.match(REGEX, callback_query.data)
         symbol = match.group(1)
         await callback_query.message.answer(
-            f"ℹ️ Select the leverage {html.bold(symbol.upper())}",
+            f"ℹ️ Select the leverage for you trade in {html.bold(symbol.upper())}",
             reply_markup=keyboards_builder.get_leverage_values_by_symbol_keyboard(symbol),
         )
     else:

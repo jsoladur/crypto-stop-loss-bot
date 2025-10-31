@@ -73,8 +73,10 @@ class KeyboardsBuilder:
         )
         builder.row(InlineKeyboardButton(text="🚏 Stop Loss %", callback_data="stop_loss_percent_home"))
         builder.row(InlineKeyboardButton(text="🎯 Take-Profit Toggler", callback_data="take_profit_toggler_home"))
-        builder.row(InlineKeyboardButton(text="🚥 Market Signals", callback_data="last_market_signals_home"))
-        builder.row(InlineKeyboardButton(text="🔀 Trade Now", callback_data="trade_now_home"))
+        builder.row(
+            InlineKeyboardButton(text="🚥 Market Signals", callback_data="last_market_signals_home"),
+            InlineKeyboardButton(text="🔀 Trade Now", callback_data="trade_now_home"),
+        )
         if self._configuration_properties.gemini_pro_api_enabled:
             builder.row(InlineKeyboardButton(text="🪄 Gemini Generative AI", callback_data="gemini_generative_ai_home"))
         builder.row(InlineKeyboardButton(text="📴 Logout", callback_data="logout"))
