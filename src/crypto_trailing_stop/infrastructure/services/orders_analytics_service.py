@@ -201,9 +201,9 @@ class OrdersAnalyticsService(AbstractService):
         *,
         trading_market_config: SymbolMarketConfig,
     ) -> tuple[float, float]:
-        intended_profit_factor = round(
+        intended_profit_factor = self._floor_round(
             buy_sell_signals_config.take_profit_atr_multiplier / buy_sell_signals_config.stop_loss_atr_multiplier,
-            ndigits=2,
+            ndigits=1,
         )
         suggested_take_profit_percent_value = round(
             suggested_stop_loss_percent_value * intended_profit_factor, ndigits=2
