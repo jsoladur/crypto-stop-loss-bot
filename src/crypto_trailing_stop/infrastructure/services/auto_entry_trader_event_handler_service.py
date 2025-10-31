@@ -391,7 +391,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             + f"further sell at {html.bold(new_limit_sell_order_price_formatted)}"
             + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
         )
-        message += f"* ⚖️ {html.bold('Break-even Price')} = {guard_metrics.break_even_price} {fiat_currency}\n"
+        message += f"* 🧊 {html.bold('Break-even Price')} = {guard_metrics.break_even_price} {fiat_currency}\n"
         message += f"* 🚏 {html.bold('Stop Loss')} updated to {guard_metrics.suggested_stop_loss_percent_value}%\n"
         message += f"* 🛡️ {html.bold('Safeguard Stop Price = ' + str(guard_metrics.suggested_safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
         if buy_sell_signals_config.enable_exit_on_take_profit:

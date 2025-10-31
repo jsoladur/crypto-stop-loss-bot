@@ -1,11 +1,8 @@
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
-from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo import SymbolTickers
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
-from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
-from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.services.vo.trade_now_hints import LeveragedPositionHints, TradeNowHints
 
 
@@ -48,16 +45,21 @@ class TradeNowHintsService:
             crypto_market_metrics = await self._crypto_analytics_service.get_crypto_market_metrics(
                 symbol, client=client
             )
-            stop_loss_percent_value = self._orders_analytics_service.calculate_suggested_stop_loss_percent_value(
-                avg_buy_price=tickers.ask_or_close,
-                buy_sell_signals_config=buy_sell_signals_config,
-                last_candle_market_metrics=crypto_market_metrics,
-                trading_market_config=trading_market_config,
+            suggested_stop_loss_percent_value = (
+                self._orders_analytics_service.calculate_suggested_stop_loss_percent_value(
+                    avg_buy_price=tickers.ask_or_close,
+                    buy_sell_signals_config=buy_sell_signals_config,
+                    last_candle_market_metrics=crypto_market_metrics,
+                    trading_market_config=trading_market_config,
+                )
             )
-            take_profit_percent_value = self._calculate_take_profit_percent_value(
-                tickers=tickers,
-                buy_sell_signals_config=buy_sell_signals_config,
-                crypto_market_metrics=crypto_market_metrics,
+            *_, suggested_take_profit_percent_value = (
+                self._orders_analytics_service.calculate_suggested_take_profit_limit_price(
+                    avg_buy_price=tickers.ask_or_close,
+                    suggested_stop_loss_percent_value=suggested_stop_loss_percent_value,
+                    buy_sell_signals_config=buy_sell_signals_config,
+                    trading_market_config=trading_market_config,
+                )
             )
             # 3. Calculate Risk Metrics (based on your inputs)
             capital_to_use_as_margin = porfolio_balance.total_balance * (fiat_wallet_percent_assigned / 100)
@@ -66,8 +68,8 @@ class TradeNowHintsService:
             # 4. Calculate Hints for LONG
             long_metrics = self._calculate_position_metrics(
                 entry_price=tickers.ask,  # You buy at the 'ask' price
-                stop_loss_percent=stop_loss_percent_value,
-                take_profit_percent=take_profit_percent_value,
+                stop_loss_percent=suggested_stop_loss_percent_value,
+                take_profit_percent=suggested_take_profit_percent_value,
                 position_size_nocional=position_size_nocional,
                 required_margin=capital_to_use_as_margin,
                 total_capital=porfolio_balance.total_balance,
@@ -78,8 +80,8 @@ class TradeNowHintsService:
             # 5. Calculate Hints for SHORT
             short_metrics = self._calculate_position_metrics(
                 entry_price=tickers.bid,  # You sell at the 'bid' price
-                stop_loss_percent=stop_loss_percent_value,
-                take_profit_percent=take_profit_percent_value,
+                stop_loss_percent=suggested_stop_loss_percent_value,
+                take_profit_percent=suggested_take_profit_percent_value,
                 position_size_nocional=position_size_nocional,
                 required_margin=capital_to_use_as_margin,
                 total_capital=porfolio_balance.total_balance,
@@ -93,9 +95,9 @@ class TradeNowHintsService:
                 tickers=tickers,
                 crypto_market_metrics=crypto_market_metrics,
                 fiat_wallet_percent_assigned=fiat_wallet_percent_assigned,
-                stop_loss_percent_value=stop_loss_percent_value,
-                take_profit_percent_value=take_profit_percent_value,
-                profit_factor=round(take_profit_percent_value / stop_loss_percent_value, ndigits=2),
+                stop_loss_percent_value=suggested_stop_loss_percent_value,
+                take_profit_percent_value=suggested_take_profit_percent_value,
+                profit_factor=round(suggested_take_profit_percent_value / suggested_stop_loss_percent_value, ndigits=2),
                 long=long_metrics,
                 short=short_metrics,
             )
@@ -151,13 +153,3 @@ class TradeNowHintsService:
             liquidation_price=liquidation_price,
             is_safe_from_liquidation=is_safe,
         )
-
-    def _calculate_take_profit_percent_value(
-        self,
-        tickers: SymbolTickers,
-        buy_sell_signals_config: BuySellSignalsConfigItem,
-        crypto_market_metrics: CryptoMarketMetrics,
-    ) -> float:
-        take_profit_distance = crypto_market_metrics.atr * buy_sell_signals_config.take_profit_atr_multiplier
-        take_profit_percent_value = round((take_profit_distance / tickers.ask_or_close) * 100, ndigits=2)
-        return take_profit_percent_value
