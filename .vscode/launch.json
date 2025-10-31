@@ -108,7 +108,7 @@
         "-x",
         "--log-cli-level=INFO",
         "-k",
-        "should_create_market_sell_order_when_stop_loss_triggered"
+        "should_calculate_trade_now_hints_properly"
       ],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false
