@@ -311,6 +311,7 @@ class BacktestingCliService:
             echo_fn(f"---- Buy Min Volume Thresholds:      {str(current.buy_min_volume_threshold_values)}")
             echo_fn(f"---- Buy Max Volume Thresholds:      {str(current.buy_max_volume_threshold_values)}")
             echo_fn(f"---- Sell Min Volume Thresholds:     {str(current.sell_min_volume_threshold_values)}")
+            echo_fn(f"---- SL/TP tuples:     {str(current.sp_tp_tuples)}")
             echo_fn("-----------------------------")
         echo_fn("=============================")
         # 2.4 Run second iteration with refinmement
@@ -322,6 +323,7 @@ class BacktestingCliService:
                 buy_min_volume_threshold_values=current.buy_min_volume_threshold_values,
                 buy_max_volume_threshold_values=current.buy_max_volume_threshold_values,
                 sell_min_volume_threshold_values=current.sell_min_volume_threshold_values,
+                sp_tp_tuples=current.sp_tp_tuples,
                 tp_filter=tp_filter,
                 echo_fn=echo_fn,
             )
@@ -387,6 +389,11 @@ class BacktestingCliService:
         parameters_refinement_result_dict: dict[tuple[int, int], ParametersRefinementResult] = {}
         for result in first_execution_result_summary.all:
             ema_short_and_mid_values = (result.parameters.ema_short_value, result.parameters.ema_mid_value)
+            sp_tp_tuple = (
+                result.parameters.enable_exit_on_take_profit,
+                result.parameters.stop_loss_atr_multiplier,
+                result.parameters.take_profit_atr_multiplier,
+            )
             parameters_refinement = parameters_refinement_result_dict.setdefault(
                 ema_short_and_mid_values,
                 ParametersRefinementResult(
@@ -400,6 +407,8 @@ class BacktestingCliService:
                 parameters_refinement.sell_min_volume_threshold_values.append(
                     result.parameters.sell_min_volume_threshold
                 )
+            if sp_tp_tuple not in parameters_refinement.sp_tp_tuples:
+                parameters_refinement.sp_tp_tuples.append(sp_tp_tuple)
 
         ret: list[ParametersRefinementResult] = []
         for current in parameters_refinement_result_dict.values():
@@ -713,13 +722,14 @@ class BacktestingCliService:
         buy_min_volume_threshold_values: list[float],
         buy_max_volume_threshold_values: list[float],
         sell_min_volume_threshold_values: list[float],
+        sp_tp_tuples: list[tuple[bool, float, float]] | None = None,
         tp_filter: TakeProfitFilter = "all",
         apply_heuristics: bool = True,
         echo_fn: Callable[[str], None] | None = None,
     ) -> list[BuySellSignalsConfigItem]:
         enable_exit_on_divergence_signal_values: list[bool] = [True, False]
         # Group SL/TP pairs by SL value to ensure we have unique SL values when TP is disabled
-        sp_tp_tuples = self._get_sp_tp_tuples(tp_filter=tp_filter)
+        sp_tp_tuples = sp_tp_tuples or self._get_sp_tp_tuples(tp_filter=tp_filter)
 
         # Adding the "No filter" option (0) to ADX thresholds
         adx_threshold_values = ADX_THRESHOLD_VALUES.copy()
