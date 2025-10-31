@@ -61,7 +61,7 @@ class SignalStrategy(Strategy):
         # --- ENTRY LOGIC ---
         # Now uses the pre-calculated 'last_candle_metrics'
         if not self.position and self.data.buy_signal[-1]:
-            stop_loss_pct = self._orders_analytics_service._calculate_suggested_stop_loss_percent_value(
+            stop_loss_pct = self._orders_analytics_service.calculate_suggested_stop_loss_percent_value(
                 self.data.Close[-1],
                 buy_sell_signals_config=self.simulated_bs_config,
                 last_candle_market_metrics=last_candle_metrics,
