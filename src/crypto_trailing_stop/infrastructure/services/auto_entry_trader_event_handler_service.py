@@ -396,15 +396,15 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         message += f"* 🛡️ {html.bold('Safeguard Stop Price = ' + str(guard_metrics.suggested_safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
         if buy_sell_signals_config.enable_exit_on_take_profit:
             message += f"* 🎯 {html.bold('ATR Take Profit Price')} = {guard_metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
-        message += f"* 🔰 {html.bold(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD.description)} has been ENABLED!\n"
-        message += f"* 🛑 {html.bold('Auto SELL 1H Exit')} has been ENABLED!\n"
         if buy_sell_signals_config.enable_exit_on_take_profit:
-            message += f"* ⚡ {html.bold('Auto ATR Take-Profit Exit')} is ENABLED!"
+            message += f"* ⚡ {html.bold('Auto ATR Take-Profit Exit')} is ENABLED!\n"
+            message += f"* 🟢 {html.bold('Potential Profit at TP')} = {html.code(str(guard_metrics.potential_profit_at_tp) + ' ' + fiat_currency)}\n"  # noqa: E501
         else:
             message += (
                 f"* ⚡ {html.bold('Auto ATR Take-Profit Exit')} is DISABLED! "
-                + "Please, consider to enable it if needed!"
+                + "Please, consider to enable it if needed!\n"
             )
+        message += f"* 🔴 {html.bold('Potential Loss at SL')} = {html.code('-' + str(guard_metrics.potential_loss_at_sl) + ' ' + fiat_currency)}"  # noqa: E501
         await self._notify_alert_by_type(PushNotificationTypeEnum.AUTO_ENTRY_TRADER_ALERT, message)
 
     def _floor_round(self, value: float, *, ndigits: int) -> float:
