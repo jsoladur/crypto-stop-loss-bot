@@ -1,3 +1,4 @@
+from crypto_trailing_stop.commons.constants import TRADE_NOW_DEFAULT_TOTAL_CAPITAL
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
@@ -118,6 +119,7 @@ class TradeNowHintsService:
         """
         Helper function that calculates all risk metrics for one direction (Long or Short).
         """
+        total_capital = total_capital if total_capital > 0 else TRADE_NOW_DEFAULT_TOTAL_CAPITAL
         sl_percent_decimal = stop_loss_percent / 100
         tp_percent_decimal = take_profit_percent / 100
         # Liquidation is ~100% / leverage (e.g., 1 / 20x = 0.05 or 5%)
