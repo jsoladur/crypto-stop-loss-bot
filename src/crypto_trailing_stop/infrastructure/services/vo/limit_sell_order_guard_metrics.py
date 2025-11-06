@@ -27,3 +27,25 @@ class LimitSellOrderGuardMetrics:
     @property
     def profit_factor(self) -> float:
         return round(self.suggested_take_profit_percent_value / self.suggested_stop_loss_percent_value, ndigits=2)
+
+    @property
+    def potential_loss_at_sl(self) -> float:
+        """
+        Calculates the potential loss (in the quote currency) if the
+        active safeguard_stop_price is hit.
+        """
+        loss_per_unit = self.avg_buy_price - self.safeguard_stop_price
+        total_loss = loss_per_unit * self.sell_order.amount
+        # Assuming 2 decimal places for fiat, but you could fetch
+        # trading_market_config.price_precision if needed.
+        return round(total_loss, ndigits=2)
+
+    @property
+    def potential_profit_at_tp(self) -> float:
+        """
+        Calculates the potential profit (in the quote currency) if the
+        suggested_take_profit_limit_price is hit.
+        """
+        profit_per_unit = self.suggested_take_profit_limit_price - self.avg_buy_price
+        total_profit = profit_per_unit * self.sell_order.amount
+        return round(total_profit, ndigits=2)
