@@ -67,3 +67,4 @@ MAX_VOLUME_THRESHOLD_VALUES = [
     for max_volume_threshold in np.arange(2.25, 4.75, MAX_VOLUME_THRESHOLD_STEP_VALUE).tolist()
 ]
 YES_NO_VALUES = ["Yes", "No"]
+TRADE_NOW_DEFAULT_TOTAL_CAPITAL = 3_000
