@@ -13,7 +13,10 @@ from pydantic import RootModel
 from pytest_httpserver import HTTPServer
 from pytest_httpserver.httpserver import HandlerType
 
-from crypto_trailing_stop.commons.constants import TRIGGER_BUY_ACTION_EVENT_NAME
+from crypto_trailing_stop.commons.constants import (
+    AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST,
+    TRIGGER_BUY_ACTION_EVENT_NAME,
+)
 from crypto_trailing_stop.config.dependencies import get_application_container
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_order_dto import Bit2MeOrderDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_tickers_dto import Bit2MeTickersDto
@@ -224,7 +227,7 @@ def _prepare_httpserver_mock(
     if warning_type != AutoEntryTraderWarningTypeEnum.ATR_TOO_HIGH:
         global_portfolio_balance = faker.pyfloat(min_value=2_500, max_value=2_700)
         spot_balance = (
-            faker.pyfloat(min_value=1, max_value=20)
+            faker.pyfloat(min_value=1, max_value=AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST - 1)
             if warning_type == AutoEntryTraderWarningTypeEnum.NOT_ENOUGH_FUNDS
             else (global_portfolio_balance * 0.9)
         )

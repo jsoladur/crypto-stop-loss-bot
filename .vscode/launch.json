@@ -108,7 +108,7 @@
         "-x",
         "--log-cli-level=INFO",
         "-k",
-        "should_calculate_trade_now_hints_properly"
+        "should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signal_is_triggered[exchange=bit2me-False-True-NOT_ENOUGH_FUNDS-NOT_ENOUGH_BALANCE]"
       ],
       "envFile": "${workspaceFolder}/.env.pytest",
       "justMyCode": false
