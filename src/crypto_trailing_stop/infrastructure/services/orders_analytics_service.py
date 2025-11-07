@@ -115,7 +115,7 @@ class OrdersAnalyticsService(AbstractService):
             candlestick=technical_indicators.iloc[CandleStickEnum.LAST],  # Last confirmed candle
             trading_market_config=trading_market_config,
         )
-        (avg_buy_price, previous_used_buy_trades) = await self._calculate_correlated_avg_buy_price(
+        (avg_buy_price, previous_used_buy_trades) = await self.calculate_correlated_avg_buy_price(
             sell_order,
             previous_used_buy_trades,
             trading_market_config=trading_market_config,
@@ -214,13 +214,7 @@ class OrdersAnalyticsService(AbstractService):
         )
         return suggested_take_profit_limit_price, suggested_take_profit_percent_value
 
-    async def find_stop_loss_percent_by_sell_order(self, sell_order: Order) -> tuple[StopLossPercentItem, float]:
-        crypto_currency_symbol = sell_order.symbol.split("/")[0].strip().upper()
-        stop_loss_percent_item = await self._stop_loss_percent_service.find_symbol(symbol=crypto_currency_symbol)
-        stop_loss_percent_decimal_value = stop_loss_percent_item.value / 100
-        return stop_loss_percent_item, stop_loss_percent_decimal_value
-
-    async def _calculate_correlated_avg_buy_price(
+    async def calculate_correlated_avg_buy_price(
         self,
         sell_order: Order,
         previous_used_buy_trades: dict[str, float] = {},
@@ -244,6 +238,12 @@ class OrdersAnalyticsService(AbstractService):
         denominator = sum([used_amount for _, used_amount in correlated_filled_buy_trades])
         avg_buy_price = round(numerator / denominator, ndigits=trading_market_config.price_precision)
         return avg_buy_price, previous_used_buy_trades
+
+    async def find_stop_loss_percent_by_sell_order(self, sell_order: Order) -> tuple[StopLossPercentItem, float]:
+        crypto_currency_symbol = sell_order.symbol.split("/")[0].strip().upper()
+        stop_loss_percent_item = await self._stop_loss_percent_service.find_symbol(symbol=crypto_currency_symbol)
+        stop_loss_percent_decimal_value = stop_loss_percent_item.value / 100
+        return stop_loss_percent_item, stop_loss_percent_decimal_value
 
     def _calculate_break_even_price(self, avg_buy_price: float, *, trading_market_config: SymbolMarketConfig) -> float:
         taker_fees = self._operating_exchange_service.get_taker_fee()
