@@ -34,7 +34,7 @@ class LimitSellOrderGuardMetrics:
         Calculates the potential loss (in the quote currency) if the
         active safeguard_stop_price is hit.
         """
-        loss_per_unit = self.avg_buy_price - self.safeguard_stop_price
+        loss_per_unit = self.break_even_price - self.safeguard_stop_price
         total_loss = loss_per_unit * self.sell_order.amount
         # Assuming 2 decimal places for fiat, but you could fetch
         # trading_market_config.price_precision if needed.
@@ -46,6 +46,6 @@ class LimitSellOrderGuardMetrics:
         Calculates the potential profit (in the quote currency) if the
         suggested_take_profit_limit_price is hit.
         """
-        profit_per_unit = self.suggested_take_profit_limit_price - self.avg_buy_price
+        profit_per_unit = self.suggested_take_profit_limit_price - self.break_even_price
         total_profit = profit_per_unit * self.sell_order.amount
         return round(total_profit, ndigits=2)
