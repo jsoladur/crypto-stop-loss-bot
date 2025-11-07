@@ -42,6 +42,7 @@ from crypto_trailing_stop.infrastructure.services.push_notification_service impo
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
+from crypto_trailing_stop.infrastructure.services.vo.crypto_market_metrics import CryptoMarketMetrics
 from crypto_trailing_stop.infrastructure.services.vo.limit_sell_order_guard_metrics import LimitSellOrderGuardMetrics
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from crypto_trailing_stop.infrastructure.services.vo.stop_loss_percent_item import StopLossPercentItem
@@ -200,7 +201,14 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             new_limit_sell_order = await self._create_new_sell_limit_order(
                 new_buy_market_order, trading_market_config, tickers, crypto_currency, client=client
             )
-            guard_metrics = await self._update_stop_loss(new_limit_sell_order, tickers, crypto_currency, client=client)
+            guard_metrics = await self._update_stop_loss(
+                new_limit_sell_order,
+                trading_market_config,
+                tickers,
+                crypto_currency,
+                buy_sell_signals_config,
+                client=client,
+            )
             # Ensure Auto-exit on sudden SELL 1H signal is enabled
             buy_sell_signals_config.enable_exit_on_sell_signal = True
             await self._buy_sell_signals_config_service.save_or_update(buy_sell_signals_config)
@@ -354,14 +362,38 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         return new_limit_sell_order
 
     async def _update_stop_loss(
-        self, new_limit_sell_order: Order, tickers: SymbolTickers, crypto_currency: str, *, client: Any
+        self,
+        new_limit_sell_order: Order,
+        trading_market_config: SymbolMarketConfig,
+        tickers: SymbolTickers,
+        crypto_currency: str,
+        buy_sell_signals_config: BuySellSignalsConfigItem,
+        *,
+        client: Any,
     ) -> LimitSellOrderGuardMetrics:
-        guard_metrics, *_ = await self._orders_analytics_service.calculate_guard_metrics_by_sell_order(
-            new_limit_sell_order, tickers=tickers, client=client
+        technical_indicators, *_ = await self._crypto_analytics_service.calculate_technical_indicators(
+            new_limit_sell_order.symbol, client=client
+        )
+        last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
+            new_limit_sell_order.symbol,
+            candlestick=technical_indicators.iloc[CandleStickEnum.LAST],  # Last confirmed candle
+            trading_market_config=trading_market_config,
+        )
+        avg_buy_price, *_ = await self._orders_analytics_service.calculate_correlated_avg_buy_price(
+            new_limit_sell_order, trading_market_config=trading_market_config, client=client
+        )
+        suggested_stop_loss_percent_value = self._orders_analytics_service.calculate_suggested_stop_loss_percent_value(
+            avg_buy_price,
+            buy_sell_signals_config=buy_sell_signals_config,
+            last_candle_market_metrics=last_candle_market_metrics,
+            trading_market_config=trading_market_config,
         )
         # XXX [JMSOLA]: Calculate suggested stop loss and update it
         await self._stop_loss_percent_service.save_or_update(
-            StopLossPercentItem(symbol=crypto_currency, value=guard_metrics.suggested_stop_loss_percent_value)
+            StopLossPercentItem(symbol=crypto_currency, value=suggested_stop_loss_percent_value)
+        )
+        guard_metrics, *_ = await self._orders_analytics_service.calculate_guard_metrics_by_sell_order(
+            new_limit_sell_order, tickers=tickers, client=client
         )
         return guard_metrics
 
@@ -392,7 +424,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             + " has been CREATED to start looking at possible SELL ACTION 🤑\n"
         )
         message += f"* 🧊 {html.bold('Break-even Price')} = {guard_metrics.break_even_price} {fiat_currency}\n"
-        message += f"* 🚏 {html.bold('Stop Loss')} updated to {guard_metrics.suggested_stop_loss_percent_value}%\n"
+        message += f"* 🚏 {html.bold('Stop Loss')} updated to {guard_metrics.stop_loss_percent_value}%\n"
         message += f"* 🛡️ {html.bold('Safeguard Stop Price = ' + str(guard_metrics.suggested_safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
         if buy_sell_signals_config.enable_exit_on_take_profit:
             message += f"* 🎯 {html.bold('ATR Take Profit Price')} = {guard_metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
