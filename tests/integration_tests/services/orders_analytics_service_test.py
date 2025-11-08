@@ -131,6 +131,7 @@ async def _exec_test(
         assert metrics.net_revenue is not None
         assert metrics.break_even_price is not None and metrics.break_even_price > metrics.avg_buy_price
         assert metrics.safeguard_stop_price > 0 and metrics.safeguard_stop_price < metrics.avg_buy_price
+        assert metrics.take_profit_limit_price > 0 and metrics.take_profit_limit_price > metrics.avg_buy_price
         assert metrics.stop_loss_percent_value > 0
         assert metrics.current_attr_value > 0.0
         assert (

@@ -88,9 +88,9 @@ class SignalStrategy(Strategy):
             # --- Check 1: Dynamic Take-Profit Exit ---
             exit_on_take_profit = False
             if self.simulated_bs_config.enable_exit_on_take_profit:
-                tp_price, *_ = self._orders_analytics_service.calculate_suggested_take_profit_limit_price(
+                tp_price, *_ = self._orders_analytics_service.calculate_take_profit_limit_price(
                     self.trades[-1].entry_price,
-                    suggested_stop_loss_percent_value=self.current_trade_sl_pct,
+                    stop_loss_percent_value=self.current_trade_sl_pct,
                     buy_sell_signals_config=self.simulated_bs_config,
                     trading_market_config=DEFAULT_TRADING_MARKET_CONFIG,
                 )

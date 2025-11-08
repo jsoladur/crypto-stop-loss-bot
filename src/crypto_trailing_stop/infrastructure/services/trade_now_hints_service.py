@@ -54,13 +54,11 @@ class TradeNowHintsService:
                     trading_market_config=trading_market_config,
                 )
             )
-            *_, suggested_take_profit_percent_value = (
-                self._orders_analytics_service.calculate_suggested_take_profit_limit_price(
-                    avg_buy_price=tickers.ask_or_close,
-                    suggested_stop_loss_percent_value=suggested_stop_loss_percent_value,
-                    buy_sell_signals_config=buy_sell_signals_config,
-                    trading_market_config=trading_market_config,
-                )
+            *_, suggested_take_profit_percent_value = self._orders_analytics_service.calculate_take_profit_limit_price(
+                avg_buy_price=tickers.ask_or_close,
+                stop_loss_percent_value=suggested_stop_loss_percent_value,
+                buy_sell_signals_config=buy_sell_signals_config,
+                trading_market_config=trading_market_config,
             )
             # 3. Calculate Risk Metrics (based on your inputs)
             capital_to_use_as_margin = porfolio_balance.total_balance * (fiat_wallet_percent_assigned / 100)

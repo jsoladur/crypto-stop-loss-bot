@@ -14,6 +14,8 @@ class LimitSellOrderGuardMetrics:
     # Stop loss and take profit metrics
     stop_loss_percent_value: float
     safeguard_stop_price: float
+    take_profit_percent_value: float
+    take_profit_limit_price: float
     # Current metrics that affects to 'suggested' fields
     current_attr_value: float | int
     current_atr_percent: float | int
@@ -44,8 +46,8 @@ class LimitSellOrderGuardMetrics:
     def potential_profit_at_tp(self) -> float:
         """
         Calculates the potential profit (in the quote currency) if the
-        suggested_take_profit_limit_price is hit.
+        take_profit_limit_price is hit.
         """
-        profit_per_unit = self.suggested_take_profit_limit_price - self.break_even_price
+        profit_per_unit = self.take_profit_limit_price - self.break_even_price
         total_profit = profit_per_unit * self.sell_order.amount
         return round(total_profit, ndigits=2)
