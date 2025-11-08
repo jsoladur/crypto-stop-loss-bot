@@ -159,7 +159,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             + f"Break-Even Price = {guard_metrics.break_even_price} {fiat_currency} / "
             + f"Stop Loss = {guard_metrics.stop_loss_percent_value}% / "
             + f"Stop Price = {guard_metrics.safeguard_stop_price} {fiat_currency} / "
-            + f"ATR Take Profit Limit price = {guard_metrics.suggested_take_profit_limit_price} {fiat_currency} / "
+            + f"Take Profit Limit price = {guard_metrics.take_profit_limit_price} {fiat_currency} / "
             + f"ATR value = {guard_metrics.current_attr_value} {fiat_currency} / "
             + f"Current Price = {tickers_close_formatted} {fiat_currency}"
         )
@@ -181,11 +181,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                 client=client,
             )
             await self._notify_new_market_sell_order_created_via_telegram(
-                new_sell_market_order,
-                tickers=tickers,
-                last_candle_market_metrics=last_candle_market_metrics,
-                guard_metrics=guard_metrics,
-                auto_exit_reason=auto_exit_reason,
+                new_sell_market_order, tickers=tickers, guard_metrics=guard_metrics, auto_exit_reason=auto_exit_reason
             )
         return (previous_used_buy_trades,)
 
@@ -378,7 +374,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
             # regardless what the ATR Take profit limit price is!
             take_profit_reached = bool(
                 tickers.bid_or_close >= guard_metrics.break_even_price  # Use bid
-                and tickers.bid_or_close >= guard_metrics.suggested_take_profit_limit_price  # Use bid
+                and tickers.bid_or_close >= guard_metrics.take_profit_limit_price  # Use bid
             )
         return take_profit_reached
 
@@ -424,7 +420,6 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         new_sell_market_order: Order,
         *,
         tickers: SymbolTickers,
-        last_candle_market_metrics: SymbolTickers,
         guard_metrics: LimitSellOrderGuardMetrics,
         auto_exit_reason: AutoExitReason,
     ) -> None:
@@ -478,12 +473,10 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
                 + "a SELL 1H signal has suddenly appeared."
             )
         elif auto_exit_reason.take_profit_reached:
-            suggested_take_profit_limit_price_message = (
-                f"{guard_metrics.suggested_take_profit_limit_price} {fiat_currency}"
-            )
+            take_profit_limit_price_message = f"{guard_metrics.take_profit_limit_price} {fiat_currency}"
             details = (
                 f"Current {crypto_currency} price ({html.code(current_price_message)}) "
-                + f"is higher than the ATR-based take profit calculated ({html.code(suggested_take_profit_limit_price_message)})."  # noqa: E501
+                + f"is higher than the fixed Take Profit price calculated ({html.code(take_profit_limit_price_message)})."  # noqa: E501
             )
         return details
 

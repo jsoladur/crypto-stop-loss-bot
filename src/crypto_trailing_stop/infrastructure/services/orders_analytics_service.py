@@ -132,6 +132,13 @@ class OrdersAnalyticsService(AbstractService):
         (safeguard_stop_price, stop_loss_percent_value) = await self._calculate_safeguard_stop_price(
             sell_order, avg_buy_price, trading_market_config=trading_market_config
         )
+        (take_profit_limit_price, take_profit_percent_value) = self.calculate_take_profit_limit_price(
+            avg_buy_price,
+            stop_loss_percent_value=stop_loss_percent_value,
+            buy_sell_signals_config=buy_sell_signals_config,
+            trading_market_config=trading_market_config,
+        )
+
         suggested_stop_loss_percent_value = self.calculate_suggested_stop_loss_percent_value(
             avg_buy_price,
             buy_sell_signals_config=buy_sell_signals_config,
@@ -141,13 +148,11 @@ class OrdersAnalyticsService(AbstractService):
         suggested_safeguard_stop_price = self._calculate_suggested_safeguard_stop_price(
             avg_buy_price, suggested_stop_loss_percent_value, trading_market_config=trading_market_config
         )
-        suggested_take_profit_limit_price, suggested_take_profit_percent_value = (
-            self.calculate_suggested_take_profit_limit_price(
-                avg_buy_price,
-                suggested_stop_loss_percent_value,
-                buy_sell_signals_config=buy_sell_signals_config,
-                trading_market_config=trading_market_config,
-            )
+        suggested_take_profit_limit_price, suggested_take_profit_percent_value = self.calculate_take_profit_limit_price(
+            avg_buy_price,
+            stop_loss_percent_value=suggested_stop_loss_percent_value,
+            buy_sell_signals_config=buy_sell_signals_config,
+            trading_market_config=trading_market_config,
         )
         rounded_last_candle_market_metrics = last_candle_market_metrics.rounded(trading_market_config)
         guard_metrics = LimitSellOrderGuardMetrics(
@@ -159,6 +164,8 @@ class OrdersAnalyticsService(AbstractService):
             net_revenue=net_revenue,
             stop_loss_percent_value=stop_loss_percent_value,
             safeguard_stop_price=safeguard_stop_price,
+            take_profit_percent_value=take_profit_percent_value,
+            take_profit_limit_price=take_profit_limit_price,
             current_attr_value=rounded_last_candle_market_metrics.atr,
             current_atr_percent=rounded_last_candle_market_metrics.atr_percent,
             closing_price=last_candle_market_metrics.closing_price,
@@ -193,26 +200,23 @@ class OrdersAnalyticsService(AbstractService):
             stop_loss_percent_value = self._ceil_round(stop_loss_percent_value, ndigits=2)
         return stop_loss_percent_value
 
-    def calculate_suggested_take_profit_limit_price(
+    def calculate_take_profit_limit_price(
         self,
         avg_buy_price: float,
-        suggested_stop_loss_percent_value: float,
-        buy_sell_signals_config: BuySellSignalsConfigItem,
         *,
+        stop_loss_percent_value: float,
+        buy_sell_signals_config: BuySellSignalsConfigItem,
         trading_market_config: SymbolMarketConfig,
     ) -> tuple[float, float]:
         intended_profit_factor = self._floor_round(
             buy_sell_signals_config.take_profit_atr_multiplier / buy_sell_signals_config.stop_loss_atr_multiplier,
             ndigits=1,
         )
-        suggested_take_profit_percent_value = round(
-            suggested_stop_loss_percent_value * intended_profit_factor, ndigits=2
+        take_profit_percent_value = round(stop_loss_percent_value * intended_profit_factor, ndigits=2)
+        take_profit_limit_price = round(
+            avg_buy_price * (1 + (take_profit_percent_value / 100)), ndigits=trading_market_config.price_precision
         )
-        suggested_take_profit_limit_price = round(
-            avg_buy_price * (1 + (suggested_take_profit_percent_value / 100)),
-            ndigits=trading_market_config.price_precision,
-        )
-        return suggested_take_profit_limit_price, suggested_take_profit_percent_value
+        return take_profit_limit_price, take_profit_percent_value
 
     async def calculate_correlated_avg_buy_price(
         self,
