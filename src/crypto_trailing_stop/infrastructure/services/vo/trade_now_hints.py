@@ -14,10 +14,11 @@ class LeveragedPositionHints:
     stop_loss_price: float  # Technical Stop-Loss price
     take_profit_price: float  # Technical Take-Profit price
     # Capital Metrics
-    required_margin_eur: float  # Amount to post as margin
-    position_size_eur: float  # Total Notional Size of the position
+    required_margin: float  # Amount to post as margin
+    position_size: float  # Total Notional Size of the position
     # Risk Metrics
-    loss_at_stop_loss_eur: float  # Real loss in EUR if the SL is hit
+    loss_at_stop_loss: float  # Real loss if the SL is hit
+    profit_at_stop_loss: float  # Real profit if the SL is hit
     risk_as_percent_of_total_capital: float  # The % of your total capital you are risking
     # Liquidation Metrics
     liquidation_price: float  # Estimated liquidation price

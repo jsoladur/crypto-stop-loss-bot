@@ -1,5 +1,6 @@
 from crypto_trailing_stop.commons.constants import TRADE_NOW_DEFAULT_TOTAL_CAPITAL
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo import PortfolioBalance
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
@@ -28,7 +29,11 @@ class TradeNowHintsService:
             porfolio_balance = await self._operating_exchange_service.retrieve_porfolio_balance(
                 account_info.currency_code, client=client
             )
-
+            porfolio_balance = (
+                porfolio_balance
+                if porfolio_balance.total_balance > 0
+                else PortfolioBalance(total_balance=TRADE_NOW_DEFAULT_TOTAL_CAPITAL)
+            )
             crypto_currency, symbol = symbol, f"{symbol}/{account_info.currency_code}"
 
             auto_buy_trader_config = await self._auto_buy_trader_config_service.find_by_symbol(crypto_currency)
@@ -117,7 +122,6 @@ class TradeNowHintsService:
         """
         Helper function that calculates all risk metrics for one direction (Long or Short).
         """
-        total_capital = total_capital if total_capital > 0 else TRADE_NOW_DEFAULT_TOTAL_CAPITAL
         sl_percent_decimal = stop_loss_percent / 100
         tp_percent_decimal = take_profit_percent / 100
         # Liquidation is ~100% / leverage (e.g., 1 / 20x = 0.05 or 5%)
@@ -138,17 +142,19 @@ class TradeNowHintsService:
             is_safe = stop_loss_price > liquidation_price
 
         # Risk Calculations (same for long and short)
-        loss_at_stop_loss_eur = position_size_nocional * sl_percent_decimal
-        risk_as_percent_of_total_capital = (loss_at_stop_loss_eur / total_capital) * 100
+        loss_at_stop_loss = position_size_nocional * sl_percent_decimal
+        profit_at_stop_loss = position_size_nocional * tp_percent_decimal
+        risk_as_percent_of_total_capital = (loss_at_stop_loss / total_capital) * 100
 
         return LeveragedPositionHints(
             position_type="Short" if is_short_position else "Long",
             entry_price=entry_price,
             stop_loss_price=stop_loss_price,
             take_profit_price=take_profit_price,
-            required_margin_eur=required_margin,
-            position_size_eur=position_size_nocional,
-            loss_at_stop_loss_eur=loss_at_stop_loss_eur,
+            required_margin=required_margin,
+            position_size=position_size_nocional,
+            loss_at_stop_loss=loss_at_stop_loss,
+            profit_at_stop_loss=profit_at_stop_loss,
             risk_as_percent_of_total_capital=risk_as_percent_of_total_capital,
             liquidation_price=liquidation_price,
             is_safe_from_liquidation=is_safe,

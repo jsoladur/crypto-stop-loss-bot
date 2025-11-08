@@ -533,7 +533,7 @@ wheels = [
 
 [[package]]
 name = "crypto-trailing-stop"
-version = "0.50.7"
+version = "0.50.8"
 source = { editable = "." }
 dependencies = [
     { name = "aiogram" },

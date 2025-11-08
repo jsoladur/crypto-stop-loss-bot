@@ -283,10 +283,11 @@ class MessagesFormatter:
         risk_data = hints.long
         risk_lines = [
             "\n" + html.bold("💰 Capital & Risk (@ " + str(hints.leverage_value) + "x Leverage):"),
-            f"   💵 {html.bold('Capital as Margin')} = {html.code(f'{risk_data.required_margin_eur:.2f} {fiat_currency}')} ({hints.fiat_wallet_percent_assigned}%)",  # noqa: E501
-            f"   📦 {html.bold('Total Position Size')} = {html.code(f'{risk_data.position_size_eur:.2f} {fiat_currency}')}",  # noqa: E501
-            f"   💸 {html.italic('Losses if SL is triggered')} = {html.code(f'{risk_data.loss_at_stop_loss_eur:.2f} {fiat_currency}')}",  # noqa: E501
+            f"   💵 {html.bold('Capital as Margin')} = {html.code(f'{risk_data.required_margin:.2f} {fiat_currency}')} ({hints.fiat_wallet_percent_assigned}%)",  # noqa: E501
+            f"   📦 {html.bold('Total Position Size')} = {html.code(f'{risk_data.position_size:.2f} {fiat_currency}')}",  # noqa: E501
             f"   💼 {html.italic('Risk from Total Capital')} = {html.bold(f'{risk_data.risk_as_percent_of_total_capital:.2f}%')}",  # noqa: E501
+            f"   🟢 {html.italic('Profit if TP is triggered')} = {html.code(f'{risk_data.profit_at_stop_loss:.2f} {fiat_currency}')}",  # noqa: E501
+            f"   🔴 {html.italic('Losses if SL is triggered')} = {html.code(f'-{risk_data.loss_at_stop_loss:.2f} {fiat_currency}')}",  # noqa: E501
         ]
         long_lines = self._format_position_hints(hints.long, fiat_currency)
         short_lines = self._format_position_hints(hints.short, fiat_currency)
