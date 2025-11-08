@@ -196,7 +196,13 @@ class MessagesFormatter:
             + f"   🧊 {html.bold('Break-even Price')} = {metrics.break_even_price} {fiat_currency}\n"
             + "   ---------------------------------------------------- \n"
             + f"   🚏 {html.bold('Stop Loss')} = {metrics.stop_loss_percent_value}%\n"
-            + f"   🛡️ {html.bold('Stop Price = ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}"  # noqa: E501
+            + f"   🛡️ {html.bold('Stop Price = ' + str(metrics.safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
+            + f"   🏆 {html.bold('Take Profit')} = {metrics.take_profit_percent_value}%\n"  # noqa: E501
+            + f"   🎯 {html.bold('Take Profit Price')} = {metrics.take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
+            + "  ---------------------------------------------------- \n"
+            + f"   ⚖️ {html.bold('Profit Factor (R:R)')} = {html.code(metrics.profit_factor)}\n"
+            + f"   🟢 {html.bold('Potential Profit at TP')} = {html.code(str(metrics.potential_profit_at_tp) + ' ' + fiat_currency)}\n"  # noqa: E501
+            + f"   🔴 {html.bold('Potential Loss at SL')} = {html.code('-' + str(metrics.potential_loss_at_sl) + ' ' + fiat_currency)}"  # noqa: E501
         )
         answer_text += (
             "\n  ---------------------------------------------------- \n"
@@ -207,10 +213,6 @@ class MessagesFormatter:
             + f"   💰 {html.bold('ATR Safeguard Stop Price')} = {metrics.suggested_safeguard_stop_price} {fiat_currency}\n"  # noqa: E501
             + f"   🏆 {html.bold('ATR Take Profit')} = {metrics.suggested_take_profit_percent_value}%\n"  # noqa: E501
             + f"   🎯 {html.bold('ATR Take Profit Price')} = {metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
-            + "  ---------------------------------------------------- \n"
-            + f"   ⚖️ {html.bold('Profit Factor (R:R)')} = {html.code(metrics.profit_factor)}\n"
-            + f"   🟢 {html.bold('Potential Profit at TP')} = {html.code(str(metrics.potential_profit_at_tp) + ' ' + fiat_currency)}\n"  # noqa: E501
-            + f"   🔴 {html.bold('Potential Loss at SL')} = {html.code('-' + str(metrics.potential_loss_at_sl) + ' ' + fiat_currency)}\n"  # noqa: E501
             + "  ---------------------------------------------------- "
         )
         return answer_text

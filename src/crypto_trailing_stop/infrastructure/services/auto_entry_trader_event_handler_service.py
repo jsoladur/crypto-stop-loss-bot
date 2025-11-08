@@ -427,7 +427,9 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         message += f"* 🚏 {html.bold('Stop Loss')} updated to {guard_metrics.stop_loss_percent_value}%\n"
         message += f"* 🛡️ {html.bold('Safeguard Stop Price = ' + str(guard_metrics.suggested_safeguard_stop_price) + ' ' + fiat_currency)}\n"  # noqa: E501
         if buy_sell_signals_config.enable_exit_on_take_profit:
-            message += f"* 🎯 {html.bold('ATR Take Profit Price')} = {guard_metrics.suggested_take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
+            message += (
+                f"* 🎯 {html.bold('Take Profit Price')} = {guard_metrics.take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
+            )
         if buy_sell_signals_config.enable_exit_on_take_profit:
             message += f"* ⚡ {html.bold('Auto ATR Take-Profit Exit')} is ENABLED!\n"
             message += f"* 🟢 {html.bold('Potential Profit at TP')} = {html.code(str(guard_metrics.potential_profit_at_tp) + ' ' + fiat_currency)}\n"  # noqa: E501
