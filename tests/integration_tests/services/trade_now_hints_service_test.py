@@ -60,9 +60,9 @@ async def should_calculate_trade_now_hints_properly(
     assert result.long.entry_price is not None
     assert result.long.stop_loss_price is not None
     assert result.long.take_profit_price is not None
-    assert result.long.required_margin_eur is not None
-    assert result.long.position_size_eur is not None
-    assert result.long.loss_at_stop_loss_eur is not None
+    assert result.long.required_margin is not None
+    assert result.long.position_size is not None
+    assert result.long.loss_at_stop_loss is not None
     assert result.long.risk_as_percent_of_total_capital is not None
     assert result.long.liquidation_price is not None
     assert result.long.is_safe_from_liquidation is not None
@@ -73,9 +73,9 @@ async def should_calculate_trade_now_hints_properly(
     assert result.short.entry_price is not None
     assert result.short.stop_loss_price is not None
     assert result.short.take_profit_price is not None
-    assert result.short.required_margin_eur is not None
-    assert result.short.position_size_eur is not None
-    assert result.short.loss_at_stop_loss_eur is not None
+    assert result.short.required_margin is not None
+    assert result.short.position_size is not None
+    assert result.short.loss_at_stop_loss is not None
     assert result.short.risk_as_percent_of_total_capital is not None
     assert result.short.liquidation_price is not None
     assert result.short.is_safe_from_liquidation is not None
