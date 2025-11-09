@@ -373,7 +373,6 @@ class BacktestingCliService:
         timeframe: str,
         cartesian_product: list[BuySellSignalsConfigItem],
     ) -> list[BacktestingExecutionResult]:
-        cartesian_product = cartesian_product[:15] + cartesian_product[-15:]
         results = Parallel(n_jobs=-1)(
             delayed(run_single_backtest_combination)(exchange, params, initial_cash, df, timeframe)
             for params in (tqdm(cartesian_product) if not disable_progress_bar else cartesian_product)
