@@ -130,26 +130,27 @@ class OrdersAnalyticsService(AbstractService):
             sell_order, break_even_price, tickers, trading_market_config=trading_market_config
         )
         (safeguard_stop_price, stop_loss_percent_value) = await self._calculate_safeguard_stop_price(
-            sell_order, avg_buy_price, trading_market_config=trading_market_config
+            sell_order, avg_buy_price, break_even_price, trading_market_config=trading_market_config
         )
-        (take_profit_limit_price, take_profit_percent_value) = self.calculate_take_profit_limit_price(
-            avg_buy_price,
-            stop_loss_percent_value=stop_loss_percent_value,
-            buy_sell_signals_config=buy_sell_signals_config,
-            trading_market_config=trading_market_config,
-        )
-
         suggested_stop_loss_percent_value = self.calculate_suggested_stop_loss_percent_value(
             avg_buy_price,
             buy_sell_signals_config=buy_sell_signals_config,
             last_candle_market_metrics=last_candle_market_metrics,
             trading_market_config=trading_market_config,
         )
+        (take_profit_limit_price, take_profit_percent_value) = self.calculate_take_profit_limit_price(
+            buy_price=avg_buy_price,
+            stop_loss_percent_value=stop_loss_percent_value
+            if stop_loss_percent_value > 0
+            else suggested_stop_loss_percent_value,
+            buy_sell_signals_config=buy_sell_signals_config,
+            trading_market_config=trading_market_config,
+        )
         suggested_safeguard_stop_price = self._calculate_suggested_safeguard_stop_price(
             avg_buy_price, suggested_stop_loss_percent_value, trading_market_config=trading_market_config
         )
         suggested_take_profit_limit_price, suggested_take_profit_percent_value = self.calculate_take_profit_limit_price(
-            avg_buy_price,
+            buy_price=avg_buy_price,
             stop_loss_percent_value=suggested_stop_loss_percent_value,
             buy_sell_signals_config=buy_sell_signals_config,
             trading_market_config=trading_market_config,
@@ -202,7 +203,7 @@ class OrdersAnalyticsService(AbstractService):
 
     def calculate_take_profit_limit_price(
         self,
-        avg_buy_price: float,
+        buy_price: float,
         *,
         stop_loss_percent_value: float,
         buy_sell_signals_config: BuySellSignalsConfigItem,
@@ -214,7 +215,7 @@ class OrdersAnalyticsService(AbstractService):
         )
         take_profit_percent_value = round(stop_loss_percent_value * intended_profit_factor, ndigits=2)
         take_profit_limit_price = round(
-            avg_buy_price * (1 + (take_profit_percent_value / 100)), ndigits=trading_market_config.price_precision
+            buy_price * (1 + (take_profit_percent_value / 100)), ndigits=trading_market_config.price_precision
         )
         return take_profit_limit_price, take_profit_percent_value
 
@@ -316,15 +317,22 @@ class OrdersAnalyticsService(AbstractService):
         return correlated_filled_buy_trades
 
     async def _calculate_safeguard_stop_price(
-        self, sell_order: Order, avg_buy_price: float, *, trading_market_config: SymbolMarketConfig
+        self,
+        sell_order: Order,
+        avg_buy_price: float,
+        break_even_price: float,
+        *,
+        trading_market_config: SymbolMarketConfig,
     ) -> tuple[float, float]:
         (stop_loss_percent_item, stop_loss_percent_decimal_value) = await self.find_stop_loss_percent_by_sell_order(
             sell_order
         )
+        stop_loss_percent_value = stop_loss_percent_item.value
+        buy_price = avg_buy_price if stop_loss_percent_item.value > 0 else break_even_price
         safeguard_stop_price = round(
-            avg_buy_price * (1 - stop_loss_percent_decimal_value), ndigits=trading_market_config.price_precision
+            buy_price * (1 - stop_loss_percent_decimal_value), ndigits=trading_market_config.price_precision
         )
-        return safeguard_stop_price, stop_loss_percent_item.value
+        return safeguard_stop_price, stop_loss_percent_value
 
     def _calculate_suggested_safeguard_stop_price(
         self,

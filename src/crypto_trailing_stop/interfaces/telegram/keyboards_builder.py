@@ -10,7 +10,7 @@ from crypto_trailing_stop.commons.constants import (
     LEVERAGE_VALUES_LIST,
     PERCENT_TO_SELL_LIST,
     SP_TP_PAIRS,
-    STOP_LOSS_STEPS_VALUE_LIST,
+    STOP_LOSS_ALLOWED_VALUES_LIST,
 )
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
@@ -126,7 +126,7 @@ class KeyboardsBuilder:
         for stop_loss_percent_item in stop_loss_percent_items:
             builder.row(
                 InlineKeyboardButton(
-                    text=f"{stop_loss_percent_item.symbol} - {stop_loss_percent_item.value} %",
+                    text=f"{stop_loss_percent_item.symbol} 🚏 {stop_loss_percent_item.value} %",
                     callback_data=f"set_stop_loss_percent$${stop_loss_percent_item.symbol}",
                 )
             )
@@ -210,14 +210,22 @@ class KeyboardsBuilder:
 
     def get_stop_loss_percent_values_by_symbol_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
-        buttons = [
-            InlineKeyboardButton(
-                text=f"{percent_value}%", callback_data=f"persist_stop_loss$${symbol}$${percent_value}"
-            )
-            for percent_value in STOP_LOSS_STEPS_VALUE_LIST
+        negative_buttons = [
+            self._build_stop_loss_percent_value_button(symbol, percent_value)
+            for percent_value in STOP_LOSS_ALLOWED_VALUES_LIST
+            if percent_value < 0
         ]
-        # Add buttons in rows of 3
-        for buttons_chunk in pydash.chunk(buttons, size=5):
+        positive_buttons = [
+            self._build_stop_loss_percent_value_button(symbol, percent_value)
+            for percent_value in STOP_LOSS_ALLOWED_VALUES_LIST
+            if percent_value > 0
+        ]
+        # Add buttons in rows of 5
+        for buttons_chunk in pydash.chunk(negative_buttons, size=5):
+            builder.row(*buttons_chunk)
+        # Added stop loss at break even button (0.0%)
+        builder.row(self._build_stop_loss_percent_value_button(symbol, 0.0))
+        for buttons_chunk in pydash.chunk(positive_buttons, size=5):
             builder.row(*buttons_chunk)
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="stop_loss_percent_home"))
         return builder.as_markup()
@@ -301,6 +309,12 @@ class KeyboardsBuilder:
         builder = InlineKeyboardBuilder()
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
+
+    def _build_stop_loss_percent_value_button(self, symbol: str, percent_value: float) -> InlineKeyboardButton:
+        ret = InlineKeyboardButton(
+            text=f"{percent_value}%", callback_data=f"persist_stop_loss$${symbol}$${percent_value}"
+        )
+        return ret
 
     @staticmethod
     def get_sp_tp_pairs_keyboard() -> ReplyKeyboardMarkup:

@@ -190,7 +190,8 @@ class MessagesFormatter:
             "\n"
             + f"   🔥 {html.bold(crypto_currency.upper() + ' (Bid) Price')} = {metrics.current_price} {fiat_currency}\n"
             + f"   🤑 {html.bold('Current Profit')} = {metrics.current_profit} {fiat_currency}\n"
-            + f"   🏦 {html.bold('Net Revenue')} = {metrics.net_revenue} {fiat_currency}\n"
+            + f"   🏦 {html.bold('Unrealized PnL')} = {metrics.net_revenue} {fiat_currency}\n"
+            + f"   💱 {html.bold('Unrealized PnL %')} = {metrics.unrealized_pnl_percent}%\n"
             + "   ---------------------------------------------------- \n"
             + f"   💳 {html.bold('Buy Price')} = {metrics.avg_buy_price} {fiat_currency}\n"
             + f"   🧊 {html.bold('Break-even Price')} = {metrics.break_even_price} {fiat_currency}\n"
@@ -201,8 +202,8 @@ class MessagesFormatter:
             + f"   🎯 {html.bold('Take Profit Price')} = {metrics.take_profit_limit_price} {fiat_currency}\n"  # noqa: E501
             + "  ---------------------------------------------------- \n"
             + f"   ⚖️ {html.bold('Profit Factor (R:R)')} = {html.code(metrics.profit_factor)}\n"
-            + f"   🟢 {html.bold('Potential Profit at TP')} = {html.code(str(metrics.potential_profit_at_tp) + ' ' + fiat_currency)}\n"  # noqa: E501
-            + f"   🔴 {html.bold('Potential Loss at SL')} = {html.code('-' + str(metrics.potential_loss_at_sl) + ' ' + fiat_currency)}"  # noqa: E501
+            + f"   🟢 {html.bold('Potential Profit at TP')} = {html.code('+' + str(metrics.potential_profit_at_tp) + ' ' + fiat_currency)}\n"  # noqa: E501
+            + f"   🔴 {html.bold('Potential Loss at SL')} = {html.code(('-' if metrics.potential_loss_at_sl > 0 else '+') + str(abs(metrics.potential_loss_at_sl)) + ' ' + fiat_currency)}"  # noqa: E501
         )
         answer_text += (
             "\n  ---------------------------------------------------- \n"

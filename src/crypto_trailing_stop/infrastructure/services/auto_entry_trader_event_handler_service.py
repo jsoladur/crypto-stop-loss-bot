@@ -432,7 +432,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             )
         if buy_sell_signals_config.enable_exit_on_take_profit:
             message += f"* ⚡ {html.bold('Auto ATR Take-Profit Exit')} is ENABLED!\n"
-            message += f"* 🟢 {html.bold('Potential Profit at TP')} = {html.code(str(guard_metrics.potential_profit_at_tp) + ' ' + fiat_currency)}\n"  # noqa: E501
+            message += f"* 🟢 {html.bold('Potential Profit at TP')} = {html.code('+' + str(guard_metrics.potential_profit_at_tp) + ' ' + fiat_currency)}\n"  # noqa: E501
         else:
             message += (
                 f"* ⚡ {html.bold('Auto ATR Take-Profit Exit')} is DISABLED! "
