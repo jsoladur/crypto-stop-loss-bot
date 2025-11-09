@@ -60,7 +60,7 @@ class TradeNowHintsService:
                 )
             )
             *_, suggested_take_profit_percent_value = self._orders_analytics_service.calculate_take_profit_limit_price(
-                avg_buy_price=tickers.ask_or_close,
+                buy_price=tickers.ask_or_close,
                 stop_loss_percent_value=suggested_stop_loss_percent_value,
                 buy_sell_signals_config=buy_sell_signals_config,
                 trading_market_config=trading_market_config,

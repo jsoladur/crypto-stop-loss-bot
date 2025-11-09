@@ -51,3 +51,19 @@ class LimitSellOrderGuardMetrics:
         profit_per_unit = self.take_profit_limit_price - self.break_even_price
         total_profit = profit_per_unit * self.sell_order.amount
         return round(total_profit, ndigits=2)
+
+    @property
+    def unrealized_pnl_percent(self) -> float:
+        """
+        Calculates the unrealized PnL (Profit and Loss) as a percentage
+        relative to the break-even price.
+
+        A positive value indicates the price is above break-even (profit).
+        A negative value indicates the price is below break-even (loss).
+        """
+        ret = 0.0  # Avoid division by zero.
+        if self.break_even_price > 0:
+            variation = (self.current_price - self.break_even_price) / self.break_even_price
+            percentage_variation = variation * 100
+            ret = round(percentage_variation, ndigits=2)
+        return ret
