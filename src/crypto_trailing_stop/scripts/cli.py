@@ -11,9 +11,18 @@ import typer
 from faker import Faker
 
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
-from crypto_trailing_stop.scripts.constants import DEFAULT_MONTHS_BACK, SECOND_ITERATION_DECENT_WIN_RATE_THRESHOLD
+from crypto_trailing_stop.scripts.constants import (
+    DECENT_WIN_RATE_THRESHOLD,
+    DEFAULT_MONTHS_BACK,
+    OUT_OF_SAMPLE_MONTHS_BACK,
+)
 from crypto_trailing_stop.scripts.services import BacktestingCliService
-from crypto_trailing_stop.scripts.utils import echo_backtesting_execution_result
+from crypto_trailing_stop.scripts.utils import (
+    echo_backtesting_execution_result,
+    get_default_candles_filename,
+    get_full_relative_path_by_filename,
+    load_candlestick_dataframe_from_file,
+)
 from crypto_trailing_stop.scripts.vo import TakeProfitFilter
 
 warnings.filterwarnings("ignore")
@@ -47,23 +56,26 @@ def download_data(
     exchange: str = typer.Option("mexc", help="The name of the exchange to use."),
     timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
     months_back: int = typer.Option(DEFAULT_MONTHS_BACK, help="The number of months of data to download."),
+    months_offset: int = typer.Option(0, help="Allow to download data with a offset of months."),
+    filename: str = typer.Option(None, help="The name of the file to save the data to."),
 ):
     """
     Downloads the last 1 year of 1H historical data for a symbol and saves it to data/candles.
     """
     symbol = symbol.strip().upper()
+    filename = filename or get_default_candles_filename(symbol)
     try:
         typer.secho(f"📥 Starting download for {exchange.upper()} :: {symbol} on 1h timeframe...", fg=typer.colors.BLUE)
         all_ohlcv = backtesting_cli_service.download_backtesting_data(
-            symbol, exchange, timeframe, months_back, echo_fn=typer.secho
+            symbol, exchange, timeframe, months_back, months_offset, echo_fn=typer.secho
         )
         typer.secho(f"✅ Download complete. {len(all_ohlcv)} candles fetched.", fg=typer.colors.GREEN)
         if all_ohlcv:
             df = pd.DataFrame(all_ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
             os.makedirs("data/candles", exist_ok=True)
-            filename = f"data/candles/{symbol.replace('/', '_')}.csv"
-            df.to_csv(filename, index=False)
-            typer.echo(f"💾 Data saved to '{filename}'")
+            file_path = f"data/candles/{filename}"
+            df.to_csv(file_path, index=False)
+            typer.echo(f"💾 Data saved to '{file_path}'")
     except Exception as e:
         typer.secho(f"❌ Error downloading data: {e}", fg=typer.colors.RED)
 
@@ -92,21 +104,18 @@ def backtesting(
     initial_cash: float = typer.Option(3_000, help="Intial cash for the backtest."),
     show_plot: bool = typer.Option(False, help="Show the backtesting plot."),
     debug: bool = typer.Option(False, help="Enable debug, opening backtesting plot."),
+    # Filename parameters
+    filename: str = typer.Option(None, help="The name of the file to read the data from."),
 ):
     """
     Runs a backtest of the signal strategy for a symbol, using local data and configurable parameters.
     """
     symbol = symbol.strip().upper()
+    filename = filename or get_default_candles_filename(symbol)
     # Create the config object from the CLI options
     try:
-        data_file = f"data/candles/{symbol.replace('/', '_')}.csv"
-        df = pd.read_csv(data_file)
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
-        df.dropna(inplace=True)
-        df.reset_index(drop=True, inplace=True)
-
+        df = load_candlestick_dataframe_from_file(filename)
         typer.echo(f"📊 {len(df)} candles loaded. Calculating indicators and signals...")
-
         simulated_bs_config = BuySellSignalsConfigItem(
             symbol=symbol,
             ema_short_value=ema_short,
@@ -148,7 +157,9 @@ def backtesting(
         if show_plot:
             bt.plot()
     except FileNotFoundError:
-        typer.secho(f"❌ Error: Data file '{data_file}' not found.", fg=typer.colors.RED)
+        typer.secho(
+            f"❌ Error: Data file '{get_full_relative_path_by_filename(filename)}' not found.", fg=typer.colors.RED
+        )
         typer.echo(f"👉 Please run 'cli download-data {symbol}' first.")
         raise typer.Exit()
 
@@ -159,11 +170,10 @@ def research(
     initial_cash: float = typer.Option(3_000, help="Intial cash for the backtest."),
     exchange: str = typer.Option("mexc", help="The name of the exchange to use."),
     timeframe: str = typer.Option("1h", help="The timeframe to download data for."),
-    months_back: int = typer.Option(DEFAULT_MONTHS_BACK, help="The number of months of data to download."),
     disable_minimal_trades: bool = typer.Option(False, help="Disable the minimal trades threshold."),
     disable_decent_win_rate: bool = typer.Option(False, help="Disable the decent win rate threshold."),
     decent_win_rate: float = typer.Option(
-        SECOND_ITERATION_DECENT_WIN_RATE_THRESHOLD, help="The minimum win rate to consider a configuration decent."
+        DECENT_WIN_RATE_THRESHOLD, help="The minimum win rate to consider a configuration decent."
     ),
     min_profit_factor: float = typer.Option(None, help="Minimal profit factor to consider a valid the strategy"),
     min_sqn: float = typer.Option(None, help="Minimal SQN to consider a valid the strategy"),
@@ -185,22 +195,38 @@ def research(
     """
     symbol = symbol.strip().upper()
     try:
-        df: pd.DataFrame | None = None
+        in_sample_df, out_of_sample_df = None, None
         if from_parquet is None:
+            in_sample_data_filename = f"{symbol.replace('/', '_')}_in_sample.csv"
+            out_of_sample_data_filename = f"{symbol.replace('/', '_')}_out_of_sample.csv"
             if download_candles:
-                download_data(symbol=symbol, exchange=exchange, timeframe=timeframe, months_back=months_back)
-            data_file = f"data/candles/{symbol.replace('/', '_')}.csv"
-            df = pd.read_csv(data_file)
-            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
-            df.dropna(inplace=True)
-            df.reset_index(drop=True, inplace=True)
+                download_data(
+                    symbol=symbol,
+                    exchange=exchange,
+                    timeframe=timeframe,
+                    months_back=DEFAULT_MONTHS_BACK,
+                    months_offset=OUT_OF_SAMPLE_MONTHS_BACK,
+                    filename=in_sample_data_filename,
+                )
+                download_data(
+                    symbol=symbol,
+                    exchange=exchange,
+                    timeframe=timeframe,
+                    months_back=OUT_OF_SAMPLE_MONTHS_BACK,
+                    months_offset=0,
+                    filename=out_of_sample_data_filename,
+                )
+
+            in_sample_df = load_candlestick_dataframe_from_file(in_sample_data_filename)
+            out_of_sample_df = load_candlestick_dataframe_from_file(out_of_sample_data_filename)
 
         typer.secho("--- ⚙️ Research Parameters ---", fg=typer.colors.BLUE, bold=True)
         typer.echo(f"Symbol:                      {symbol}")
         typer.echo(f"Initial Cash:                {initial_cash}")
         typer.echo(f"Exchange:                    {exchange}")
         typer.echo(f"Timeframe:                   {timeframe}")
-        typer.echo(f"Months Back:                 {months_back}")
+        typer.echo(f"In-Sample Months Back:       {DEFAULT_MONTHS_BACK}")
+        typer.echo(f"Out-Sample Months Back:      {OUT_OF_SAMPLE_MONTHS_BACK}")
         typer.echo(f"Disable Minimal Trades:      {disable_minimal_trades}")
         typer.echo(f"Disable Decent Win Rate:     {disable_decent_win_rate}")
         typer.echo(f"Decent Win Rate Threshold:   {decent_win_rate}%")
@@ -209,6 +235,7 @@ def research(
         typer.echo(f"Take Profit Filter:          {tp_filter}")
         typer.echo(f"From Parquet:                {from_parquet if from_parquet is not None else 'No'}")
         typer.echo(f"Download Candles:            {download_candles}")
+        typer.echo(f"Disable Progress Bar:        {disable_progress_bar}")
         typer.secho("-----------------------------", fg=typer.colors.BLUE, bold=True)
 
         execution_summary = backtesting_cli_service.find_out_best_parameters(
@@ -216,14 +243,14 @@ def research(
             exchange=exchange,
             timeframe=timeframe,
             initial_cash=initial_cash,
-            downloaded_months_back=months_back,
             disable_minimal_trades=disable_minimal_trades,
             disable_decent_win_rate=disable_decent_win_rate,
             decent_win_rate=decent_win_rate,
             min_profit_factor=min_profit_factor,
             min_sqn=min_sqn,
             tp_filter=tp_filter,
-            df=df,
+            in_sample_df=in_sample_df,
+            out_of_sample_df=out_of_sample_df,
             from_parquet=from_parquet,
             disable_progress_bar=disable_progress_bar,
             echo_fn=typer.secho,
@@ -243,7 +270,7 @@ def research(
                     echo_backtesting_execution_result(value)
 
     except FileNotFoundError:
-        typer.secho(f"❌ Error: Data file '{data_file}' not found.", fg=typer.colors.RED)
+        typer.secho("❌ Error: Data files not found.", fg=typer.colors.RED)
         typer.echo(f"👉 Please run 'cli download-data {symbol}' first.")
         raise typer.Exit()
 
