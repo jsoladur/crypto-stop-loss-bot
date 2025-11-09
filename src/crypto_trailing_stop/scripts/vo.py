@@ -1,5 +1,5 @@
 from dataclasses import dataclass, fields
-from typing import Literal
+from typing import Literal, Self
 
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 
@@ -40,6 +40,12 @@ class BacktestingInOutOfSampleExecutionResult(BacktestingExecutionResult):
     def in_sample_outcomes(self) -> BacktestingOutcomes:
         return self.outcomes
 
+    @staticmethod
+    def from_(result: BacktestingExecutionResult) -> Self:
+        """Create an In/Out-of-sample result from a plain BacktestingExecutionResult."""
+        kwargs = {f.name: getattr(result, f.name) for f in fields(BacktestingExecutionResult)}
+        return BacktestingInOutOfSampleExecutionResult(**kwargs)
+
 
 @dataclass
 class BacktestingInOutOfSampleRanking:
@@ -49,5 +55,5 @@ class BacktestingInOutOfSampleRanking:
     best_win_rate: BacktestingInOutOfSampleExecutionResult | None = None
 
     @property
-    def all(self) -> list[BacktestingExecutionResult]:
+    def all(self) -> list[BacktestingInOutOfSampleExecutionResult]:
         return [getattr(self, field.name) for field in fields(self) if getattr(self, field.name) is not None]

@@ -4,7 +4,7 @@ from dataclasses import asdict, fields
 import pandas as pd
 
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
-from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult
+from crypto_trailing_stop.scripts.vo import BacktestingExecutionResult, BacktestingOutcomes
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class BacktestResultSerde:
         results = []
         # Get field names for reconstruction
         config_fields = {f.name for f in fields(BuySellSignalsConfigItem)}
-        result_fields = {f.name for f in fields(BacktestingExecutionResult)}
+        result_fields = {f.name for f in fields(BacktestingOutcomes)}
 
         for _, row in df.iterrows():
             row_dict = row.to_dict()
@@ -50,9 +50,15 @@ class BacktestResultSerde:
             }
             config_item = BuySellSignalsConfigItem(**params_data)
             # Extract top-level fields
-            result_data = {key: row_dict[key] for key in result_fields if key in row_dict and key != "parameters"}
+            result_data = {
+                key.split("outcomes.")[1]: value
+                for key, value in row_dict.items()
+                if key.startswith("outcomes.") and key.split("outcomes.")[1] in result_fields
+            }
             # Rebuild dataclass
-            result_item = BacktestingExecutionResult(parameters=config_item, **result_data)
+            result_item = BacktestingExecutionResult(
+                parameters=config_item, outcomes=BacktestingOutcomes(**result_data)
+            )
             results.append(result_item)
         logger.info(f"✅ Successfully loaded {len(results)} results from {filepath}")
         return results

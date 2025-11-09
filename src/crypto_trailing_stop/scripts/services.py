@@ -43,6 +43,7 @@ from crypto_trailing_stop.scripts.serde import BacktestResultSerde
 from crypto_trailing_stop.scripts.strategy import SignalStrategy
 from crypto_trailing_stop.scripts.vo import (
     BacktestingExecutionResult,
+    BacktestingInOutOfSampleExecutionResult,
     BacktestingInOutOfSampleRanking,
     BacktestingOutcomes,
     TakeProfitFilter,
@@ -148,7 +149,7 @@ class BacktestingCliService:
         if from_parquet is None and (in_sample_df is None or out_of_sample_df is None):
             raise ValueError("Either 'from_parquet' or both 'in_sample_df' and 'out_of_sample_df' must be provided.")
         if from_parquet is None:
-            in_sample_results = self._find_out_in_sample_best_parameters_in_real_time(
+            ret = self._find_out_in_sample_best_parameters_in_real_time(
                 symbol=symbol,
                 exchange=exchange,
                 timeframe=timeframe,
@@ -159,13 +160,13 @@ class BacktestingCliService:
                 min_profit_factor=min_profit_factor,
                 min_sqn=min_sqn,
                 tp_filter=tp_filter,
-                in_sample_df=in_sample_df,
+                df=in_sample_df,
                 disable_progress_bar=disable_progress_bar,
                 echo_fn=echo_fn,
             )
         else:
             # 3.1 Load execution results from parquet file stored previously
-            in_sample_results = self._find_out_in_sample_best_parameters_from_parquet_file(
+            ret = self._find_out_in_sample_best_parameters_from_parquet_file(
                 from_parquet=from_parquet,
                 disable_minimal_trades=disable_minimal_trades,
                 disable_decent_win_rate=disable_decent_win_rate,
@@ -175,15 +176,17 @@ class BacktestingCliService:
                 tp_filter=tp_filter,
             )
 
-        echo_fn("🍵 Apply OUT OF SAMPLE validation...")
-        ret = self._exec_joblib_execution_by_cartesian_product(
-            exchange=exchange,
-            initial_cash=initial_cash,
-            disable_progress_bar=disable_progress_bar,
-            df=out_of_sample_df,
-            timeframe=timeframe,
-            cartesian_product=[current.parameters for current in in_sample_results.all],
-        )
+        echo_fn("🍵 Applying OUT OF SAMPLE validation...")
+        for current in tqdm(ret.all) if not disable_progress_bar else ret.all:
+            out_of_sample_result, *_ = self.execute_backtesting(
+                exchange=exchange,
+                simulated_bs_config=current.parameters,
+                initial_cash=initial_cash,
+                df=out_of_sample_df.copy(),
+                timeframe=timeframe,
+                use_tqdm=False,
+            )
+            current.out_of_sample_outcomes = out_of_sample_result.outcomes
         return ret
 
     def execute_backtesting(
@@ -261,7 +264,7 @@ class BacktestingCliService:
         min_profit_factor: float | None = None,
         min_sqn: float | None = None,
         tp_filter: TakeProfitFilter = "all",
-        in_sample_df: pd.DataFrame | None = None,
+        df: pd.DataFrame | None = None,
         disable_progress_bar: bool = False,
         echo_fn: Callable[[str], None],
     ) -> BacktestingInOutOfSampleRanking:
@@ -276,7 +279,7 @@ class BacktestingCliService:
             sell_min_volume_threshold_values=MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION,
             tp_filter=tp_filter,
             disable_progress_bar=disable_progress_bar,
-            df=in_sample_df,
+            df=df,
             timeframe=timeframe,
             echo_fn=echo_fn,
         )
@@ -370,6 +373,7 @@ class BacktestingCliService:
         timeframe: str,
         cartesian_product: list[BuySellSignalsConfigItem],
     ) -> list[BacktestingExecutionResult]:
+        cartesian_product = cartesian_product[:15] + cartesian_product[-15:]
         results = Parallel(n_jobs=-1)(
             delayed(run_single_backtest_combination)(exchange, params, initial_cash, df, timeframe)
             for params in (tqdm(cartesian_product) if not disable_progress_bar else cartesian_product)
@@ -400,7 +404,7 @@ class BacktestingCliService:
             current_decent_win_rate = (
                 round(current_decent_win_rate, ndigits=2) if current_decent_win_rate is not None else None
             )
-            ret = self._get_backtesting_result_summary(
+            ret = self._get_backtesting_ranking(
                 disable_minimal_trades=disable_minimal_trades,
                 disable_decent_win_rate=disable_decent_win_rate,
                 decent_win_rate=current_decent_win_rate
@@ -418,7 +422,7 @@ class BacktestingCliService:
             attemps += 1
             current_min_sqn = min_sqn if current_min_sqn is None else (current_min_sqn - 0.1)
             current_min_sqn = round(current_min_sqn, ndigits=2) if current_min_sqn is not None else None
-            ret = self._get_backtesting_result_summary(
+            ret = self._get_backtesting_ranking(
                 disable_minimal_trades=disable_minimal_trades,
                 disable_decent_win_rate=disable_decent_win_rate,
                 decent_win_rate=decent_win_rate,
@@ -433,7 +437,7 @@ class BacktestingCliService:
             attemps += 1
             current_min_profit = min_profit_factor if current_min_profit is None else (current_min_profit - 0.1)
             current_min_profit = round(current_min_profit, ndigits=2) if current_min_profit is not None else None
-            ret = self._get_backtesting_result_summary(
+            ret = self._get_backtesting_ranking(
                 disable_minimal_trades=disable_minimal_trades,
                 disable_decent_win_rate=disable_decent_win_rate,
                 decent_win_rate=decent_win_rate,
@@ -454,7 +458,7 @@ class BacktestingCliService:
             current_decent_win_rate = (
                 round(current_decent_win_rate, ndigits=2) if current_decent_win_rate is not None else None
             )
-            ret = self._get_backtesting_result_summary(
+            ret = self._get_backtesting_ranking(
                 disable_minimal_trades=disable_minimal_trades,
                 disable_decent_win_rate=disable_decent_win_rate,
                 decent_win_rate=current_decent_win_rate
@@ -466,7 +470,7 @@ class BacktestingCliService:
             )
         # Disable decent win rate
         if ret is None:
-            ret = self._get_backtesting_result_summary(
+            ret = self._get_backtesting_ranking(
                 disable_minimal_trades=disable_minimal_trades,
                 disable_decent_win_rate=True,
                 decent_win_rate=0.0,
@@ -475,7 +479,7 @@ class BacktestingCliService:
                 executions_results=executions_results,
             )
         if ret is None:
-            ret = self._get_backtesting_result_summary(
+            ret = self._get_backtesting_ranking(
                 disable_minimal_trades=True,
                 disable_decent_win_rate=True,
                 decent_win_rate=0.0,
@@ -485,7 +489,7 @@ class BacktestingCliService:
             )
         return ret
 
-    def _get_backtesting_result_summary(
+    def _get_backtesting_ranking(
         self,
         *,
         disable_minimal_trades: bool,
@@ -504,41 +508,45 @@ class BacktestingCliService:
         profitable_results = [
             res
             for res in executions_results
-            if res.net_profit_amount > 0
-            and (disable_minimal_trades or res.number_of_trades >= min_trades_for_stats)
-            and (disable_decent_win_rate or res.win_rate >= decent_win_rate)
-            and (min_sqn is None or res.sqn >= min_sqn)
-            and (min_profit_factor is None or res.profit_factor >= min_profit_factor)
+            if res.outcomes.net_profit_amount > 0
+            and (disable_minimal_trades or res.outcomes.number_of_trades >= min_trades_for_stats)
+            and (disable_decent_win_rate or res.outcomes.win_rate >= decent_win_rate)
+            and (min_sqn is None or res.outcomes.sqn >= min_sqn)
+            and (min_profit_factor is None or res.outcomes.profit_factor >= min_profit_factor)
         ]
         best_overall, highest_quality, best_profitable, best_win_rate = None, None, None, None
         if profitable_results:
             # --- Category 1: Best Overall (Profit x Win Rate x Trades) ---
             best_overall = max(
-                profitable_results, key=lambda r: r.net_profit_percentage * r.win_rate * r.number_of_trades
+                profitable_results,
+                key=lambda r: r.outcomes.net_profit_percentage * r.outcomes.win_rate * r.outcomes.number_of_trades,
             )
             # --- Category 2: Highest Quality (Return x Win Rate) ---
-            highest_quality = max(profitable_results, key=lambda r: r.net_profit_percentage * r.win_rate)
+            highest_quality = max(
+                profitable_results, key=lambda r: r.outcomes.net_profit_percentage * r.outcomes.win_rate
+            )
             # --- Category 3: Best Profitable Configuration ---
-            best_profitable = max(profitable_results, key=lambda r: r.net_profit_amount)
+            best_profitable = max(profitable_results, key=lambda r: r.outcomes.net_profit_amount)
             # --- Category 4: Best Win Rate ---
             # First, find the maximum win rate that was achieved
-            max_win_rate = max(p.win_rate for p in profitable_results)
+            max_win_rate = max(p.outcomes.win_rate for p in profitable_results)
             # Create a group of "elite" candidates with a win rate close to the maximum
             # (e.g., all strategies within 5 percentage points of the best result)
-            elite_win_rate_candidates = [res for res in profitable_results if res.win_rate >= (max_win_rate - 5.0)]
+            elite_win_rate_candidates = [
+                res for res in profitable_results if res.outcomes.win_rate >= (max_win_rate - 5.0)
+            ]
             # From that elite group, pick the one with the highest NET RETURN.
             if elite_win_rate_candidates:
-                best_win_rate = max(elite_win_rate_candidates, key=lambda r: r.net_profit_amount)
+                best_win_rate = max(elite_win_rate_candidates, key=lambda r: r.outcomes.net_profit_amount)
             else:  # Fallback in case the list is empty (should not happen)
-                best_win_rate = max(profitable_results, key=lambda r: r.win_rate)
+                best_win_rate = max(profitable_results, key=lambda r: r.outcomes.win_rate)
 
         ret = BacktestingInOutOfSampleRanking(
-            best_overall=best_overall,
-            highest_quality=highest_quality,
-            best_profitable=best_profitable,
-            best_win_rate=best_win_rate,
+            best_overall=BacktestingInOutOfSampleExecutionResult.from_(best_overall) if best_overall else None,
+            highest_quality=BacktestingInOutOfSampleExecutionResult.from_(highest_quality) if highest_quality else None,
+            best_profitable=BacktestingInOutOfSampleExecutionResult.from_(best_profitable) if best_profitable else None,
+            best_win_rate=BacktestingInOutOfSampleExecutionResult.from_(best_win_rate) if best_win_rate else None,
         )
-
         return ret
 
     def _calculate_cartesian_product(

@@ -1,4 +1,5 @@
 import dataclasses
+import logging
 import os
 import warnings
 from pathlib import Path
@@ -19,11 +20,14 @@ from crypto_trailing_stop.scripts.constants import (
 from crypto_trailing_stop.scripts.services import BacktestingCliService
 from crypto_trailing_stop.scripts.utils import (
     echo_backtesting_execution_result,
+    echo_backtesting_in_out_of_sample_result,
     get_default_candles_filename,
     get_full_relative_path_by_filename,
     load_candlestick_dataframe_from_file,
 )
 from crypto_trailing_stop.scripts.vo import TakeProfitFilter
+
+logger = logging.getLogger(__name__)
 
 warnings.filterwarnings("ignore")
 
@@ -195,11 +199,12 @@ def research(
     """
     symbol = symbol.strip().upper()
     try:
-        in_sample_df, out_of_sample_df = None, None
+        in_sample_df = None
+        out_of_sample_data_filename = f"{symbol.replace('/', '_')}_out_of_sample.csv"
         if from_parquet is None:
             in_sample_data_filename = f"{symbol.replace('/', '_')}_in_sample.csv"
-            out_of_sample_data_filename = f"{symbol.replace('/', '_')}_out_of_sample.csv"
             if download_candles:
+                typer.echo("🍵 Downloading in-sample data...")
                 download_data(
                     symbol=symbol,
                     exchange=exchange,
@@ -208,6 +213,7 @@ def research(
                     months_offset=OUT_OF_SAMPLE_MONTHS_BACK,
                     filename=in_sample_data_filename,
                 )
+                typer.echo("🍵 Downloading out-of-sample data...")
                 download_data(
                     symbol=symbol,
                     exchange=exchange,
@@ -216,9 +222,7 @@ def research(
                     months_offset=0,
                     filename=out_of_sample_data_filename,
                 )
-
             in_sample_df = load_candlestick_dataframe_from_file(in_sample_data_filename)
-            out_of_sample_df = load_candlestick_dataframe_from_file(out_of_sample_data_filename)
 
         typer.secho("--- ⚙️ Research Parameters ---", fg=typer.colors.BLUE, bold=True)
         typer.echo(f"Symbol:                      {symbol}")
@@ -250,7 +254,7 @@ def research(
             min_sqn=min_sqn,
             tp_filter=tp_filter,
             in_sample_df=in_sample_df,
-            out_of_sample_df=out_of_sample_df,
+            out_of_sample_df=load_candlestick_dataframe_from_file(out_of_sample_data_filename),
             from_parquet=from_parquet,
             disable_progress_bar=disable_progress_bar,
             echo_fn=typer.secho,
@@ -267,9 +271,10 @@ def research(
                 value = getattr(execution_summary, field.name)
                 if value:
                     typer.secho(f"\n--- {symbol.upper()} 🏆 Champion: {pydash.start_case(field.name)} ---")
-                    echo_backtesting_execution_result(value)
-
-    except FileNotFoundError:
+                    echo_backtesting_in_out_of_sample_result(value)
+    except FileNotFoundError as e:
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.error(e)
         typer.secho("❌ Error: Data files not found.", fg=typer.colors.RED)
         typer.echo(f"👉 Please run 'cli download-data {symbol}' first.")
         raise typer.Exit()

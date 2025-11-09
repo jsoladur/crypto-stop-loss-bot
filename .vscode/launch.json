@@ -53,8 +53,10 @@
       "args": [
         "research",
          "DOGE/USDT",
-         "--min-sqn=1.8",
-         "--min-profit-factor=1.5",
+         "--disable-minimal-trades",
+         "--disable-decent-win-rate",
+         "--no-download-candles",
+         "--from-parquet=data/backtesting/raw/DOGE_USDT_1h_all_in_sample.parquet"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
