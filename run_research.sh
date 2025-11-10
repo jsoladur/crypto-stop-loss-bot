@@ -6,13 +6,13 @@ source .venv/bin/activate
 # Define the "SYMBOL:EXCHANGE" pairs you want to test.
 PAIRS=(
     "DOGE/USDT:mexc"
-    "HYPE/USDT:mexc"
     "LINK/USDT:mexc"
     "SUI/USDT:mexc"
     "DOT/USDT:mexc"
     "SOL/USDT:mexc"
     "ADA/USDT:mexc"
     "ETH/USDT:mexc"
+    "HYPE/USDT:mexc"
     # Current trading
     # New coins
     # "PEPE/USDT:mexc"
@@ -25,8 +25,8 @@ PAIRS=(
     # "SHIB/USDT:mexc"
     # "XLM/USDT:mexc"
     # Deprecated
-    "XRP/USDT:mexc"
-    "RENDER/USDT:mexc"
+    # "XRP/USDT:mexc"
+    # "RENDER/USDT:mexc"
 )
 
 # Define the directory where the result logs will be saved.
@@ -57,7 +57,7 @@ for pair in "${PAIRS[@]}"; do
 
     # 3. Execute the 'research' command, passing the exchange.
     #    Redirect stdout to log_file and stderr to progress_file.
-    cli research "$symbol" --exchange="$exchange" --min-sqn=1.8 --min-profit-factor=1.5 "$@" > "$log_file" 2> "$progress_file"
+    cli research "$symbol" --exchange="$exchange" --min-sqn=2.0 --min-profit-factor=1.5 --disable-decent-win-rate "$@" > "$log_file" 2> "$progress_file"
 
     echo "✅ Finished research for ${symbol} on ${exchange}."
     echo "--------------------------------------------------"
