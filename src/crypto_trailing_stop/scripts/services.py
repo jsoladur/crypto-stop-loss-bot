@@ -35,7 +35,7 @@ from crypto_trailing_stop.scripts.constants import (
     ITERATE_OVER_EXEC_RESULTS_MAX_ATTEMPS,
     MAX_VOLUME_THRESHOLD_VALUES_FIRST_ITERATION,
     MIN_ENTRIES_PER_WEEK,
-    MIN_TRADES_FOR_STATS,
+    MIN_TRADES_FOR_DEFAULT_MONTHS_BACK,
     MIN_VOLUME_THRESHOLD_VALUES_FOR_FIRST_ITERATION,
 )
 from crypto_trailing_stop.scripts.jobs import run_single_backtest_combination
@@ -503,7 +503,9 @@ class BacktestingCliService:
 
         # 4.1. Calculate the minimum number of trades required to consider a strategy for stats
         num_of_weeks_downloaded = DEFAULT_MONTHS_BACK * 4
-        min_trades_for_stats = max(MIN_TRADES_FOR_STATS, math.ceil(num_of_weeks_downloaded * MIN_ENTRIES_PER_WEEK))
+        min_trades_for_stats = max(
+            MIN_TRADES_FOR_DEFAULT_MONTHS_BACK, math.ceil(num_of_weeks_downloaded * MIN_ENTRIES_PER_WEEK)
+        )
         profitable_results = [
             res
             for res in executions_results
