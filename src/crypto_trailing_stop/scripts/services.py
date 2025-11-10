@@ -338,7 +338,7 @@ class BacktestingCliService:
         disable_progress_bar: bool,
         df: pd.DataFrame,
         timeframe: str = "1h",
-        apply_heuristics: bool = True,
+        apply_heuristics: bool = False,
         echo_fn: Callable[[str], None] | None = None,
     ) -> list[BacktestingExecutionResult]:
         cartesian_product = self._calculate_cartesian_product(
@@ -558,7 +558,7 @@ class BacktestingCliService:
         sell_min_volume_threshold_values: list[float],
         sp_tp_tuples: list[tuple[bool, float, float]] | None = None,
         tp_filter: TakeProfitFilter = "all",
-        apply_heuristics: bool = True,
+        apply_heuristics: bool = False,
         echo_fn: Callable[[str], None] | None = None,
     ) -> list[BuySellSignalsConfigItem]:
         enable_exit_on_divergence_signal_values: list[bool] = [True, False]
@@ -626,7 +626,7 @@ class BacktestingCliService:
         return sp_tp_tuples
 
     def _convert_cartesian_product_to_config_items(
-        self, symbol: str, full_cartesian_product: list[tuple], *, apply_heuristics: bool = True
+        self, symbol: str, full_cartesian_product: list[tuple], *, apply_heuristics: bool = False
     ) -> list[BuySellSignalsConfigItem]:
         ret = []
         for params in full_cartesian_product:
