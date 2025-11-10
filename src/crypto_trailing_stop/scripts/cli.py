@@ -201,6 +201,15 @@ def research(
     try:
         in_sample_df = None
         out_of_sample_data_filename = f"{symbol.replace('/', '_')}_out_of_sample.csv"
+        typer.echo("🍵 Downloading out-of-sample data...")
+        download_data(
+            symbol=symbol,
+            exchange=exchange,
+            timeframe=timeframe,
+            months_back=OUT_OF_SAMPLE_MONTHS_BACK,
+            months_offset=0,
+            filename=out_of_sample_data_filename,
+        )
         if from_parquet is None:
             in_sample_data_filename = f"{symbol.replace('/', '_')}_in_sample.csv"
             if download_candles:
@@ -212,15 +221,6 @@ def research(
                     months_back=DEFAULT_MONTHS_BACK,
                     months_offset=OUT_OF_SAMPLE_MONTHS_BACK,
                     filename=in_sample_data_filename,
-                )
-                typer.echo("🍵 Downloading out-of-sample data...")
-                download_data(
-                    symbol=symbol,
-                    exchange=exchange,
-                    timeframe=timeframe,
-                    months_back=OUT_OF_SAMPLE_MONTHS_BACK,
-                    months_offset=0,
-                    filename=out_of_sample_data_filename,
                 )
             in_sample_df = load_candlestick_dataframe_from_file(in_sample_data_filename)
 
