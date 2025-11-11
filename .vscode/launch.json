@@ -52,7 +52,10 @@
       "program": "src/crypto_trailing_stop/scripts/cli.py",
       "args": [
         "research",
-         "DOGE/USDT",
+        "DOGE/USDT",
+        "--from-parquet=data/backtesting/raw/DOGE_USDT_1h_all_in_sample.parquet",
+        "--min-sqn=2",
+        "--min-profit-factor=1.5",
       ],
       "console": "integratedTerminal",
       "justMyCode": false
