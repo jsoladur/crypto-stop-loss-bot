@@ -14,6 +14,8 @@ from faker import Faker
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
 from crypto_trailing_stop.scripts.constants import (
     DECENT_WIN_RATE_THRESHOLD,
+    DEFAULT_MIN_PROFIT_FACTOR,
+    DEFAULT_MIN_SQN,
     DEFAULT_MONTHS_BACK,
     OUT_OF_SAMPLE_MONTHS_BACK,
 )
@@ -179,8 +181,10 @@ def research(
     decent_win_rate: float = typer.Option(
         DECENT_WIN_RATE_THRESHOLD, help="The minimum win rate to consider a configuration decent."
     ),
-    min_profit_factor: float = typer.Option(None, help="Minimal profit factor to consider a valid the strategy"),
-    min_sqn: float = typer.Option(None, help="Minimal SQN to consider a valid the strategy"),
+    min_profit_factor: float = typer.Option(
+        DEFAULT_MIN_PROFIT_FACTOR, help="Minimal profit factor to consider a valid the strategy"
+    ),
+    min_sqn: float = typer.Option(DEFAULT_MIN_SQN, help="Minimal SQN to consider a valid the strategy"),
     tp_filter: str = typer.Option(
         "all",
         "--tp-filter",
