@@ -18,6 +18,7 @@ from crypto_trailing_stop.infrastructure.services.limit_sell_order_guard_cache_s
 from crypto_trailing_stop.infrastructure.services.market_signal_service import MarketSignalService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
+from crypto_trailing_stop.infrastructure.services.risk_management_service import RiskManagementService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.trade_now_hints_service import TradeNowHintsService
 
@@ -54,6 +55,8 @@ class ServicesContainer(containers.DeclarativeContainer):
         favourite_crypto_currency_service=favourite_crypto_currency_service,
         global_flag_service=global_flag_service,
     )
+
+    risk_management_service = providers.Singleton(RiskManagementService)
 
     global_summary_service = providers.Singleton(
         GlobalSummaryService, operating_exchange_service=operating_exchange_service
@@ -97,6 +100,7 @@ class ServicesContainer(containers.DeclarativeContainer):
         stop_loss_percent_service=stop_loss_percent_service,
         crypto_analytics_service=crypto_analytics_service,
         orders_analytics_service=orders_analytics_service,
+        risk_management_service=risk_management_service,
     )
 
     gemini_generative_ai_service = providers.Singleton(
