@@ -39,6 +39,7 @@ from crypto_trailing_stop.infrastructure.services.favourite_crypto_currency_serv
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
 from crypto_trailing_stop.infrastructure.services.push_notification_service import PushNotificationService
+from crypto_trailing_stop.infrastructure.services.risk_management_service import RiskManagementService
 from crypto_trailing_stop.infrastructure.services.stop_loss_percent_service import StopLossPercentService
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.buy_sell_signals_config_item import BuySellSignalsConfigItem
@@ -67,6 +68,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         stop_loss_percent_service: StopLossPercentService,
         crypto_analytics_service: CryptoAnalyticsService,
         orders_analytics_service: OrdersAnalyticsService,
+        risk_management_service: RiskManagementService,
     ) -> None:
         super().__init__(operating_exchange_service, push_notification_service, telegram_service)
         self._configuration_properties = configuration_properties
@@ -79,6 +81,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         self._stop_loss_percent_service = stop_loss_percent_service
         self._crypto_analytics_service = crypto_analytics_service
         self._orders_analytics_service = orders_analytics_service
+        self._risk_management_service = risk_management_service
         self._lock = asyncio.Lock()
 
     @override
@@ -152,17 +155,30 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         trading_market_config: SymbolMarketConfig,
         client: Any,
     ) -> None:
+        buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
+        last_candle_market_metrics = await self._get_last_candle_market_metrics(
+            symbol=market_signal_item.symbol, trading_market_config=trading_market_config, client=client
+        )
         initial_amount_to_invest = await self._calculate_total_amount_to_invest(
-            buy_trader_config, crypto_currency, fiat_currency, client=client
+            market_signal_item=market_signal_item,
+            buy_sell_signals_config=buy_sell_signals_config,
+            buy_trader_config=buy_trader_config,
+            trading_market_config=trading_market_config,
+            last_candle_market_metrics=last_candle_market_metrics,
+            crypto_currency=crypto_currency,
+            fiat_currency=fiat_currency,
+            client=client,
         )
         # XXX: [JMSOLA] Investing less than 25.0 EUR is not worthly
         if initial_amount_to_invest > AUTO_ENTRY_TRADER_MINIMAL_AMOUNT_TO_INVEST:
             await self._invest(
-                market_signal_item,
-                crypto_currency,
-                fiat_currency,
-                initial_amount_to_invest,
+                market_signal_item=market_signal_item,
+                buy_sell_signals_config=buy_sell_signals_config,
+                crypto_currency=crypto_currency,
+                fiat_currency=fiat_currency,
+                initial_amount_to_invest=initial_amount_to_invest,
                 trading_market_config=trading_market_config,
+                last_candle_market_metrics=last_candle_market_metrics,
                 client=client,
             )
         else:
@@ -174,16 +190,17 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
 
     async def _invest(
         self,
+        *,
         market_signal_item: MarketSignalItem,
+        buy_sell_signals_config: BuySellSignalsConfigItem,
         crypto_currency: str,
         fiat_currency: str,
         initial_amount_to_invest: float,
-        *,
         trading_market_config: SymbolMarketConfig,
+        last_candle_market_metrics: CryptoMarketMetrics,
         client: Any,
     ) -> None:
         # XXX: [JMSOLA] Calculate buy order amount
-        buy_sell_signals_config = await self._buy_sell_signals_config_service.find_by_symbol(crypto_currency)
         # Introduces a security buffer deposit (e.g. 99.5% of capital)
         amount_with_buffer = initial_amount_to_invest * AUTO_ENTRY_MARKET_ORDER_SAFETY_FACTOR
         new_buy_market_order, tickers = await self._execute_market_entry(
@@ -207,6 +224,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
                 tickers,
                 crypto_currency,
                 buy_sell_signals_config,
+                last_candle_market_metrics=last_candle_market_metrics,
                 client=client,
             )
             # Ensure Auto-exit on sudden SELL 1H signal is enabled
@@ -221,7 +239,16 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
 
     async def _calculate_total_amount_to_invest(
-        self, buy_trader_config: AutoBuyTraderConfigItem, crypto_currency: str, fiat_currency: str, client: Any
+        self,
+        *,
+        market_signal_item: MarketSignalItem,
+        buy_sell_signals_config: BuySellSignalsConfigItem,
+        buy_trader_config: AutoBuyTraderConfigItem,
+        trading_market_config: SymbolMarketConfig,
+        last_candle_market_metrics: CryptoMarketMetrics,
+        crypto_currency: str,
+        fiat_currency: str,
+        client: Any,
     ) -> float | int:
         fiat_wallet_assigned_decimal_value = buy_trader_config.fiat_wallet_percent_assigned / 100.0
         # 1.) Get total portfolio amount
@@ -229,7 +256,6 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             fiat_currency, client=client
         )
         portfolio_assigned_amount = math.floor(portfolio_balance.total_balance * fiat_wallet_assigned_decimal_value)
-
         # XXX: [JMSOLA] Calculate already invested amount to not invest more the percent assigned in overall
         current_guard_metrics_list = await self._orders_analytics_service.calculate_all_limit_sell_order_guard_metrics(
             symbol=crypto_currency
@@ -243,12 +269,20 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             )
         )
         remaining_to_invest = portfolio_assigned_amount - already_invested_amount
-
         fiat_wallet_balance, *_ = await self._operating_exchange_service.get_trading_wallet_balances(
             symbols=fiat_currency.upper(), client=client
         )
-        amount_to_invest = min(
+        original_amount_to_invest = min(
             math.floor(fiat_wallet_balance.balance), math.floor(remaining_to_invest) if remaining_to_invest > 0 else 0
+        )
+        # Apply newly risk management if needed
+        amount_to_invest = await self._apply_risk_management_if_needed(
+            market_signal_item=market_signal_item,
+            buy_sell_signals_config=buy_sell_signals_config,
+            trading_market_config=trading_market_config,
+            last_candle_market_metrics=last_candle_market_metrics,
+            original_amount_to_invest=original_amount_to_invest,
+            client=client,
         )
         return amount_to_invest
 
@@ -369,16 +403,9 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         crypto_currency: str,
         buy_sell_signals_config: BuySellSignalsConfigItem,
         *,
+        last_candle_market_metrics: CryptoMarketMetrics,
         client: Any,
     ) -> LimitSellOrderGuardMetrics:
-        technical_indicators, *_ = await self._crypto_analytics_service.calculate_technical_indicators(
-            new_limit_sell_order.symbol, client=client
-        )
-        last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
-            new_limit_sell_order.symbol,
-            candlestick=technical_indicators.iloc[CandleStickEnum.LAST],  # Last confirmed candle
-            trading_market_config=trading_market_config,
-        )
         avg_buy_price, *_ = await self._orders_analytics_service.calculate_correlated_avg_buy_price(
             new_limit_sell_order, trading_market_config=trading_market_config, client=client
         )
@@ -396,6 +423,44 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             new_limit_sell_order, tickers=tickers, client=client
         )
         return guard_metrics
+
+    async def _apply_risk_management_if_needed(
+        self,
+        *,
+        market_signal_item: MarketSignalItem,
+        buy_sell_signals_config: BuySellSignalsConfigItem,
+        trading_market_config: SymbolMarketConfig,
+        last_candle_market_metrics: CryptoMarketMetrics,
+        original_amount_to_invest: float,
+        client: Any,
+    ) -> float:
+        tickers = await self._operating_exchange_service.get_single_tickers_by_symbol(
+            market_signal_item.symbol, client=client
+        )
+        expected_stop_loss_percent_value = self._orders_analytics_service.calculate_suggested_stop_loss_percent_value(
+            avg_buy_price=tickers.ask_or_close,
+            buy_sell_signals_config=buy_sell_signals_config,
+            last_candle_market_metrics=last_candle_market_metrics,
+            trading_market_config=trading_market_config,
+        )
+        max_risk_value = await self._risk_management_service.get_risk_value()
+        ret = original_amount_to_invest
+        if max_risk_value < expected_stop_loss_percent_value:
+            ret = math.floor(original_amount_to_invest * (max_risk_value / expected_stop_loss_percent_value))
+        return ret
+
+    async def _get_last_candle_market_metrics(
+        self, *, symbol: str, trading_market_config: SymbolMarketConfig, client: Any
+    ) -> CryptoMarketMetrics:
+        technical_indicators, *_ = await self._crypto_analytics_service.calculate_technical_indicators(
+            symbol, client=client
+        )
+        last_candle_market_metrics = CryptoMarketMetrics.from_candlestick(
+            symbol,
+            candlestick=technical_indicators.iloc[CandleStickEnum.LAST],  # Last confirmed candle
+            trading_market_config=trading_market_config,
+        )
+        return last_candle_market_metrics
 
     async def _notify_warning(self, market_signal_item: MarketSignalItem, warning_reason_message: str) -> None:
         message = f"⚠️ {html.bold('AUTO-ENTRY TRADER WARNING')} ⚠️\n\n"
