@@ -6,6 +6,7 @@ from itertools import product
 from unittest.mock import patch
 
 import ccxt.async_support as ccxt
+import numpy as np
 import pytest
 from aiogram import Bot
 from faker import Faker
@@ -41,6 +42,7 @@ from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_servic
 from crypto_trailing_stop.infrastructure.services.enums.global_flag_enum import GlobalFlagTypeEnum
 from crypto_trailing_stop.infrastructure.services.enums.push_notification_type_enum import PushNotificationTypeEnum
 from crypto_trailing_stop.infrastructure.services.global_flag_service import GlobalFlagService
+from crypto_trailing_stop.infrastructure.services.risk_management_service import RiskManagementService
 from crypto_trailing_stop.infrastructure.services.vo.auto_buy_trader_config_item import AutoBuyTraderConfigItem
 from crypto_trailing_stop.infrastructure.services.vo.market_signal_item import MarketSignalItem
 from tests.helpers.background_jobs_test_utils import disable_all_background_jobs_except
@@ -116,6 +118,13 @@ async def should_create_market_buy_order_and_limit_sell_when_market_buy_1h_signa
     buy_sell_signals_config_service: BuySellSignalsConfigService = (
         get_application_container().infrastructure_container().services_container().buy_sell_signals_config_service()
     )
+    risk_management_service: RiskManagementService = (
+        get_application_container().infrastructure_container().services_container().risk_management_service()
+    )
+    # Set risk management to 2.0% in order to check if it is working
+    risk_management_value = faker.random_element(np.arange(1, 2.25, 0.25).tolist())
+    await risk_management_service.set_risk_value(risk_management_value)
+    logger.info(f"Risk Management value set to: {risk_management_value}%")
 
     global_flag_service: GlobalFlagService = (
         get_application_container().infrastructure_container().services_container().global_flag_service()
