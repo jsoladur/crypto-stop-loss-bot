@@ -9,6 +9,7 @@ from crypto_trailing_stop.commons.constants import (
     AUTO_ENTRY_TRADER_CONFIG_STEPS_VALUE_LIST,
     LEVERAGE_VALUES_LIST,
     PERCENT_TO_SELL_LIST,
+    RISK_MANAGEMENT_ALLOWED_VALUES_LIST,
     SP_TP_PAIRS,
     STOP_LOSS_ALLOWED_VALUES_LIST,
 )
@@ -57,22 +58,25 @@ class KeyboardsBuilder:
             builder.row(InlineKeyboardButton(text="📈 Summary", callback_data="get_global_summary"))
         builder.row(
             InlineKeyboardButton(text="🌟 Favourites", callback_data="favourite_crypto_currencies_home"),
-            InlineKeyboardButton(text="📤 Sell Orders", callback_data="get_sell_orders_info"),
+            InlineKeyboardButton(text="💵 Prices", callback_data="get_current_prices"),
         )
         builder.row(
-            InlineKeyboardButton(text="💵 Prices", callback_data="get_current_prices"),
+            InlineKeyboardButton(text="📤 Sell Orders", callback_data="get_sell_orders_info"),
             InlineKeyboardButton(text="🧮 Metrics", callback_data="current_metrics_home"),
         )
         builder.row(
             InlineKeyboardButton(text="⚡ Buy-Sell", callback_data="buy_sell_config_home"),
             InlineKeyboardButton(text="🧠 Auto-Entry", callback_data="auto_entry_trader_config_home"),
         )
+        builder.row(InlineKeyboardButton(text="🎯 Take-Profit Toggler", callback_data="take_profit_toggler_home"))
         builder.row(
             InlineKeyboardButton(text="🕹️ Toggles", callback_data="global_flags_home"),
             InlineKeyboardButton(text="🔔 Alerts", callback_data="push_notificacions_home"),
         )
-        builder.row(InlineKeyboardButton(text="🚏 Stop Loss %", callback_data="stop_loss_percent_home"))
-        builder.row(InlineKeyboardButton(text="🎯 Take-Profit Toggler", callback_data="take_profit_toggler_home"))
+        builder.row(
+            InlineKeyboardButton(text="🚏 Stop Loss %", callback_data="stop_loss_percent_home"),
+            InlineKeyboardButton(text="🛡️ Risk", callback_data="risk_management_home"),
+        )
         builder.row(
             InlineKeyboardButton(text="🚥 Market Signals", callback_data="last_market_signals_home"),
             InlineKeyboardButton(text="🔀 Trade Now", callback_data="trade_now_home"),
@@ -130,6 +134,25 @@ class KeyboardsBuilder:
                     callback_data=f"set_stop_loss_percent$${stop_loss_percent_item.symbol}",
                 )
             )
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
+        return builder.as_markup()
+
+    def get_risk_management_home_keyboard(self, risk_value: float) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        builder.row(InlineKeyboardButton(text=f"🛡️ Current Risk :: {risk_value} %", callback_data="set_risk_percent"))
+        builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
+        return builder.as_markup()
+
+    def get_risk_percent_values(self) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        buttons = [
+            InlineKeyboardButton(text=f"{percent_value}%", callback_data=f"persist_risk_percent$${percent_value}")
+            for percent_value in RISK_MANAGEMENT_ALLOWED_VALUES_LIST
+            if percent_value >= 1.0
+        ]
+        # Add buttons in rows of 5
+        for buttons_chunk in pydash.chunk(buttons, size=4):
+            builder.row(*buttons_chunk)
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
         return builder.as_markup()
 
