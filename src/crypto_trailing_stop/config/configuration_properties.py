@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSetti
 
 from crypto_trailing_stop.commons.constants import (
     BIT2ME_API_BASE_URL,
+    DEFAULT_GLOBAL_FLAG_CHECKER_JOB_INTERVAL_SECONDS,
     DEFAULT_JOB_INTERVAL_SECONDS,
     DEFAULT_TRAILING_STOP_LOSS_PERCENT,
     MEXC_API_BASE_URL,
@@ -86,6 +87,7 @@ class ConfigurationProperties(BaseSettings):
     gemini_pro_api_key: str | None = None
     # Jobs configuration
     job_interval_seconds: int = DEFAULT_JOB_INTERVAL_SECONDS
+    global_flag_checker_job_interval_seconds: int = DEFAULT_GLOBAL_FLAG_CHECKER_JOB_INTERVAL_SECONDS
 
     @classmethod
     def settings_customise_sources(

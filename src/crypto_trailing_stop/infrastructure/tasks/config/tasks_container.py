@@ -2,6 +2,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dependency_injector import containers, providers
 
 from crypto_trailing_stop.infrastructure.tasks.buy_sell_signals_task_service import BuySellSignalsTaskService
+from crypto_trailing_stop.infrastructure.tasks.global_flag_checker_task_service import GlobalFlagCheckerTaskService
 from crypto_trailing_stop.infrastructure.tasks.limit_sell_order_guard_task_service import LimitSellOrderGuardTaskService
 from crypto_trailing_stop.infrastructure.tasks.task_manager import TaskManager
 from crypto_trailing_stop.infrastructure.tasks.trailing_stop_loss_task_service import TrailingStopLossTaskService
@@ -70,6 +71,16 @@ class TasksContainer(containers.DeclarativeContainer):
         scheduler=scheduler,
         ccxt_remote_service=ccxt_remote_service,
         orders_analytics_service=orders_analytics_service,
+    )
+
+    global_flag_checker_task_service = providers.Singleton(
+        GlobalFlagCheckerTaskService,
+        configuration_properties=configuration_properties,
+        operating_exchange_service=operating_exchange_service,
+        push_notification_service=push_notification_service,
+        telegram_service=telegram_service,
+        scheduler=scheduler,
+        global_flag_service=global_flag_service,
     )
 
     task_manager = providers.Singleton(TaskManager, global_flag_service=global_flag_service, tasks_container=__self__)

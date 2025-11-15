@@ -109,7 +109,7 @@ class BuySellSignalsTaskService(AbstractTaskService):
                         await self._notify_fatal_error_via_telegram(e)
 
     @override
-    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
+    def get_global_flag_type(self) -> GlobalFlagTypeEnum | None:
         return GlobalFlagTypeEnum.BUY_SELL_SIGNALS
 
     @override
