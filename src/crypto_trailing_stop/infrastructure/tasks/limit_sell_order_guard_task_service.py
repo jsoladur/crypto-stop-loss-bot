@@ -75,7 +75,7 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         self._technical_indicators_by_symbol_cache: dict[str, TechnicalIndicatorsCacheItem] = {}
 
     @override
-    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
+    def get_global_flag_type(self) -> GlobalFlagTypeEnum | None:
         return GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
 
     @override

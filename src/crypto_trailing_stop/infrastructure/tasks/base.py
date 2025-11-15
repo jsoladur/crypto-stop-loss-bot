@@ -44,9 +44,13 @@ class AbstractTaskService(AbstractService, metaclass=ABCMeta):
             await self._notify_fatal_error_via_telegram(e)
 
     @abstractmethod
-    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
-        """
-        Get the global flag type
+    def get_global_flag_type(self) -> GlobalFlagTypeEnum | None:
+        """Get the global flag type
+
+        Returns:
+            GlobalFlagTypeEnum | None:
+                Returns the Global Flag type.
+                None if it is not relevant
         """
 
     @abstractmethod
