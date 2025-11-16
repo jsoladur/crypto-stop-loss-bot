@@ -41,7 +41,7 @@ class TrailingStopLossTaskService(AbstractTaskService):
         self._trailing_stop_loss_price_decrease_threshold = 1 - TRAILING_STOP_LOSS_PRICE_DECREASE_THRESHOLD
 
     @override
-    def get_global_flag_type(self) -> GlobalFlagTypeEnum:
+    def get_global_flag_type(self) -> GlobalFlagTypeEnum | None:
         return GlobalFlagTypeEnum.TRAILING_STOP_LOSS
 
     @override
