@@ -7,12 +7,12 @@ source .venv/bin/activate
 PAIRS=(
     "DOGE/USDT:mexc"
     "LINK/USDT:mexc"
-    "SUI/USDT:mexc"
-    "DOT/USDT:mexc"
     "SOL/USDT:mexc"
-    "ADA/USDT:mexc"
-    "ETH/USDT:mexc"
-    "HYPE/USDT:mexc"
+    # "SUI/USDT:mexc"
+    # "DOT/USDT:mexc"
+    # "ADA/USDT:mexc"
+    # "ETH/USDT:mexc"
+    # "HYPE/USDT:mexc"
     # Current trading
     # New coins
     # "PEPE/USDT:mexc"
