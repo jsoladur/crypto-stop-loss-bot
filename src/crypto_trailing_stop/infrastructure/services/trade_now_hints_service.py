@@ -1,3 +1,5 @@
+import math
+
 from crypto_trailing_stop.commons.constants import TRADE_NOW_DEFAULT_TOTAL_CAPITAL
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo import PortfolioBalance
@@ -5,6 +7,7 @@ from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
 from crypto_trailing_stop.infrastructure.services.orders_analytics_service import OrdersAnalyticsService
+from crypto_trailing_stop.infrastructure.services.risk_management_service import RiskManagementService
 from crypto_trailing_stop.infrastructure.services.vo.trade_now_hints import LeveragedPositionHints, TradeNowHints
 
 
@@ -16,12 +19,14 @@ class TradeNowHintsService:
         operating_exchange_service: AbstractOperatingExchangeService,
         crypto_analytics_service: CryptoAnalyticsService,
         orders_analytics_service: OrdersAnalyticsService,
+        risk_management_service: RiskManagementService,
     ) -> None:
         self._buy_sell_signals_config_service = buy_sell_signals_config_service
         self._auto_buy_trader_config_service = auto_buy_trader_config_service
         self._operating_exchange_service = operating_exchange_service
         self._crypto_analytics_service = crypto_analytics_service
         self._orders_analytics_service = orders_analytics_service
+        self._risk_management_service = risk_management_service
 
     async def get_trade_now_hints(self, symbol: str, leverage_value: int) -> TradeNowHints:
         async with await self._operating_exchange_service.get_client() as client:
@@ -34,6 +39,7 @@ class TradeNowHintsService:
                 if porfolio_balance.total_balance > 0
                 else PortfolioBalance(total_balance=TRADE_NOW_DEFAULT_TOTAL_CAPITAL)
             )
+            max_risk_value = await self._risk_management_service.get_risk_value()
             crypto_currency, symbol = symbol, f"{symbol}/{account_info.currency_code}"
 
             auto_buy_trader_config = await self._auto_buy_trader_config_service.find_by_symbol(crypto_currency)
@@ -67,6 +73,11 @@ class TradeNowHintsService:
             )
             # 3. Calculate Risk Metrics (based on your inputs)
             capital_to_use_as_margin = porfolio_balance.total_balance * (fiat_wallet_percent_assigned / 100)
+            if max_risk_value < suggested_stop_loss_percent_value:
+                capital_to_use_as_margin = math.floor(
+                    capital_to_use_as_margin * (max_risk_value / suggested_stop_loss_percent_value)
+                )
+
             position_size_nocional = capital_to_use_as_margin * leverage_value
 
             # 4. Calculate Hints for LONG
