@@ -125,4 +125,5 @@ class ServicesContainer(containers.DeclarativeContainer):
         operating_exchange_service=operating_exchange_service,
         crypto_analytics_service=crypto_analytics_service,
         orders_analytics_service=orders_analytics_service,
+        risk_management_service=risk_management_service,
     )
