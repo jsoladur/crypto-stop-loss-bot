@@ -324,8 +324,8 @@ class LimitSellOrderGuardTaskService(AbstractTaskService):
         self, *, tickers: SymbolTickers, guard_metrics: LimitSellOrderGuardMetrics
     ) -> tuple[bool, bool, bool]:
         # XXX: [JMSOLA] Check if the safeguard stop price is reached
-        # or the current sell price (bid) is below the safeguard stop price
-        stop_loss_triggered = bool(tickers.bid_or_close < guard_metrics.safeguard_stop_price)
+        # or the current sell price (bid) is less or equals the safeguard stop price
+        stop_loss_triggered = bool(tickers.bid_or_close <= guard_metrics.safeguard_stop_price)
         return stop_loss_triggered
 
     async def _should_auto_exit_on_sell_or_bearish_divergence_1h_signal(
