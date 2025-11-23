@@ -236,7 +236,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             )
         finally:
             # Re-enable Limit Sell Order Guard, once stop loss is setup!
-            await self._global_flag_service.toggle_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
+            await self._global_flag_service.force_enable_by_name(GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD)
 
     async def _calculate_total_amount_to_invest(
         self,
