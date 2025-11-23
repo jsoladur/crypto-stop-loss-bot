@@ -1,10 +1,10 @@
 [project]
 name = "crypto-trailing-stop"
-version = "0.52.2"
+version = "0.52.3"
 description = "A Python-based bot for automated cryptocurrency trading"
 readme = "README.md"
 authors = [
-    { name = "José María Sola Durán", email = "josemaria.sola.duran@gmail.com" }
+    { name = "José María Sola Durán", email = "josemaria.sola.duran@gmail.com" },
 ]
 requires-python = ">=3.13"
 dependencies = [
@@ -74,10 +74,10 @@ line-length = 120
 
 [tool.ruff.lint]
 extend-select = [
-    "I",   # isort
-    "UP",  # pyupgrade
+    "I",    # isort
+    "UP",   # pyupgrade
     "E501", # Add the `line-too-long` rule to the enforced rule set.
-    "T201" # Remove print statements
+    "T201", # Remove print statements
 ]
 ignore = ["UP038"]
 
@@ -104,7 +104,7 @@ python_functions = "should_* test_*"
 source = ["src"]
 omit = [
     "src/crypto_trailing_stop/scripts/*",
-    "src/crypto_trailing_stop/interfaces/telegram/*"
+    "src/crypto_trailing_stop/interfaces/telegram/*",
 ]
 branch = false
 concurrency = ["thread", "multiprocessing"]
