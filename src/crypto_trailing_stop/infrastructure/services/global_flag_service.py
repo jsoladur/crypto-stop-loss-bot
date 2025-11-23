@@ -49,6 +49,16 @@ class GlobalFlagService:
             global_flag = GlobalFlag(name=name.value, value=False)
         await global_flag.save()
 
+    async def force_enable_by_name(self, name: GlobalFlagTypeEnum) -> None:
+        # Immediately stop the task!
+        await self._toggle_task(name, value=True)
+        global_flag = await GlobalFlag.objects().where(GlobalFlag.name == name.value).first()
+        if global_flag:
+            global_flag.value = True
+        else:
+            global_flag = GlobalFlag(name=name.value, value=True)
+        await global_flag.save()
+
     async def is_enabled_for(self, name: GlobalFlagTypeEnum) -> bool:
         global_flag = await GlobalFlag.objects().where(GlobalFlag.name == name.value).first()
         return global_flag is None or global_flag.value is True

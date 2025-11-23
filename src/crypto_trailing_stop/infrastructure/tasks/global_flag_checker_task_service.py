@@ -55,7 +55,8 @@ class GlobalFlagCheckerTaskService(AbstractTaskService):
         is_enabled_for_limit_sell_order_guard = await self._global_flag_service.is_enabled_for(
             GlobalFlagTypeEnum.LIMIT_SELL_ORDER_GUARD
         )
-        if not is_enabled_for_limit_sell_order_guard:
+        sell_orders = await self._operating_exchange_service.get_pending_sell_orders()
+        if sell_orders and not is_enabled_for_limit_sell_order_guard:
             title = f"🛑🛑 {html.bold('CRITICAL WARNING')} 🛑🛑"
             body = [
                 f"{html.italic('Limit Sell Order Guard')} Job is {html.bold('OFF')}.",
