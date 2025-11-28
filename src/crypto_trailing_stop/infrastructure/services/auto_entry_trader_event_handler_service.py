@@ -281,6 +281,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
             buy_sell_signals_config=buy_sell_signals_config,
             trading_market_config=trading_market_config,
             last_candle_market_metrics=last_candle_market_metrics,
+            portfolio_assigned_amount=portfolio_assigned_amount,
             original_amount_to_invest=original_amount_to_invest,
             client=client,
         )
@@ -431,6 +432,7 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         buy_sell_signals_config: BuySellSignalsConfigItem,
         trading_market_config: SymbolMarketConfig,
         last_candle_market_metrics: CryptoMarketMetrics,
+        portfolio_assigned_amount: float,
         original_amount_to_invest: float,
         client: Any,
     ) -> float:
@@ -446,7 +448,10 @@ class AutoEntryTraderEventHandlerService(AbstractEventHandlerService):
         max_risk_value = await self._risk_management_service.get_risk_value()
         ret = original_amount_to_invest
         if max_risk_value < expected_stop_loss_percent_value:
-            ret = math.floor(original_amount_to_invest * (max_risk_value / expected_stop_loss_percent_value))
+            max_amount_to_invest_managing_risk = math.floor(
+                portfolio_assigned_amount * (max_risk_value / expected_stop_loss_percent_value)
+            )
+            ret = min(original_amount_to_invest, max_amount_to_invest_managing_risk)
         return ret
 
     async def _get_last_candle_market_metrics(
