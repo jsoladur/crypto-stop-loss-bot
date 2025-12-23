@@ -2,7 +2,10 @@ import math
 
 from crypto_trailing_stop.commons.constants import TRADE_NOW_DEFAULT_TOTAL_CAPITAL
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange import AbstractOperatingExchangeService
-from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo import PortfolioBalance
+from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.vo import (
+    PortfolioBalance,
+    SymbolMarketConfig,
+)
 from crypto_trailing_stop.infrastructure.services.auto_buy_trader_config_service import AutoBuyTraderConfigService
 from crypto_trailing_stop.infrastructure.services.buy_sell_signals_config_service import BuySellSignalsConfigService
 from crypto_trailing_stop.infrastructure.services.crypto_analytics_service import CryptoAnalyticsService
@@ -89,6 +92,7 @@ class TradeNowHintsService:
                 required_margin=capital_to_use_as_margin,
                 total_capital=porfolio_balance.total_balance,
                 leverage=leverage_value,
+                trading_market_config=trading_market_config,
                 is_short_position=False,
             )
 
@@ -101,6 +105,7 @@ class TradeNowHintsService:
                 required_margin=capital_to_use_as_margin,
                 total_capital=porfolio_balance.total_balance,
                 leverage=leverage_value,
+                trading_market_config=trading_market_config,
                 is_short_position=True,
             )
             # 6. Return the complete hints object
@@ -127,6 +132,7 @@ class TradeNowHintsService:
         required_margin: float,
         total_capital: float,
         leverage: int,
+        trading_market_config: SymbolMarketConfig,
         *,
         is_short_position: bool = False,
     ) -> LeveragedPositionHints:
@@ -139,22 +145,38 @@ class TradeNowHintsService:
         liquidation_percent_decimal = 1 / leverage
         if is_short_position:  # Short
             # Price Calculations
-            stop_loss_price = entry_price * (1 + sl_percent_decimal)
-            take_profit_price = entry_price * (1 - tp_percent_decimal)
-            liquidation_price = entry_price * (1 + liquidation_percent_decimal)
+            stop_loss_price = round(
+                entry_price * (1 + sl_percent_decimal), ndigits=trading_market_config.price_precision
+            )
+            take_profit_price = round(
+                entry_price * (1 - tp_percent_decimal), ndigits=trading_market_config.price_precision
+            )
+            liquidation_price = round(
+                entry_price * (1 + liquidation_percent_decimal), ndigits=trading_market_config.price_precision
+            )
             # Safety Check
             is_safe = stop_loss_price < liquidation_price
         else:
             # Price Calculations
-            stop_loss_price = entry_price * (1 - sl_percent_decimal)
-            take_profit_price = entry_price * (1 + tp_percent_decimal)
-            liquidation_price = entry_price * (1 - liquidation_percent_decimal)
+            stop_loss_price = round(
+                entry_price * (1 - sl_percent_decimal), ndigits=trading_market_config.price_precision
+            )
+            take_profit_price = round(
+                entry_price * (1 + tp_percent_decimal), ndigits=trading_market_config.price_precision
+            )
+            liquidation_price = round(
+                entry_price * (1 - liquidation_percent_decimal), ndigits=trading_market_config.price_precision
+            )
             # Safety Check
             is_safe = stop_loss_price > liquidation_price
 
         # Risk Calculations (same for long and short)
-        loss_at_stop_loss = position_size_nocional * sl_percent_decimal
-        profit_at_stop_loss = position_size_nocional * tp_percent_decimal
+        loss_at_stop_loss = round(
+            position_size_nocional * sl_percent_decimal, ndigits=trading_market_config.price_precision
+        )
+        profit_at_stop_loss = round(
+            position_size_nocional * tp_percent_decimal, ndigits=trading_market_config.price_precision
+        )
         risk_as_percent_of_total_capital = (loss_at_stop_loss / total_capital) * 100
 
         return LeveragedPositionHints(

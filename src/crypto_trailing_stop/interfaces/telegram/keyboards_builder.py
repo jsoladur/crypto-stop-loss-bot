@@ -79,7 +79,7 @@ class KeyboardsBuilder:
         )
         builder.row(
             InlineKeyboardButton(text="🚥 Market Signals", callback_data="last_market_signals_home"),
-            InlineKeyboardButton(text="🔀 Trade Now", callback_data="trade_now_home"),
+            InlineKeyboardButton(text="🚀 Trade Now", callback_data="trade_now_home"),
         )
         if self._configuration_properties.gemini_pro_api_enabled:
             builder.row(InlineKeyboardButton(text="🪄 Gemini Generative AI", callback_data="gemini_generative_ai_home"))
@@ -103,7 +103,7 @@ class KeyboardsBuilder:
         for crypto_currency in favourite_crypto_currencies:
             builder.row(
                 InlineKeyboardButton(
-                    text=f"🔀 {crypto_currency}", callback_data=f"trade_now_leverage_selection$${crypto_currency}"
+                    text=f"🚀 {crypto_currency}", callback_data=f"trade_now_leverage_selection$${crypto_currency}"
                 )
             )
         builder.row(InlineKeyboardButton(text="🔙 Back", callback_data="go_back_home"))
