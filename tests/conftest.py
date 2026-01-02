@@ -76,6 +76,7 @@ def httpserver_test_env(request: FixtureRequest) -> Generator[tuple[HTTPServer, 
             case OperatingExchangeEnum.MEXC:
                 # Set up the HTTP server for testing
                 environ["MEXC_API_BASE_URL"] = httpserver.url_for(suffix="/mexc-api")
+                environ["MEXC_CONTRACT_API_BASE_URL"] = httpserver.url_for(suffix="/mexc-contract-api")
                 api_key = environ["MEXC_API_KEY"] = str(uuid4())
                 api_secret = environ["MEXC_API_SECRET"] = str(uuid4())
             case _:

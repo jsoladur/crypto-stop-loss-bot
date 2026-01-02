@@ -1,4 +1,5 @@
 from tests.helpers.httpserver_pytest.request_matchers.bit2me_api_request_matcher import Bit2MeAPIRequestMatcher
 from tests.helpers.httpserver_pytest.request_matchers.mexc_api_request_matcher import MEXCAPIRequestMatcher
+from tests.helpers.httpserver_pytest.request_matchers.mexc_contract_request_matcher import MEXCContractRequestMatcher
 
-__all__ = ["Bit2MeAPIRequestMatcher", "MEXCAPIRequestMatcher"]
+__all__ = ["Bit2MeAPIRequestMatcher", "MEXCAPIRequestMatcher", "MEXCContractRequestMatcher"]

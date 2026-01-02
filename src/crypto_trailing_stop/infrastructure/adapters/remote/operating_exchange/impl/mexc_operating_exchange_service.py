@@ -67,24 +67,11 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
 
     @override
     async def retrieve_porfolio_balance(self, user_currency: str, *, client: Any | None = None) -> PortfolioBalance:
-        trading_wallet_balances = await self.get_trading_wallet_balances(client=client)
-        symbol_tickers_dict = {
-            symbol_tickers.symbol: symbol_tickers.close
-            for symbol_tickers in await self.get_tickers_by_symbols(client=client)
-        }
-        total_balance = sum(
-            [
-                (
-                    trading_wallet_balance.total_balance
-                    * symbol_tickers_dict[f"{trading_wallet_balance.currency}/{user_currency}"]
-                )
-                if trading_wallet_balance.currency.lower() != user_currency.lower()
-                else trading_wallet_balance.total_balance
-                for trading_wallet_balance in trading_wallet_balances
-                if trading_wallet_balance.is_effective
-            ]
+        spot_balance = await self._get_spot_portfolio_balance(user_currency, client=client)
+        futures_balance = await self._get_futures_portfolio_balance(user_currency)
+        ret = PortfolioBalance(
+            spot_balance=round(spot_balance, ndigits=2), futures_balance=round(futures_balance, ndigits=2)
         )
-        ret = PortfolioBalance(total_balance=round(total_balance, ndigits=4))
         return ret
 
     @override
@@ -239,6 +226,35 @@ class MEXCOperatingExchangeService(AbstractOperatingExchangeService):
     @override
     def get_operating_exchange(self) -> OperatingExchangeEnum:
         return OperatingExchangeEnum.MEXC
+
+    async def _get_spot_portfolio_balance(self, user_currency: str, *, client: Any | None = None) -> float:
+        trading_wallet_balances = await self.get_trading_wallet_balances(client=client)
+        symbol_tickers_dict = {
+            symbol_tickers.symbol: symbol_tickers.close
+            for symbol_tickers in await self.get_tickers_by_symbols(client=client)
+        }
+        total_balance = sum(
+            [
+                (
+                    trading_wallet_balance.total_balance
+                    * symbol_tickers_dict[f"{trading_wallet_balance.currency}/{user_currency}"]
+                )
+                if trading_wallet_balance.currency.lower() != user_currency.lower()
+                else trading_wallet_balance.total_balance
+                for trading_wallet_balance in trading_wallet_balances
+                if trading_wallet_balance.is_effective
+            ]
+        )
+        return total_balance
+
+    async def _get_futures_portfolio_balance(self, user_currency: str) -> float:
+        contract_account_assets = await self._mexc_remote_service.get_contract_account_assets()
+        if user_currency not in contract_account_assets:
+            equity = 0.0
+        else:
+            equity = contract_account_assets[user_currency].equity
+        ret = round(float(equity), ndigits=2)
+        return ret
 
     async def _get_single_mexc_exchange_symbol_config(
         self, symbol: str, *, client: Any | None = None
