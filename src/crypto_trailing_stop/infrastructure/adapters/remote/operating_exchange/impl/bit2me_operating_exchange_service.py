@@ -71,7 +71,7 @@ class Bit2MeOperatingExchangeService(AbstractOperatingExchangeService):
             ),
             ndigits=2,
         )
-        return PortfolioBalance(total_balance=total_balance)
+        return PortfolioBalance(spot_balance=total_balance)
 
     @override
     async def get_accounting_summary_by_year(self, year: str, *, client: Any | None = None) -> bytes:
