@@ -19,6 +19,7 @@ from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler, prepa
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_account_info_dto import MEXCAccountInfoDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_contract_asset_dto import MEXCContractAssetDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_contract_response_dto import MEXCContractResponseDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_exchange_info_dto import MEXCExchangeInfoDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import (
     CreateNewMEXCOrderDto,
@@ -79,16 +80,17 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
                     timeout=Timeout(10, connect=5, read=30),
                 )
                 response.raise_for_status()
-                json_response = response.json()
-                if not json_response.get("success", False):
-                    error_code = str(json_response.get("code", "unknown"))
+                mexc_contract_response = MEXCContractResponseDto[list[MEXCContractAssetDto]].model_validate_json(
+                    response.content
+                )
+                if not mexc_contract_response.success:
+                    error_code = str(mexc_contract_response.code)
                     raise ValueError(
                         f"MEXC Contract API error: HTTP {method} {self._build_full_url(url, {})} "
-                        + f"- Status code: {error_code} - {json.dumps(json_response)}",
+                        + f"- Status code: {error_code} - {mexc_contract_response}",
                         response,
                     )
-                assets = RootModel[list[MEXCContractAssetDto]].model_validate(json_response.get("data", [])).root
-                ret = {asset.currency: asset for asset in assets}
+                ret = {asset.currency: asset for asset in mexc_contract_response.data}
                 return ret
             except HTTPStatusError as e:
                 raise ValueError(
