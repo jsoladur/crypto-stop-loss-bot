@@ -18,6 +18,7 @@ from crypto_trailing_stop.commons.constants import (
 from crypto_trailing_stop.commons.utils import backoff_on_backoff_handler, prepare_backoff_giveup_handler_fn
 from crypto_trailing_stop.config.configuration_properties import ConfigurationProperties
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_account_info_dto import MEXCAccountInfoDto
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_contract_asset_dto import MEXCContractAssetDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_exchange_info_dto import MEXCExchangeInfoDto
 from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_order_dto import (
     CreateNewMEXCOrderDto,
@@ -36,6 +37,7 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
     def __init__(self, configuration_properties: ConfigurationProperties) -> None:
         self._configuration_properties = configuration_properties
         self._base_url = str(self._configuration_properties.mexc_api_base_url)
+        self._contract_base_url = str(self._configuration_properties.mexc_contract_api_base_url)
         self._api_key = self._configuration_properties.mexc_api_key
         self._api_secret = self._configuration_properties.mexc_api_secret
         if not self._base_url or not self._api_key or not self._api_secret:
@@ -52,6 +54,48 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
         )
         ret = MEXCTickerPriceDto.model_validate_json(response.content)
         return ret
+
+    @backoff.on_exception(
+        backoff.fibo,
+        exception=(ValueError, NetworkError, TimeoutException),
+        max_value=5,
+        max_tries=7,
+        jitter=backoff.random_jitter,
+        giveup=prepare_backoff_giveup_handler_fn(MEXC_RETRYABLE_HTTP_STATUS_CODES),
+        on_backoff=backoff_on_backoff_handler,
+    )
+    async def get_contract_account_assets(self) -> dict[str, MEXCContractAssetDto]:
+        async with AsyncClient(
+            base_url=self._contract_base_url, headers={"ApiKey": self._api_key}, timeout=Timeout(10, connect=5, read=30)
+        ) as client:
+            method = "GET"
+            timestamp = str(int(time.time() * 1000))  # UTC timestamp in milliseconds
+            signature = self._generate_futures_api_signature(timestamp=timestamp, method=method)
+            url = "/api/v1/private/account/assets"
+            try:
+                response = await client.get(
+                    url,
+                    headers={"ApiKey": self._api_key, "Request-Time": timestamp, "Signature": signature},
+                    timeout=Timeout(10, connect=5, read=30),
+                )
+                response.raise_for_status()
+                json_response = response.json()
+                if not json_response.get("success", False):
+                    error_code = str(json_response.get("code", "unknown"))
+                    raise ValueError(
+                        f"MEXC Contract API error: HTTP {method} {self._build_full_url(url, {})} "
+                        + f"- Status code: {error_code} - {json.dumps(json_response)}",
+                        response,
+                    )
+                assets = RootModel[list[MEXCContractAssetDto]].model_validate(json_response.get("data", [])).root
+                ret = {asset.currency: asset for asset in assets}
+                return ret
+            except HTTPStatusError as e:
+                raise ValueError(
+                    f"MEXC Contract error: HTTP {method} {self._build_full_url(url, {})} "
+                    + f"- Status code: {response.status_code} - {response.text}",
+                    response,
+                ) from e
 
     async def get_ticker_book(self, symbol: str, *, client: AsyncClient | None = None) -> MEXCTickerBookDto:
         response = await self._perform_http_request(
@@ -171,7 +215,7 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
             name: value for name, value in params.items() if name not in ("signature", "timestamp") and bool(value)
         }
         params["timestamp"] = str(int(time.time() * 1000))  # UTC timestamp in milliseconds
-        params["signature"] = await self._generate_signature_query_param(params, body)
+        params["signature"] = await self._generate_spot_api_signature_query_param(params, body)
         return params, headers
 
     async def _apply_response_interceptor(
@@ -198,7 +242,7 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
                 response,
             ) from e
 
-    async def _generate_signature_query_param(
+    async def _generate_spot_api_signature_query_param(
         self, params: dict[str, Any] | None, body: dict[str, Any] | str | None
     ) -> str:
         if body:  # pragma: no cover
@@ -207,4 +251,25 @@ class MEXCRemoteService(AbstractHttpRemoteAsyncService):
             params.update({key: value for key, value in body_dict.items() if bool(value)})
         query_string = urlencode(params, doseq=True)
         signature = hmac.new(self._api_secret.encode("utf-8"), query_string.encode("utf-8"), hashlib.sha256).hexdigest()
+        return signature
+
+    def _generate_futures_api_signature(
+        self, *, timestamp: str, method: str, params: dict[str, Any] | None = None
+    ) -> str:
+        """
+        Generates the signature based on the documentation rules.
+        """
+        # Step 1: Obtain the request parameter string
+        if method in ["GET", "DELETE"]:
+            if not params:
+                param_string = ""
+            else:
+                sorted_params = sorted([(k, v) for k, v in params.items() if v is not None])
+                param_string = urlencode(sorted_params)
+        else:
+            param_string = json.dumps(params, separators=(",", ":")) if params else ""
+        target_string = f"{self._api_key}{timestamp}{param_string}"
+        signature = hmac.new(
+            self._api_secret.encode("utf-8"), target_string.encode("utf-8"), hashlib.sha256
+        ).hexdigest()
         return signature

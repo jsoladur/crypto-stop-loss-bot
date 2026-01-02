@@ -13,6 +13,7 @@ from crypto_trailing_stop.commons.constants import (
     DEFAULT_JOB_INTERVAL_SECONDS,
     DEFAULT_TRAILING_STOP_LOSS_PERCENT,
     MEXC_API_BASE_URL,
+    MEXC_CONTRACT_API_BASE_URL,
     STOP_LOSS_STEPS_VALUE_LIST,
 )
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
@@ -43,9 +44,10 @@ class ConfigurationProperties(BaseSettings):
     database_in_memory: bool = False
     database_path: str = "./crypto_stop_loss.sqlite"
     # Operating exchange
-    operating_exchange: OperatingExchangeEnum = OperatingExchangeEnum.BIT2ME
+    operating_exchange: OperatingExchangeEnum = OperatingExchangeEnum.MEXC
     # MEXC API configuration
     mexc_api_base_url: AnyUrl = MEXC_API_BASE_URL
+    mexc_contract_api_base_url: AnyUrl = MEXC_CONTRACT_API_BASE_URL
     mexc_api_key: str | None = None
     mexc_api_secret: str | None = None
     # Bit2Me API configuration

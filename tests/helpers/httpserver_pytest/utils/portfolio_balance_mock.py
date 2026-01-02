@@ -11,8 +11,9 @@ from crypto_trailing_stop.infrastructure.adapters.dtos.bit2me_porfolio_balance_d
     ConvertedBalanceDto,
     TotalDto,
 )
+from crypto_trailing_stop.infrastructure.adapters.dtos.mexc_contract_asset_dto import MEXCContractAssetDto
 from crypto_trailing_stop.infrastructure.adapters.remote.operating_exchange.enums import OperatingExchangeEnum
-from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher
+from tests.helpers.httpserver_pytest import Bit2MeAPIRequestMatcher, MEXCContractRequestMatcher
 from tests.helpers.httpserver_pytest.utils.trading_wallet_balances_mock import (
     prepare_httpserver_trading_wallet_balances_mock,
 )
@@ -64,6 +65,17 @@ def prepare_httpserver_retrieve_portfolio_balance_mock(
                 api_secret,
                 wallet_balances_crypto_currencies=wallet_balances_crypto_currencies or ["USDT"],
                 fixed_balance=global_portfolio_balance,
+            )
+            # Simulate access to
+            httpserver.expect(
+                MEXCContractRequestMatcher(
+                    "/mexc-contract-api/api/v1/private/account/assets", method="GET"
+                ).set_api_key_and_secret(api_key, api_secret),
+                handler_type=HandlerType.ONESHOT,
+            ).respond_with_json(
+                RootModel[list[MEXCContractAssetDto]]([MEXCContractAssetDto(asset="USDT")]).model_dump(
+                    mode="json", by_alias=True
+                )
             )
         case _:
             raise ValueError(f"Unsupported operating exchange: {operating_exchange}")
